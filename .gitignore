@@ -45,3 +45,5 @@ app/ios/Pods/
 .DS_Store
 Thumbs.db
 ~$*.docx
+*.tmp
+gantt_chart*.png

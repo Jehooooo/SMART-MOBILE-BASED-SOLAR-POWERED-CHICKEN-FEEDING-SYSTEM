@@ -19,10 +19,7 @@ Research Design & Scope
  3. What type and age of chickens is the system designed for (broilers,
     layers, native chickens, chicks)? This affects feed amount and schedule.
  4. How many chickens will one feeder unit serve during testing?
- 5. Where will the prototype be tested (backyard farm, school, commercial
-    poultry house)? Who owns the test site and has permission been given?
- 6. How long will the testing period run (days / weeks), and how many
-    feeding cycles will be recorded?
+ 35. Android only, or Android and iOS?
 
 Respondents & Sampling
  7. Who are the respondents for the User Acceptability evaluation (poultry
@@ -31,21 +28,9 @@ Respondents & Sampling
     (purposive, convenience, random)?
  9. Will respondents actually use the device hands-on, or only watch a demo?
 
-Evaluation Instrument
-10. What rating scale will the questionnaire use (e.g., 5-point Likert)?
-    What are the verbal interpretations for each mean range?
-11. Who will validate the questionnaire, and will a reliability test
-    (e.g., Cronbach's alpha / pilot test) be performed?
-12. Is the questionnaire based on an existing model (ISO 25010, TAM -
-    Technology Acceptance Model)? "Perceived Usefulness" and "Ease of Use"
-    suggest TAM - should this be cited?
 
-Statistical Treatment
-13. What statistical tools will be used for each criterion?
-    - System Accuracy: percentage error / mean absolute error?
-    - Response time: mean and standard deviation?
-    - User acceptability: weighted mean?
-    - Will a t-test or comparison against manual feeding be done?
+
+
 14. Will the system be compared against a control (manual feeding or a
     commercial timer feeder)? If yes, how?
 
@@ -104,7 +89,7 @@ Hardware Specifications
     Parts table - can we add a voltage divider or INA219 module?
 
 Mobile Application
-35. Android only, or Android and iOS?
+
 36. Does the app need user accounts / login? Can multiple users (family
     members, farm workers) monitor the same feeder?
 37. Must the app work remotely over the internet (cloud, e.g., Firebase),

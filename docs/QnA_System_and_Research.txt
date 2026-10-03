@@ -1,0 +1,197 @@
+SMART MOBILE-BASED SOLAR-POWERED CHICKEN FEEDING SYSTEM
+WITH AUTOMATED DISPENSING AND REAL-TIME ALERTS
+======================================================================
+2. Q&A ABOUT THE SYSTEM AND RESEARCH
+   (Questions to raise with the research team / adviser before development)
+======================================================================
+
+
+----------------------------------------------------------------------
+A. QUESTIONS ABOUT THE RESEARCH STUDY
+----------------------------------------------------------------------
+
+Research Design & Scope
+ 1. What specific research design will be used (developmental, descriptive,
+    experimental, or quasi-experimental)? The "Research Design" section
+    mentions evaluation but does not name the design explicitly.
+ 2. What are the exact Statements of the Problem / research objectives the
+    prototype must answer?
+ 3. What type and age of chickens is the system designed for (broilers,
+    layers, native chickens, chicks)? This affects feed amount and schedule.
+ 4. How many chickens will one feeder unit serve during testing?
+ 5. Where will the prototype be tested (backyard farm, school, commercial
+    poultry house)? Who owns the test site and has permission been given?
+ 6. How long will the testing period run (days / weeks), and how many
+    feeding cycles will be recorded?
+
+Respondents & Sampling
+ 7. Who are the respondents for the User Acceptability evaluation (poultry
+    farmers, IT experts, electronics teachers, agriculturists)?
+ 8. How many respondents per group, and what sampling technique will be used
+    (purposive, convenience, random)?
+ 9. Will respondents actually use the device hands-on, or only watch a demo?
+
+Evaluation Instrument
+10. What rating scale will the questionnaire use (e.g., 5-point Likert)?
+    What are the verbal interpretations for each mean range?
+11. Who will validate the questionnaire, and will a reliability test
+    (e.g., Cronbach's alpha / pilot test) be performed?
+12. Is the questionnaire based on an existing model (ISO 25010, TAM -
+    Technology Acceptance Model)? "Perceived Usefulness" and "Ease of Use"
+    suggest TAM - should this be cited?
+
+Statistical Treatment
+13. What statistical tools will be used for each criterion?
+    - System Accuracy: percentage error / mean absolute error?
+    - Response time: mean and standard deviation?
+    - User acceptability: weighted mean?
+    - Will a t-test or comparison against manual feeding be done?
+14. Will the system be compared against a control (manual feeding or a
+    commercial timer feeder)? If yes, how?
+
+Performance Metrics (need exact definitions)
+15. System Accuracy: what is the acceptable tolerance between target and
+    actual dispensed feed (e.g., +/- 5 g or +/- 5%)?
+16. Feeding Response Time: measured from what moment to what moment
+    (scheduled time -> servo opens? -> target reached?)
+17. Notification Response Time: measured from event detection on the ESP32
+    to the alert appearing on the phone? What is the acceptable delay?
+18. Solar Energy Efficiency: how will this be computed (battery voltage
+    trend, hours of autonomy, panel output vs consumption)? What
+    instruments (multimeter, INA219 sensor, data logger) will be used?
+19. Operational Reliability: how is "reliable" measured (number of
+    successful feedings / total scheduled feedings, uptime %)?
+20. Mechanical/Structural Durability and Electrical Safety: who evaluates
+    these, and against which standard or checklist?
+
+Data Management & Ethics
+21. Where will the collected data (feeding logs, questionnaire answers) be
+    stored and for how long? Who has access?
+22. Will informed consent forms be given to respondents?
+23. Is animal welfare considered (e.g., what happens if the system fails
+    and chickens are not fed - is there a manual backup)?
+
+
+----------------------------------------------------------------------
+B. CLARIFYING THE SYSTEM'S REQUIREMENTS
+----------------------------------------------------------------------
+
+Feeding Schedule & Amount
+24. How many feedings per day by default, and at what times?
+25. What is the default target amount of feed per feeding (grams)? Is it
+    per feeding or per day? Can the user change it in the app?
+26. Can the user create, edit, and delete schedules from the mobile app,
+    or are schedules fixed in the firmware?
+27. Is "manual feeding" from the app required? (The Parts table says the
+    app allows manual feeding, but the main text does not mention it.)
+28. What type of feed will be used (mash, crumble, pellet)? Pellet size
+    affects the dispenser design and servo choice.
+
+Hardware Specifications
+29. What are the exact component models?
+    - Solar panel wattage (10 W, 20 W, 50 W?)
+    - Battery type and capacity (12 V 7 Ah SLA? Li-ion?)
+    - Charge controller type (PWM or MPPT)?
+    - Servo model (SG90, MG995, MG996R?)
+    - Load cell capacity (1 kg, 5 kg, 10 kg?)
+30. What is the hopper capacity (kg of feed) and material (plastic, PVC
+    pipe, metal)? How many days should one full hopper last?
+31. What is the hopper height? (Needed to set the ultrasonic "empty" and
+    "full" distances.)
+32. What percentage counts as "low feed" (e.g., below 20%)?
+33. What voltage counts as "low battery" for the alert?
+34. How will battery level be measured? No voltage sensor is listed in the
+    Parts table - can we add a voltage divider or INA219 module?
+
+Mobile Application
+35. Android only, or Android and iOS?
+36. Does the app need user accounts / login? Can multiple users (family
+    members, farm workers) monitor the same feeder?
+37. Must the app work remotely over the internet (cloud, e.g., Firebase),
+    or only when the phone is on the same Wi-Fi as the feeder?
+38. What screens are required? (Dashboard, schedules, feeding history,
+    alerts/notifications, settings?)
+39. Should feeding history / logs be viewable or exportable (useful for
+    Chapter IV results)?
+40. How should alerts be delivered - push notification, in-app only, SMS,
+    or sound? (The paper says "real-time notifications".)
+41. Should the app show "next feeding schedule" on the dashboard? (Listed
+    in Figure 1 description.)
+
+Alerts (confirm the complete list)
+42. Are these the final alert types?
+    - Feeding completed / feed successfully dispensed
+    - Low feed level
+    - Low battery
+    - System error
+43. What counts as a "system error"? (Servo jam / timeout, load cell not
+    responding, ultrasonic sensor failure, Wi-Fi disconnection, RTC
+    failure?)
+
+
+----------------------------------------------------------------------
+C. CONCERNS AND LIMITATIONS TO DISCUSS
+----------------------------------------------------------------------
+
+Connectivity
+44. Is there reliable Wi-Fi at the test site? Farms are often outside
+    router range. Is a mobile hotspot / pocket Wi-Fi acceptable?
+45. If Wi-Fi is lost, the feeder will still feed using the RTC schedule,
+    but alerts cannot be sent until it reconnects. Is this acceptable and
+    should it be stated as a limitation?
+
+Power
+46. How many days should the system run without sunlight (rainy season)?
+    This decides the battery size.
+47. The ESP32 with Wi-Fi uses roughly 80-240 mA continuously. Is a deep
+    sleep / power-saving mode required, or is constant connection preferred
+    for real-time alerts?
+48. Is the system protected against reverse polarity, short circuit and
+    overcharge (fuse, charge controller settings)?
+
+Dispensing Accuracy
+49. The load cell sits under the dispensing outlet / tray. If chickens eat
+    from the same tray, the weight reading will change while dispensing.
+    Should the weighing tray be separate from the eating trough?
+50. Feed falling onto the scale causes impact spikes - an overshoot of a
+    few grams is expected. Is a small tolerance acceptable?
+51. Humidity and moisture can make feed clump and jam the dispenser. How
+    will the hopper be protected from rain and moisture?
+
+Environment & Durability
+52. Will the device be placed indoors (under a roof) or outdoors? Is a
+    weatherproof enclosure required for the electronics?
+53. The HC-SR04 ultrasonic sensor is not waterproof and can be affected by
+    dust. Can a waterproof JSN-SR04T be used instead?
+54. How will the electronics be protected from chickens pecking at wires
+    and from rodents?
+55. Will dust from the feed affect the ultrasonic readings over time?
+
+Scope Limitations (to state in the paper)
+56. The system does not monitor water supply, temperature, or chicken
+    health - should these be listed as delimitations?
+57. One feeder unit only - multiple-feeder management is out of scope?
+58. Feed type limited to one type (e.g., pellets) for testing?
+59. Results may only apply to the specific test site and flock size.
+
+Budget & Timeline
+60. What is the total budget for the prototype? Who shoulders the cost of
+    the Firebase / cloud service (free tier should be enough)?
+61. What is the deadline for the working prototype, the testing period, and
+    the final defense?
+62. Who on the team is responsible for: hardware assembly, firmware,
+    mobile app, data gathering, and documentation?
+
+Document Corrections Noticed
+63. "Solar Pannel" in the Parts table should be "Solar Panel".
+64. The Materials and Equipment section does not list the load cell,
+    HX711, ultrasonic sensor, DC-DC step-down regulator, and power switch,
+    although they appear in the Parts and Functions table. Should the list
+    be updated for consistency?
+65. The User Acceptability list in the Research Design paragraph is missing
+    a closing parenthesis - minor formatting fix.
+
+======================================================================
+Prepared for: Research Team / Adviser Consultation
+Reference: Methodology.docx (Chapter II)
+======================================================================

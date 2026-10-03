@@ -1,0 +1,47 @@
+# ---- Secrets / env (never commit) ----
+.env
+.env.*
+.env.local
+.env.development
+.env.production
+.env.test
+.env.example
+.env.example.*
+firmware/include/secrets.h
+**/google-services.json
+**/GoogleService-Info.plist
+**/firebase_options.dart
+*.keystore
+*.jks
+key.properties
+
+# ---- Python / virtualenvs ----
+venv/
+.venv/
+backend/.venv
+__pycache__/
+
+# ---- Node ----
+node_modules/
+
+# ---- PlatformIO ----
+firmware/.pio/
+firmware/.vscode/
+
+# ---- Flutter / Dart ----
+app/.dart_tool/
+app/build/
+app/.flutter-plugins
+app/.flutter-plugins-dependencies
+app/.packages
+app/android/local.properties
+app/android/.gradle/
+app/ios/Pods/
+
+# ---- Editors / OS / local ----
+.obsidian/
+.idea/
+*.iml
+.DS_Store
+Thumbs.db
+~$*.docx

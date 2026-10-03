@@ -32,6 +32,11 @@ class FeedingLog {
     return ((actualGrams - targetGrams).abs() / targetGrams) * 100.0;
   }
 
+  double get accuracyPercent {
+    if (targetGrams == 0) return 100.0;
+    return (100.0 - errorPercentage).clamp(0.0, 100.0);
+  }
+
   String get formattedTime => DateFormat('MMM dd, yyyy - hh:mm a').format(timestamp);
 
   factory FeedingLog.fromMap(String id, Map<dynamic, dynamic> map) {

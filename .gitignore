@@ -41,6 +41,8 @@ app/ios/Pods/
 # ---- Editors / OS / local ----
 .obsidian/
 .idea/
+.vscode/
+**/.kotlin/
 *.iml
 .DS_Store
 Thumbs.db

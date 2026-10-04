@@ -117,10 +117,41 @@ class FeederService extends ChangeNotifier {
     return enabled.first;
   }
 
+  bool _cancelRequested = false;
+
+  double get totalDailyTargetGrams => _schedules
+      .where((s) => s.isEnabled)
+      .fold<double>(0.0, (acc, item) => acc + item.targetGrams);
+
+  int get activeScheduleCount => _schedules.where((s) => s.isEnabled).length;
+
+  Future<void> refreshTelemetry() async {
+    await Future.delayed(const Duration(milliseconds: 350));
+    _telemetry = FeederTelemetry(
+      feedLevelPercent: _telemetry.feedLevelPercent,
+      batteryVolts: _telemetry.batteryVolts,
+      batteryPercent: _telemetry.batteryPercent,
+      currentWeightGrams: _telemetry.currentWeightGrams,
+      status: _telemetry.status,
+      lastHeartbeat: DateTime.now(),
+      lastFedTimestamp: _telemetry.lastFedTimestamp,
+      lastFedGrams: _telemetry.lastFedGrams,
+      isSolarCharging: _telemetry.isSolarCharging,
+    );
+    notifyListeners();
+  }
+
+  void cancelDispensing() {
+    if (_isDispensing) {
+      _cancelRequested = true;
+    }
+  }
+
   Future<bool> triggerManualFeed(double targetGrams) async {
     if (_isDispensing) return false;
 
     _isDispensing = true;
+    _cancelRequested = false;
     _telemetry = FeederTelemetry(
       feedLevelPercent: _telemetry.feedLevelPercent,
       batteryVolts: _telemetry.batteryVolts,
@@ -134,15 +165,22 @@ class FeederService extends ChangeNotifier {
     );
     notifyListeners();
 
+    double dispensedGrams = 0.0;
     // Simulate weight building up as servo dispenses
     for (int i = 1; i <= 5; i++) {
+      if (_cancelRequested) {
+        break;
+      }
       await Future.delayed(const Duration(milliseconds: 600));
-      final progressWeight = (targetGrams / 5) * i;
+      if (_cancelRequested) {
+        break;
+      }
+      dispensedGrams = (targetGrams / 5) * i;
       _telemetry = FeederTelemetry(
         feedLevelPercent: _telemetry.feedLevelPercent,
         batteryVolts: _telemetry.batteryVolts,
         batteryPercent: _telemetry.batteryPercent,
-        currentWeightGrams: progressWeight,
+        currentWeightGrams: dispensedGrams,
         status: FeederStatus.dispensing,
         lastHeartbeat: DateTime.now(),
         lastFedTimestamp: _telemetry.lastFedTimestamp,
@@ -152,24 +190,28 @@ class FeederService extends ChangeNotifier {
       notifyListeners();
     }
 
+    final wasCancelled = _cancelRequested;
     final variance = (DateTime.now().millisecond % 5 - 2) * 0.4;
-    final actualGrams = (targetGrams + variance).clamp(0.0, 1000.0);
-    final newFeedLevel = (_telemetry.feedLevelPercent - (targetGrams / 20.0)).clamp(0.0, 100.0);
+    final actualGrams = wasCancelled
+        ? dispensedGrams
+        : (targetGrams + variance).clamp(0.0, 1000.0);
+    final newFeedLevel = (_telemetry.feedLevelPercent - (actualGrams / 20.0)).clamp(0.0, 100.0);
 
     final newLog = FeedingLog(
       id: 'log_${DateTime.now().millisecondsSinceEpoch}',
       timestamp: DateTime.now(),
       targetGrams: targetGrams,
       actualGrams: double.parse(actualGrams.toStringAsFixed(1)),
-      durationSeconds: 3,
-      triggerType: 'Manual',
-      isSuccess: true,
+      durationSeconds: wasCancelled ? 2 : 3,
+      triggerType: wasCancelled ? 'Manual (Aborted)' : 'Manual',
+      isSuccess: !wasCancelled,
       batteryVolts: _telemetry.batteryVolts,
       feedLevelPercent: newFeedLevel,
     );
 
     _history.insert(0, newLog);
     _isDispensing = false;
+    _cancelRequested = false;
 
     _telemetry = FeederTelemetry(
       feedLevelPercent: newFeedLevel,
@@ -184,11 +226,20 @@ class FeederService extends ChangeNotifier {
     );
 
     notifyListeners();
-    return true;
+    return !wasCancelled;
   }
 
   void addSchedule(FeedingSchedule schedule) {
     _schedules.add(schedule);
+    notifyListeners();
+  }
+
+  void insertScheduleAt(int index, FeedingSchedule schedule) {
+    if (index >= 0 && index <= _schedules.length) {
+      _schedules.insert(index, schedule);
+    } else {
+      _schedules.add(schedule);
+    }
     notifyListeners();
   }
 

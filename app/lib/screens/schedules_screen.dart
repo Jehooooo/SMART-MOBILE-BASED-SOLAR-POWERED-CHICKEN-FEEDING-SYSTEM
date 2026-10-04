@@ -72,7 +72,7 @@ class _SchedulesScreenState extends State<SchedulesScreen> {
       elevation: 1,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
+        padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 12.0),
         child: Row(
           children: [
             CircleAvatar(
@@ -82,7 +82,7 @@ class _SchedulesScreenState extends State<SchedulesScreen> {
                 color: schedule.isEnabled ? Colors.teal.shade700 : Colors.grey.shade400,
               ),
             ),
-            const SizedBox(width: 14),
+            const SizedBox(width: 12),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -98,15 +98,19 @@ class _SchedulesScreenState extends State<SchedulesScreen> {
                   const SizedBox(height: 2),
                   Row(
                     children: [
-                      Text(
-                        schedule.label,
-                        style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w500,
-                          color: Colors.grey.shade700,
+                      Flexible(
+                        child: Text(
+                          schedule.label,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w500,
+                            color: Colors.grey.shade700,
+                          ),
                         ),
                       ),
-                      const SizedBox(width: 8),
+                      const SizedBox(width: 6),
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                         decoration: BoxDecoration(
@@ -127,15 +131,20 @@ class _SchedulesScreenState extends State<SchedulesScreen> {
                 ],
               ),
             ),
+            const SizedBox(width: 4),
             Switch(
               value: schedule.isEnabled,
               activeThumbColor: Colors.teal.shade700,
+              materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
               onChanged: (val) {
                 widget.feederService.toggleSchedule(schedule.id, val);
               },
             ),
             IconButton(
               icon: Icon(Icons.delete_outline, color: Colors.grey.shade500, size: 22),
+              visualDensity: VisualDensity.compact,
+              padding: const EdgeInsets.all(4),
+              constraints: const BoxConstraints(),
               onPressed: () => _confirmDelete(schedule),
             ),
           ],

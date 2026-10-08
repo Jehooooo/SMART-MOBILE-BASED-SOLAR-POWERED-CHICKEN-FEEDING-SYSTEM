@@ -1,149 +1,160 @@
-# Smart Poultry Feeder — Comprehensive System Flowchart
-*Based on Chapter II Methodology and Current System Implementation*
+# Smart Poultry Feeder — App & Cloud Database System Flowchart
+*Focusing on Mobile Application UX/UI, Cloud Synchronization, and Hardware Input/Output Interfaces*
 
 ---
 
-## 1. System Architecture & Operation Flowchart
+## 1. App & Cloud Database Operational Flowchart
 
 ```mermaid
 flowchart TD
   %% ==========================================
-  %% SUBGRAPH 1: POWER & HARDWARE SUBSYSTEM
+  %% SUBGRAPH 1: HARDWARE FINAL OUTPUTS & ACTUATION
   %% ==========================================
-  subgraph HW ["1. Power & Hardware Subsystem"]
-    SP["12V Monocrystalline Solar Panel"] --> CC["Solar Charge Controller"]
-    CC --> BAT["12V Storage Battery (7Ah SLA / Li-ion)"]
-    BAT --> VDIV["Voltage Divider (40k/10k to GPIO 34)"]
-    BAT --> PSW["Mechanical Power Switch"]
-    PSW --> BUCK["LM2596 DC-DC Buck Converter (12V to 5V)"]
-    BUCK --> ESP_PWR["5V Regulated Power Rail"]
-    
-    RTC_MOD["DS3231 RTC Module (CR2032 Battery Backup)"]
-    US_MOD["HC-SR04 Ultrasonic Sensor (Hopper Lid)"]
-    LC_MOD["Load Cell & HX711 Amplifier (Weighing Tray)"]
-    SERVO_MOD["MG996R Metal-Gear Servo Dispenser Gate"]
+  subgraph HW ["1. Hardware Interface (Final Physical Outputs)"]
+    HW_OUT["Hardware Sensor Final Outputs<br>- Hopper Feed Level (% and remaining kg)<br>- 12V Battery Pack (% and Volts)<br>- Live Digital Scale Reading (grams)<br>- Online Heartbeat & Operational Status"]
+    HW_ACT["Physical Dispenser Actuation<br>- Receives Dispense Command with Target Grams<br>- Executes closed-loop dispensing via scale<br>- Halts on target reached or Emergency Stop"]
   end
 
   %% ==========================================
-  %% SUBGRAPH 2: ESP32 FIRMWARE CORE
+  %% SUBGRAPH 2: CLOUD DATABASE LAYER (Firebase RTDB)
   %% ==========================================
-  subgraph FW ["2. ESP32 Firmware Execution Loop"]
-    BOOT["ESP32 System Boot & Hardware Init"] --> INIT_CHK{"Sensors & RTC OK?"}
-    INIT_CHK -- Yes --> SBY["Idle Monitoring Loop (Every 10s)"]
-    INIT_CHK -- No --> ERR_LOG["Log Hardware Fault to Firebase"]
+  subgraph DB ["2. Cloud Database (Firebase Realtime Database)"]
+    DB_TEL[("Node: /telemetry<br>- feedLevelPercent: 78.0<br>- batteryVolts: 12.6<br>- batteryPercent: 92<br>- currentWeightGrams: 0.0<br>- status: 'idle' | 'dispensing'<br>- lastHeartbeat: timestamp")]
     
-    SBY --> READ_TEL["Read HC-SR04 Feed Level & Battery ADC"]
-    READ_TEL --> PUSH_TEL["Sync Telemetry to Cloud Database"]
+    DB_SCH[("Node: /schedules<br>- id: 'sch_1'<br>- label: 'Morning Routine'<br>- hour: 6, minute: 30<br>- targetGrams: 180.0<br>- isEnabled: true")]
     
-    PUSH_TEL --> TRIG_DEC{"Dispensing Trigger Detected?"}
+    DB_CMD[("Node: /commands<br>- triggerManual: boolean<br>- targetGrams: 150.0<br>- emergencyStop: boolean<br>- timestamp: epoch")]
     
-    TRIG_DEC -- "RTC Schedule Match" --> DISP_START["Initialize Dispense Routine"]
-    TRIG_DEC -- "Manual App Command" --> DISP_START
-    TRIG_DEC -- "None" --> SBY
-    
-    DISP_START --> HOPPER_SAFE{"Hopper Level >= 5%?"}
-    HOPPER_SAFE -- No --> BLK_DISP["Abort Dispense & Send Low-Feed Alert"]
-    HOPPER_SAFE -- Yes --> TARE["Step 1: Tare Load Cell (Zero Weight)"]
-    
-    TARE --> OPEN_GATE["Step 2: Rotate Servo to 90 deg (Open Gate)"]
-    OPEN_GATE --> WT_LOOP["Step 3: Read Weight in Grams via HX711"]
-    
-    WT_LOOP --> COND_CHK{"Target Weight Reached?"}
-    COND_CHK -- Yes --> CLOSE_GATE["Step 4: Rotate Servo to 0 deg (Close Gate)"]
-    COND_CHK -- "No & Time < 30s" --> WT_LOOP
-    COND_CHK -- "Timeout (30s) or Cancel" --> CLOSE_GATE
-    
-    CLOSE_GATE --> LOG_REC["Generate Feeding Log (Target vs Actual, Accuracy %, Volts)"]
-    LOG_REC --> PUSH_LOG["Upload Log & Notify App"]
-    PUSH_LOG --> SBY
+    DB_HIS[("Node: /history<br>- logId: 'log_101'<br>- timestamp: ISO date<br>- targetGrams vs actualGrams<br>- accuracyPercent & isSuccess<br>- batteryVolts & feedLevelPercent")]
   end
 
   %% ==========================================
-  %% SUBGRAPH 3: CLOUD DATABASE LAYER
+  %% SUBGRAPH 3: APP STATE & DATA MANAGEMENT LAYER
   %% ==========================================
-  subgraph CLOUD ["3. Cloud & Data Layer (Firebase Realtime DB)"]
-    RTDB_TEL[("Node: /telemetry<br>- Feed Level %<br>- Battery Volts & %<br>- Scale Weight<br>- Online Status")]
-    RTDB_SCH[("Node: /schedules<br>- Hour & Minute<br>- Target Grams<br>- Enable Toggle")]
-    RTDB_CMD[("Node: /commands<br>- Manual Trigger Flag<br>- Selected Grams<br>- Emergency Stop")]
-    RTDB_HIS[("Node: /history<br>- Empirical Logs<br>- Accuracy %<br>- Chapter IV Data")]
+  subgraph SVC ["3. App State & Logic Layer (FeederService)"]
+    SYNC["Real-Time Synchronization Engine<br>- Live stream listeners on /telemetry and /history<br>- Pull-to-refresh on-demand telemetry sync<br>- Optimistic local state updates"]
+    
+    RULES["Usability & Validation Logic (Nielsen Heuristics)<br>- Computes countdown to next feeding (e.g. in 2h 15m)<br>- Computes hopper days of supply left<br>- Aggregates total daily flock ration<br>- Validates schedule time duplicates and 20g-500g limits<br>- Manages 4-second Undo deletion stack"]
   end
 
   %% ==========================================
-  %% SUBGRAPH 4: FLUTTER MOBILE APP
+  %% SUBGRAPH 4: FLUTTER MOBILE APP SCREENS
   %% ==========================================
-  subgraph APP ["4. Flutter Mobile App (Nielsen Usability Enhanced)"]
-    NAV["Responsive Layout Shell<br>- Mobile: NavigationBar<br>- Tablet/Desktop: NavigationRail"]
-    
-    DASH["Dashboard Screen<br>- Real-time Hopper Gauge & Days Left<br>- Solar & Battery V Indicators<br>- Next Feed Countdown (e.g. in 2h 15m)<br>- Preset Chips (50g-200g) & Fine Slider<br>- Emergency Stop Button<br>- Hardware Info Guide Modal"]
-    
-    SCHED["Schedules Screen<br>- Daily Intake Summary (Active & Total g)<br>- Add & Tap-to-Edit Routine Dialog<br>- Duplicate Time & Gram Validation<br>- Delete with 4-second Undo SnackBar"]
-    
-    HIST["History & Analytics Screen<br>- Performance Metrics (Total, Avg %, Total kg)<br>- Filter Chips (All, Scheduled, Manual)<br>- Sensor Snapshot (V, % at feeding time)<br>- CSV Export for Excel/SPSS/Sheets"]
+  subgraph APP ["4. Flutter Mobile Application"]
+    SHELL["Adaptive Responsive Shell<br>- Mobile: Material 3 Bottom NavigationBar<br>- Tablet/Desktop: Side NavigationRail"]
+
+    subgraph DASH ["Dashboard Screen (Visibility, Control & Error Prevention)"]
+      D_STAT["Live Connection Status Badge & Sync Timestamp"]
+      D_GAUGE["Hopper Capacity Gauge (Level %, kg, & Days Left)"]
+      D_PWR["Solar System & 12V Battery Indicators"]
+      D_NEXT["Next Automated Feeding Card with Live Countdown"]
+      D_CHIP["Portion Presets (50g, 100g, 150g, 200g) + Fine Slider"]
+      D_BTN["Dispense Button (Guarded: Disabled if Hopper < 5%)"]
+      D_PROG["Active Dispensing Banner with Real-Time Scale Grams"]
+      D_STOP["Immediate Emergency Stop / Abort Button"]
+      D_INFO["System & Hardware Documentation Modal"]
+    end
+
+    subgraph SCHED ["Schedules Screen (User Freedom & Error Prevention)"]
+      S_SUMM["Daily Flock Intake Summary (Active count & Total grams)"]
+      S_LIST["Interactive Schedule Cards (Time, Label, Grams, Toggle)"]
+      S_FORM["Add / Edit Modal Dialog with Time Picker & Presets"]
+      S_VAL["Input Validation (Duplicate Time & Gram Limit Guard)"]
+      S_UNDO["Delete Routine -> SnackBar with 4-Second UNDO Action"]
+    end
+
+    subgraph HIST ["History & Analytics Screen (Flexibility & Research Evaluation)"]
+      H_METRIC["Chapter IV Performance Summary (Total Feeds, Avg %, Total kg)"]
+      H_FILTER["Interactive Filter Chips (All, Scheduled Only, Manual Only)"]
+      H_CARDS["Chronological Log Cards with Friendly Relative Times"]
+      H_DEV["Accuracy Variance Badge (+/- grams and %)"]
+      H_CSV["One-Tap CSV Export for Excel, SPSS, or Google Sheets"]
+    end
   end
 
   %% ==========================================
-  %% INTER-SUBSYSTEM CONNECTIONS
+  %% INTERACTION & DATA FLOW PIPELINES
   %% ==========================================
-  ESP_PWR -.-> BOOT
-  RTC_MOD -. "I2C (GPIO 21, 22)" .-> SBY
-  US_MOD -. "Trig: 5, Echo: 18" .-> READ_TEL
-  VDIV -. "ADC (GPIO 34)" .-> READ_TEL
-  LC_MOD -. "DOUT: 16, SCK: 17" .-> WT_LOOP
-  SERVO_MOD -. "PWM (GPIO 13)" .-> OPEN_GATE
-  SERVO_MOD -. "PWM (GPIO 13)" .-> CLOSE_GATE
   
-  PUSH_TEL --> RTDB_TEL
-  PUSH_LOG --> RTDB_HIS
-  RTDB_CMD --> TRIG_DEC
-  RTDB_SCH --> SBY
+  %% Hardware <-> Cloud
+  HW_OUT -->|Pushes telemetry packet every 10s| DB_TEL
+  HW_ACT -->|Saves verified feeding log| DB_HIS
+  DB_CMD -->|Hardware listens for dispense/stop| HW_ACT
+
+  %% Cloud <-> Service Layer
+  DB_TEL <==> SYNC
+  DB_SCH <==> SYNC
+  DB_CMD <== SYNC
+  DB_HIS <==> SYNC
   
-  NAV --> DASH
-  NAV --> SCHED
-  NAV --> HIST
-  
-  RTDB_TEL <==> DASH
-  RTDB_CMD <== DASH
-  RTDB_SCH <==> SCHED
-  RTDB_HIS <==> HIST
+  SYNC <--> RULES
+  RULES <--> SHELL
+
+  %% Shell -> Screens
+  SHELL --> DASH
+  SHELL --> SCHED
+  SHELL --> HIST
+
+  %% User Actions -> Service/Database
+  D_BTN -->|Confirm Dispense| DB_CMD
+  D_STOP -->|Emergency Stop| DB_CMD
+  S_VAL -->|Save Routine| DB_SCH
+  S_UNDO -->|Delete / Restore| DB_SCH
+  H_CSV -->|Export Dataset| CLIP["System Clipboard / CSV File"]
 
   %% STYLING
   classDef hwStyle fill:#FEF3C7,stroke:#D97706,stroke-width:1.5px,color:#92400E;
-  classDef fwStyle fill:#EFF6FF,stroke:#3B82F6,stroke-width:1.5px,color:#1E40AF;
-  classDef cloudStyle fill:#F3E8FF,stroke:#A855F7,stroke-width:1.5px,color:#6B21A8;
+  classDef dbStyle fill:#F3E8FF,stroke:#A855F7,stroke-width:1.5px,color:#6B21A8;
+  classDef svcStyle fill:#EFF6FF,stroke:#3B82F6,stroke-width:1.5px,color:#1E40AF;
   classDef appStyle fill:#CCFBF1,stroke:#0F766E,stroke-width:1.5px,color:#115E59;
   
-  class SP,CC,BAT,VDIV,PSW,BUCK,ESP_PWR,RTC_MOD,US_MOD,LC_MOD,SERVO_MOD hwStyle;
-  class BOOT,INIT_CHK,SBY,READ_TEL,PUSH_TEL,TRIG_DEC,DISP_START,HOPPER_SAFE,BLK_DISP,TARE,OPEN_GATE,WT_LOOP,COND_CHK,CLOSE_GATE,LOG_REC,PUSH_LOG,ERR_LOG fwStyle;
-  class RTDB_TEL,RTDB_SCH,RTDB_CMD,RTDB_HIS cloudStyle;
-  class NAV,DASH,SCHED,HIST appStyle;
+  class HW_OUT,HW_ACT hwStyle;
+  class DB_TEL,DB_SCH,DB_CMD,DB_HIS dbStyle;
+  class SYNC,RULES svcStyle;
+  class SHELL,D_STAT,D_GAUGE,D_PWR,D_NEXT,D_CHIP,D_BTN,D_PROG,D_STOP,D_INFO,S_SUMM,S_LIST,S_FORM,S_VAL,S_UNDO,H_METRIC,H_FILTER,H_CARDS,H_DEV,H_CSV appStyle;
 ```
 
 ---
 
-## 2. Methodology Execution Breakdown
+## 2. Core Functional Workflows
 
-### Phase A: Hardware Energy & Sensory Acquisition
-1. **Solar Harvesting**: A 12V Monocrystalline panel delivers charging current to the 12V lead-acid/Li-ion battery via the charge controller.
-2. **Voltage Regulation**: LM2596 buck converter steps 12V down to a stable 5.0V for the ESP32 and high-torque MG996R servo motor.
-3. **Continuous Diagnostics**:
-   - **Battery Monitoring**: Precision resistor divider (40kΩ / 10kΩ) steps down 12V to $\le 3.0\text{V}$ for the ESP32 ADC on GPIO 34.
-   - **Hopper Level Sensing**: Ultrasonic HC-SR04 mounted inside the hopper lid computes distance to pellets and translates it to capacity percentage.
+### A. Real-Time Telemetry & Health Monitoring
+1. **Hardware Output**: The physical hardware controller computes its final metrics:
+   - Feed remaining ($0\% - 100\%$, $\sim 0.0 - 5.0\text{ kg}$).
+   - 12V battery level ($0\% - 100\%$, $\text{Volts}$).
+   - Current scale weight ($0.0\text{g}$).
+   - Current operating state (`idle`, `dispensing`, `lowFeed`, `offline`).
+2. **Cloud Bridge**: Pushes these metrics to Firebase RTDB node `/telemetry`.
+3. **App Display**:
+   - Updates the **Dashboard Gauge** and days-of-supply countdown.
+   - Shows live connection status dot (green for online, amber for dispensing, red for offline).
+   - Low-battery or low-hopper warning banners appear automatically if levels drop below $20\%$.
 
-### Phase B: Closed-Loop Dispensing Operation
-Unlike traditional open-loop timers that drop inconsistent feed quantities, this system implements **closed-loop feedback**:
-1. **Tare Execution**: The load cell scale is calibrated and zeroed before the gate opens.
-2. **Servo Activation**: The MG996R metal-gear servo rotates to $90^\circ$ to open the gravity-fed dispenser chute.
-3. **Real-Time Weight Feedback**: The HX711 analog-to-digital converter streams weight readings in grams at 10Hz/80Hz.
-4. **Cutoff Decision**: As soon as `currentWeight >= targetGrams`, the servo closes to $0^\circ$ in milliseconds, achieving target accuracy within $\pm 2\text{g}$.
-5. **Safety Guardrails**: A 30-second timeout halts operation and logs a warning if feed is jammed or empty.
+### B. Manual Dispensing & Emergency Stop Workflow
+1. **User Action**: The farmer selects a portion (e.g. $150\text{g}$) and taps **DISPENSE NOW**.
+2. **Error Prevention Check**:
+   - The app verifies that the feeder is online and the hopper is not empty ($< 5\%$).
+   - A confirmation dialog appears explaining the operation.
+3. **Command Write**: The app writes `{ triggerManual: true, targetGrams: 150.0, emergencyStop: false }` to `/commands`.
+4. **Active Dispensing Feedback**:
+   - The dashboard dynamically displays a **live progress bar** showing weight accumulation from the scale ($0\text{g} \to 150\text{g}$).
+   - An **Emergency Stop** button appears immediately.
+5. **Abort Option**: Tapping **Emergency Stop** immediately writes `{ emergencyStop: true }` to `/commands`, causing the physical machine to snap the gate shut within milliseconds.
+6. **Log Creation**: Once finished, a record is added to `/history` with target grams, actual dispensed grams, accuracy $\%$, and battery/hopper snapshot.
 
-### Phase C: Dual-Path Triggering & Offline Autonomy
-- **Online (Mobile Cloud Trigger)**: The user triggers feeds or configures routines anywhere in the world via Firebase Realtime Database.
-- **Offline Autonomy**: If the 2.4 GHz Wi-Fi disconnects, the **DS3231 RTC module** maintains battery-backed time and triggers scheduled feedings independently without missing a ration.
+### C. Schedule Management Workflow
+1. **View & Summary**: The farmer sees active routines and the total daily flock consumption (e.g. `3 Active Routines • 530g total`).
+2. **Add / Edit Routine**:
+   - Farmer taps a routine or the **+ Add Schedule** button.
+   - Sets time via native time picker, enters label, and picks portion.
+   - **Validation**: Rejects invalid portions ($< 20\text{g}$ or $> 500\text{g}$) and prevents duplicate times at the exact same hour and minute.
+3. **Cloud Update**: Writes updated routine to `/schedules`.
+4. **User Freedom (Undo)**: If a routine is deleted, the app displays a 4-second SnackBar with an **UNDO** action that restores the schedule at its exact index.
 
-### Phase D: Chapter IV Research Analytics
-Every feeding session records empirical data directly accessible in the mobile app and exportable to CSV:
-- **Accuracy Variance**: Target Weight vs. Actual Dispensed Weight ($\text{Error} = \text{Actual} - \text{Target}$).
-- **Dispense Accuracy %**: $100\% - \left(\frac{|\text{Target} - \text{Actual}|}{\text{Target}} \times 100\right)$.
-- **Response Latency**: Elapsed seconds from command trigger to completed dispensing.
-- **Autonomy Metrics**: Battery voltage curve and hopper consumption per day.
+### D. Chapter IV Research Analytics & CSV Export
+1. **Automatic Aggregation**: Computes overall performance metrics:
+   - Total feedings conducted.
+   - Average dispensing accuracy percentage.
+   - Total feed distributed in kilograms.
+2. **Filtering**: Interactive filter chips (`All`, `Scheduled Only`, `Manual Only`) allow the researcher to isolate specific feeding subsets.
+3. **CSV Export**: The user taps the download icon to preview and copy the entire research dataset into clipboard, ready to paste directly into **Excel, SPSS, or Google Sheets** for statistical analysis.

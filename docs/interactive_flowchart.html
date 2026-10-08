@@ -1,0 +1,427 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Smart Poultry Feeder — Interactive System Flowchart</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/svg-pan-zoom@3.6.1/dist/svg-pan-zoom.min.js"></script>
+  <style>
+    :root {
+      --bg: #F8FAFC;
+      --card-bg: #FFFFFF;
+      --text-main: #0F172A;
+      --text-muted: #64748B;
+      --border: #E2E8F0;
+      --primary: #0F766E;
+      --primary-light: #CCFBF1;
+      --amber: #D97706;
+      --blue: #2563EB;
+      --purple: #9333EA;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      background: var(--bg);
+      color: var(--text-main);
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+      overflow: hidden;
+    }
+    header {
+      background: var(--card-bg);
+      border-bottom: 1px solid var(--border);
+      padding: 14px 24px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-shrink: 0;
+    }
+    .brand { display: flex; align-items: center; gap: 12px; }
+    .badge {
+      background: var(--primary-light);
+      color: var(--primary);
+      font-size: 11px;
+      font-weight: 700;
+      padding: 4px 8px;
+      border-radius: 6px;
+      text-transform: uppercase;
+    }
+    .title { font-size: 17px; font-weight: 700; color: var(--text-main); }
+    .subtitle { font-size: 12px; color: var(--text-muted); }
+    .controls { display: flex; gap: 8px; align-items: center; }
+    button {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      padding: 6px 12px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-main);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.15s ease;
+    }
+    button:hover { background: #F1F5F9; border-color: #CBD5E1; }
+    .main-layout {
+      display: flex;
+      flex: 1;
+      overflow: hidden;
+    }
+    .diagram-container {
+      flex: 1;
+      height: 100%;
+      position: relative;
+      background: #FFFFFF;
+      overflow: hidden;
+      cursor: grab;
+    }
+    .diagram-container:active { cursor: grabbing; }
+    .sidebar {
+      width: 380px;
+      background: var(--card-bg);
+      border-left: 1px solid var(--border);
+      padding: 20px;
+      overflow-y: auto;
+      flex-shrink: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+    .panel-card {
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 16px;
+      background: #F8FAFC;
+    }
+    .panel-card h3 {
+      font-size: 14px;
+      font-weight: 700;
+      margin-bottom: 8px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .panel-card p {
+      font-size: 13px;
+      color: var(--text-muted);
+      line-height: 1.5;
+    }
+    .legend {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      margin-top: 6px;
+    }
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 12px;
+      font-weight: 500;
+    }
+    .legend-color {
+      width: 12px;
+      height: 12px;
+      border-radius: 4px;
+      border: 1px solid rgba(0,0,0,0.15);
+    }
+    .floating-nav {
+      position: absolute;
+      bottom: 20px;
+      left: 20px;
+      background: rgba(255, 255, 255, 0.95);
+      backdrop-filter: blur(8px);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 6px;
+      display: flex;
+      gap: 6px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.06);
+      z-index: 10;
+    }
+    #node-details {
+      display: none;
+      animation: fadeIn 0.2s ease-in-out;
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(4px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    @media (max-width: 900px) {
+      .main-layout { flex-direction: column; }
+      .sidebar { width: 100%; height: 260px; border-left: none; border-top: 1px solid var(--border); }
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <div class="brand">
+      <div>
+        <span class="badge">Chapter II Methodology</span>
+        <div class="title">Smart Poultry Feeder — System Flowchart</div>
+        <div class="subtitle">Complete Operational & Hardware Closed-Loop Architecture</div>
+      </div>
+    </div>
+    <div class="controls">
+      <button onclick="resetZoom()">⟲ Reset Zoom</button>
+      <button onclick="zoomIn()">➕ Zoom In</button>
+      <button onclick="zoomOut()">➖ Zoom Out</button>
+    </div>
+  </header>
+
+  <div class="main-layout">
+    <div class="diagram-container" id="svg-host">
+      <div class="floating-nav">
+        <button onclick="zoomIn()">Zoom +</button>
+        <button onclick="zoomOut()">Zoom -</button>
+        <button onclick="resetZoom()">Center View</button>
+      </div>
+      <div class="mermaid" id="mermaid-code">
+flowchart TD
+  %% ==========================================
+  %% SUBGRAPH 1: POWER & HARDWARE SUBSYSTEM
+  %% ==========================================
+  subgraph HW ["1. Power & Hardware Subsystem"]
+    SP["12V Monocrystalline Solar Panel"] --> CC["Solar Charge Controller"]
+    CC --> BAT["12V Storage Battery (7Ah SLA / Li-ion)"]
+    BAT --> VDIV["Voltage Divider (40k/10k to GPIO 34)"]
+    BAT --> PSW["Mechanical Power Switch"]
+    PSW --> BUCK["LM2596 DC-DC Buck Converter (12V to 5V)"]
+    BUCK --> ESP_PWR["5V Regulated Power Rail"]
+    
+    RTC_MOD["DS3231 RTC Module (CR2032 Battery Backup)"]
+    US_MOD["HC-SR04 Ultrasonic Sensor (Hopper Lid)"]
+    LC_MOD["Load Cell & HX711 Amplifier (Weighing Tray)"]
+    SERVO_MOD["MG996R Metal-Gear Servo Dispenser Gate"]
+  end
+
+  %% ==========================================
+  %% SUBGRAPH 2: ESP32 FIRMWARE CORE
+  %% ==========================================
+  subgraph FW ["2. ESP32 Firmware Execution Loop"]
+    BOOT["ESP32 System Boot & Hardware Init"] --> INIT_CHK{"Sensors & RTC OK?"}
+    INIT_CHK -- Yes --> SBY["Idle Monitoring Loop (Every 10s)"]
+    INIT_CHK -- No --> ERR_LOG["Log Hardware Fault to Firebase"]
+    
+    SBY --> READ_TEL["Read HC-SR04 Feed Level & Battery ADC"]
+    READ_TEL --> PUSH_TEL["Sync Telemetry to Cloud Database"]
+    
+    PUSH_TEL --> TRIG_DEC{"Dispensing Trigger Detected?"}
+    
+    TRIG_DEC -- "RTC Schedule Match" --> DISP_START["Initialize Dispense Routine"]
+    TRIG_DEC -- "Manual App Command" --> DISP_START
+    TRIG_DEC -- "None" --> SBY
+    
+    DISP_START --> HOPPER_SAFE{"Hopper Level >= 5%?"}
+    HOPPER_SAFE -- No --> BLK_DISP["Abort Dispense & Send Low-Feed Alert"]
+    HOPPER_SAFE -- Yes --> TARE["Step 1: Tare Load Cell (Zero Weight)"]
+    
+    TARE --> OPEN_GATE["Step 2: Rotate Servo to 90 deg (Open Gate)"]
+    OPEN_GATE --> WT_LOOP["Step 3: Read Weight in Grams via HX711"]
+    
+    WT_LOOP --> COND_CHK{"Target Weight Reached?"}
+    COND_CHK -- Yes --> CLOSE_GATE["Step 4: Rotate Servo to 0 deg (Close Gate)"]
+    COND_CHK -- "No & Time < 30s" --> WT_LOOP
+    COND_CHK -- "Timeout (30s) or Cancel" --> CLOSE_GATE
+    
+    CLOSE_GATE --> LOG_REC["Generate Feeding Log (Target vs Actual, Accuracy %, Volts)"]
+    LOG_REC --> PUSH_LOG["Upload Log & Notify App"]
+    PUSH_LOG --> SBY
+  end
+
+  %% ==========================================
+  %% SUBGRAPH 3: CLOUD DATABASE LAYER
+  %% ==========================================
+  subgraph CLOUD ["3. Cloud & Data Layer (Firebase Realtime DB)"]
+    RTDB_TEL[("Node: /telemetry<br>- Feed Level %<br>- Battery Volts & %<br>- Scale Weight<br>- Online Status")]
+    RTDB_SCH[("Node: /schedules<br>- Hour & Minute<br>- Target Grams<br>- Enable Toggle")]
+    RTDB_CMD[("Node: /commands<br>- Manual Trigger Flag<br>- Selected Grams<br>- Emergency Stop")]
+    RTDB_HIS[("Node: /history<br>- Empirical Logs<br>- Accuracy %<br>- Chapter IV Data")]
+  end
+
+  %% ==========================================
+  %% SUBGRAPH 4: FLUTTER MOBILE APP
+  %% ==========================================
+  subgraph APP ["4. Flutter Mobile App (Nielsen Usability Enhanced)"]
+    NAV["Responsive Layout Shell<br>- Mobile: NavigationBar<br>- Tablet/Desktop: NavigationRail"]
+    
+    DASH["Dashboard Screen<br>- Real-time Hopper Gauge & Days Left<br>- Solar & Battery V Indicators<br>- Next Feed Countdown (e.g. in 2h 15m)<br>- Preset Chips (50g-200g) & Fine Slider<br>- Emergency Stop Button<br>- Hardware Info Guide Modal"]
+    
+    SCHED["Schedules Screen<br>- Daily Intake Summary (Active & Total g)<br>- Add & Tap-to-Edit Routine Dialog<br>- Duplicate Time & Gram Validation<br>- Delete with 4-second Undo SnackBar"]
+    
+    HIST["History & Analytics Screen<br>- Performance Metrics (Total, Avg %, Total kg)<br>- Filter Chips (All, Scheduled, Manual)<br>- Sensor Snapshot (V, % at feeding time)<br>- CSV Export for Excel/SPSS/Sheets"]
+  end
+
+  %% ==========================================
+  %% INTER-SUBSYSTEM CONNECTIONS
+  %% ==========================================
+  ESP_PWR -.-> BOOT
+  RTC_MOD -. "I2C (GPIO 21, 22)" .-> SBY
+  US_MOD -. "Trig: 5, Echo: 18" .-> READ_TEL
+  VDIV -. "ADC (GPIO 34)" .-> READ_TEL
+  LC_MOD -. "DOUT: 16, SCK: 17" .-> WT_LOOP
+  SERVO_MOD -. "PWM (GPIO 13)" .-> OPEN_GATE
+  SERVO_MOD -. "PWM (GPIO 13)" .-> CLOSE_GATE
+  
+  PUSH_TEL --> RTDB_TEL
+  PUSH_LOG --> RTDB_HIS
+  RTDB_CMD --> TRIG_DEC
+  RTDB_SCH --> SBY
+  
+  NAV --> DASH
+  NAV --> SCHED
+  NAV --> HIST
+  
+  RTDB_TEL <==> DASH
+  RTDB_CMD <== DASH
+  RTDB_SCH <==> SCHED
+  RTDB_HIS <==> HIST
+
+  %% STYLING
+  classDef hwStyle fill:#FEF3C7,stroke:#D97706,stroke-width:1.5px,color:#92400E;
+  classDef fwStyle fill:#EFF6FF,stroke:#3B82F6,stroke-width:1.5px,color:#1E40AF;
+  classDef cloudStyle fill:#F3E8FF,stroke:#A855F7,stroke-width:1.5px,color:#6B21A8;
+  classDef appStyle fill:#CCFBF1,stroke:#0F766E,stroke-width:1.5px,color:#115E59;
+  
+  class SP,CC,BAT,VDIV,PSW,BUCK,ESP_PWR,RTC_MOD,US_MOD,LC_MOD,SERVO_MOD hwStyle;
+  class BOOT,INIT_CHK,SBY,READ_TEL,PUSH_TEL,TRIG_DEC,DISP_START,HOPPER_SAFE,BLK_DISP,TARE,OPEN_GATE,WT_LOOP,COND_CHK,CLOSE_GATE,LOG_REC,PUSH_LOG,ERR_LOG fwStyle;
+  class RTDB_TEL,RTDB_SCH,RTDB_CMD,RTDB_HIS cloudStyle;
+  class NAV,DASH,SCHED,HIST appStyle;
+      </div>
+    </div>
+
+    <aside class="sidebar">
+      <div class="panel-card">
+        <h3>🧭 Subsystem Legend</h3>
+        <div class="legend">
+          <div class="legend-item">
+            <div class="legend-color" style="background: #FEF3C7; border-color: #D97706;"></div>
+            <span>1. Power & Hardware</span>
+          </div>
+          <div class="legend-item">
+            <div class="legend-color" style="background: #EFF6FF; border-color: #3B82F6;"></div>
+            <span>2. ESP32 Firmware</span>
+          </div>
+          <div class="legend-item">
+            <div class="legend-color" style="background: #F3E8FF; border-color: #A855F7;"></div>
+            <span>3. Cloud & Firebase</span>
+          </div>
+          <div class="legend-item">
+            <div class="legend-color" style="background: #CCFBF1; border-color: #0F766E;"></div>
+            <span>4. Mobile App (Flutter)</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel-card" id="default-info">
+        <h3>💡 Interactive Guide</h3>
+        <p>• <strong>Pan & Zoom:</strong> Click and drag anywhere on the flowchart canvas to pan. Use mouse wheel or the buttons to zoom in and out.</p>
+        <p style="margin-top: 8px;">• <strong>Node Details:</strong> Click on any block in the flowchart to inspect its pinout, methodology role, and safety fail-safes.</p>
+      </div>
+
+      <div class="panel-card" id="node-details">
+        <h3 id="detail-title" style="color: var(--primary);">Component Details</h3>
+        <p id="detail-body"></p>
+      </div>
+
+      <div class="panel-card">
+        <h3>🔬 Key Research Parameters</h3>
+        <p>• <strong>Target Accuracy:</strong> ±2.0 grams (HX711 Closed-Loop)</p>
+        <p style="margin-top: 4px;">• <strong>Offline Safety:</strong> DS3231 RTC triggers schedules even with no Wi-Fi</p>
+        <p style="margin-top: 4px;">• <strong>Power Autonomy:</strong> 12V 7Ah SLA battery + 20W Monocrystalline Panel</p>
+        <p style="margin-top: 4px;">• <strong>Chapter IV Export:</strong> CSV export of target vs actual dispensed grams</p>
+      </div>
+    </aside>
+  </div>
+
+  <script>
+    mermaid.initialize({
+      startOnLoad: true,
+      theme: 'neutral',
+      flowchart: {
+        useMaxWidth: false,
+        htmlLabels: true,
+        curve: 'basis'
+      }
+    });
+
+    let panZoomInstance = null;
+
+    window.addEventListener('load', () => {
+      setTimeout(() => {
+        const svgElement = document.querySelector('#svg-host svg');
+        if (svgElement) {
+          svgElement.style.width = '100%';
+          svgElement.style.height = '100%';
+          panZoomInstance = svgPanZoom(svgElement, {
+            zoomEnabled: true,
+            controlIconsEnabled: false,
+            fit: true,
+            center: true,
+            minZoom: 0.2,
+            maxZoom: 10
+          });
+
+          // Add interactive clicks
+          setupNodeInteractivity();
+        }
+      }, 700);
+    });
+
+    function zoomIn() { if (panZoomInstance) panZoomInstance.zoomIn(); }
+    function zoomOut() { if (panZoomInstance) panZoomInstance.zoomOut(); }
+    function resetZoom() {
+      if (panZoomInstance) {
+        panZoomInstance.resetZoom();
+        panZoomInstance.center();
+      }
+    }
+
+    const nodeMetadata = {
+      'SP': { title: '12V Solar Panel', desc: 'Monocrystalline 20W-30W solar panel capturing daily sunlight to charge the backup battery system.' },
+      'BAT': { title: '12V Battery Pack', desc: '12V 7Ah deep-cycle storage battery powering the system 24/7 through rainy or cloudy days.' },
+      'BUCK': { title: 'LM2596 Buck Converter', desc: 'High-efficiency DC-DC step-down regulator stepping 12V down to a stable 5.0V for the ESP32 and servo motor.' },
+      'RTC_MOD': { title: 'DS3231 Real-Time Clock', desc: 'Battery-backed precision RTC module connected via I2C (GPIO 21, 22). Ensures feeding routines trigger on time even without internet.' },
+      'LC_MOD': { title: 'Load Cell & HX711 Amplifier', desc: 'Analog-to-digital converter streaming weight readings (GPIO 16, 17) to provide closed-loop dispensing accuracy of ±2g.' },
+      'US_MOD': { title: 'HC-SR04 Ultrasonic Sensor', desc: 'Measures feed level depth inside the hopper lid (GPIO 5, 18). Alerts user when feed drops below 20%.' },
+      'SERVO_MOD': { title: 'MG996R Metal-Gear Servo', desc: 'High-torque servo controlling the dispenser gate (GPIO 13). Rotates 90° to dispense and 0° to close.' },
+      'DASH': { title: 'Mobile Dashboard Screen', desc: 'Displays real-time hopper level, solar battery telemetry, next feeding countdown, and manual feed controls with emergency stop.' },
+      'SCHED': { title: 'Schedules Management', desc: 'Configures daily feeding routines with time duplicate validation, portion limits, and 4-second Undo deletion.' },
+      'HIST': { title: 'History & Research Analytics', desc: 'Empirical data records detailing target vs actual grams, accuracy %, and one-tap CSV export for thesis Chapter IV.' }
+    };
+
+    function setupNodeInteractivity() {
+      const nodes = document.querySelectorAll('#svg-host svg g.node');
+      nodes.forEach(node => {
+        node.style.cursor = 'pointer';
+        node.addEventListener('click', () => {
+          const id = node.id.replace(/^flowchart-/, '').split('-')[0];
+          const meta = nodeMetadata[id];
+          const detailsPanel = document.getElementById('node-details');
+          const title = document.getElementById('detail-title');
+          const body = document.getElementById('detail-body');
+
+          if (meta) {
+            title.textContent = meta.title;
+            body.textContent = meta.desc;
+            detailsPanel.style.display = 'block';
+          } else {
+            const labelText = node.textContent.trim().replace(/\s+/g, ' ');
+            title.textContent = 'Flowchart Element';
+            body.textContent = 'Selected node: ' + labelText;
+            detailsPanel.style.display = 'block';
+          }
+        });
+      });
+    }
+  </script>
+</body>
+</html>

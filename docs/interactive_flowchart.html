@@ -3,10 +3,10 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Smart Poultry Feeder — App & Cloud Database Interactive Flowchart</title>
+  <title>Smart Poultry Feeder — App & Cloud Database System Flowchart</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
   <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/svg-pan-zoom@3.6.1/dist/svg-pan-zoom.min.js"></script>
   <style>
@@ -18,9 +18,10 @@
       --border: #E2E8F0;
       --primary: #0F766E;
       --primary-light: #CCFBF1;
-      --amber: #D97706;
-      --blue: #2563EB;
-      --purple: #9333EA;
+      --primary-hover: #0D6E57;
+      --accent-amber: #D97706;
+      --accent-blue: #2563EB;
+      --accent-purple: #9333EA;
     }
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
@@ -32,59 +33,125 @@
       height: 100vh;
       overflow: hidden;
     }
+    
+    /* Top Header */
     header {
       background: var(--card-bg);
       border-bottom: 1px solid var(--border);
-      padding: 14px 24px;
+      padding: 12px 24px;
       display: flex;
       justify-content: space-between;
       align-items: center;
       flex-shrink: 0;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.03);
     }
-    .brand { display: flex; align-items: center; gap: 12px; }
-    .badge {
-      background: var(--primary-light);
-      color: var(--primary);
-      font-size: 11px;
+    .brand { display: flex; align-items: center; gap: 14px; }
+    .logo-badge {
+      background: var(--primary);
+      color: #FFFFFF;
+      width: 36px;
+      height: 36px;
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
       font-weight: 700;
-      padding: 4px 8px;
-      border-radius: 6px;
-      text-transform: uppercase;
+      font-size: 18px;
     }
-    .title { font-size: 17px; font-weight: 700; color: var(--text-main); }
-    .subtitle { font-size: 12px; color: var(--text-muted); }
-    .controls { display: flex; gap: 8px; align-items: center; }
-    button {
+    .header-text .title { font-size: 16px; font-weight: 700; color: var(--text-main); }
+    .header-text .subtitle { font-size: 12px; color: var(--text-muted); }
+    
+    .toolbar-actions { display: flex; gap: 8px; align-items: center; }
+    .btn {
       background: var(--card-bg);
       border: 1px solid var(--border);
-      padding: 6px 12px;
+      padding: 7px 14px;
       border-radius: 8px;
       cursor: pointer;
       font-size: 13px;
       font-weight: 600;
       color: var(--text-main);
-      display: flex;
+      display: inline-flex;
       align-items: center;
       gap: 6px;
       transition: all 0.15s ease;
+      user-select: none;
     }
-    button:hover { background: #F1F5F9; border-color: #CBD5E1; }
-    .main-layout {
+    .btn:hover { background: #F1F5F9; border-color: #CBD5E1; }
+    .btn-primary {
+      background: var(--primary);
+      color: #FFFFFF;
+      border-color: var(--primary);
+    }
+    .btn-primary:hover { background: var(--primary-hover); border-color: var(--primary-hover); }
+
+    /* Filter Sub-Bar */
+    .filter-bar {
+      background: #FFFFFF;
+      border-bottom: 1px solid var(--border);
+      padding: 8px 24px;
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      font-size: 13px;
+      flex-shrink: 0;
+    }
+    .filter-label { font-weight: 600; color: var(--text-muted); font-size: 12px; }
+    .pill {
+      padding: 4px 12px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      border: 1px solid var(--border);
+      background: #F8FAFC;
+      color: var(--text-main);
+      transition: all 0.15s ease;
+    }
+    .pill:hover, .pill.active {
+      background: var(--primary-light);
+      color: var(--primary);
+      border-color: #99F6E4;
+    }
+
+    /* Main Workspace */
+    .main-workspace {
       display: flex;
       flex: 1;
       overflow: hidden;
+      position: relative;
     }
-    .diagram-container {
+
+    /* Diagram Canvas */
+    .canvas-container {
       flex: 1;
       height: 100%;
-      position: relative;
       background: #FFFFFF;
+      position: relative;
       overflow: hidden;
       cursor: grab;
     }
-    .diagram-container:active { cursor: grabbing; }
-    .sidebar {
-      width: 380px;
+    .canvas-container:active { cursor: grabbing; }
+
+    /* On-Canvas Floating Controls */
+    .canvas-controls {
+      position: absolute;
+      bottom: 24px;
+      left: 24px;
+      background: rgba(255, 255, 255, 0.95);
+      backdrop-filter: blur(8px);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 6px;
+      display: flex;
+      gap: 6px;
+      box-shadow: 0 4px 14px rgba(0,0,0,0.08);
+      z-index: 10;
+    }
+
+    /* Right Sidebar Inspector */
+    .inspector {
+      width: 400px;
       background: var(--card-bg);
       border-left: 1px solid var(--border);
       padding: 20px;
@@ -93,249 +160,279 @@
       display: flex;
       flex-direction: column;
       gap: 16px;
+      transition: width 0.2s ease;
     }
-    .panel-card {
+    .inspector.collapsed {
+      width: 0;
+      padding: 0;
+      border-left: none;
+      display: none;
+    }
+
+    .card {
       border: 1px solid var(--border);
-      border-radius: 10px;
+      border-radius: 12px;
       padding: 16px;
       background: #F8FAFC;
     }
-    .panel-card h3 {
-      font-size: 14px;
+    .card-title {
+      font-size: 13px;
       font-weight: 700;
       margin-bottom: 8px;
       display: flex;
       align-items: center;
       gap: 8px;
-    }
-    .panel-card p {
-      font-size: 13px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
       color: var(--text-muted);
+    }
+    .card p {
+      font-size: 13px;
+      color: var(--text-main);
       line-height: 1.5;
     }
-    .legend {
+
+    /* Component Details Card */
+    #detail-card {
+      background: #FFFFFF;
+      border: 1.5px solid var(--primary);
+    }
+    #detail-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 8px;
+    }
+    #detail-badge {
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      padding: 2px 8px;
+      border-radius: 4px;
+      background: var(--primary-light);
+      color: var(--primary);
+    }
+    #detail-title {
+      font-size: 15px;
+      font-weight: 700;
+      color: var(--primary);
+    }
+    #detail-desc {
+      font-size: 13px;
+      color: var(--text-main);
+      line-height: 1.5;
+      margin-bottom: 12px;
+    }
+    .payload-box {
+      background: #0F172A;
+      color: #E2E8F0;
+      padding: 12px;
+      border-radius: 8px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      line-height: 1.4;
+      overflow-x: auto;
+      margin-top: 8px;
+    }
+    .heuristic-tag {
+      display: inline-block;
+      margin-top: 10px;
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--accent-amber);
+      background: #FEF3C7;
+      padding: 3px 8px;
+      border-radius: 6px;
+    }
+
+    /* Subsystem Key Grid */
+    .subsystem-grid {
       display: grid;
       grid-template-columns: 1fr 1fr;
       gap: 8px;
       margin-top: 6px;
     }
-    .legend-item {
+    .subsystem-pill {
       display: flex;
       align-items: center;
       gap: 8px;
       font-size: 12px;
-      font-weight: 500;
-    }
-    .legend-color {
-      width: 12px;
-      height: 12px;
-      border-radius: 4px;
-      border: 1px solid rgba(0,0,0,0.15);
-    }
-    .floating-nav {
-      position: absolute;
-      bottom: 20px;
-      left: 20px;
-      background: rgba(255, 255, 255, 0.95);
-      backdrop-filter: blur(8px);
+      font-weight: 600;
+      padding: 6px 8px;
+      border-radius: 8px;
+      background: #FFFFFF;
       border: 1px solid var(--border);
-      border-radius: 10px;
-      padding: 6px;
-      display: flex;
-      gap: 6px;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.06);
-      z-index: 10;
     }
-    #node-details {
-      display: none;
-      animation: fadeIn 0.2s ease-in-out;
+    .dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
     }
-    @keyframes fadeIn {
-      from { opacity: 0; transform: translateY(4px); }
-      to { opacity: 1; transform: translateY(0); }
-    }
-    @media (max-width: 900px) {
-      .main-layout { flex-direction: column; }
-      .sidebar { width: 100%; height: 260px; border-left: none; border-top: 1px solid var(--border); }
+
+    @media (max-width: 960px) {
+      .main-workspace { flex-direction: column; }
+      .inspector { width: 100%; height: 280px; border-left: none; border-top: 1px solid var(--border); }
     }
   </style>
 </head>
 <body>
 
+  <!-- Top Header Navigation -->
   <header>
     <div class="brand">
-      <div>
-        <span class="badge">App & Cloud Database Focus</span>
-        <div class="title">Smart Poultry Feeder — System Flowchart</div>
-        <div class="subtitle">Mobile Application Workflow, Cloud DB Synchronization & Hardware Output Interface</div>
+      <div class="logo-badge">🐓</div>
+      <div class="header-text">
+        <div class="title">Smart Poultry Feeder — App & Cloud Database Flowchart</div>
+        <div class="subtitle">Streamlined System Architecture: Hardware Outputs ➔ Firebase RTDB ➔ Flutter Client</div>
       </div>
     </div>
-    <div class="controls">
-      <button onclick="resetZoom()">⟲ Reset Zoom</button>
-      <button onclick="zoomIn()">➕ Zoom In</button>
-      <button onclick="zoomOut()">➖ Zoom Out</button>
+    <div class="toolbar-actions">
+      <button class="btn" onclick="resetZoom()">⟲ Center View</button>
+      <button class="btn" onclick="zoomIn()">➕ Zoom In</button>
+      <button class="btn" onclick="zoomOut()">➖ Zoom Out</button>
+      <button class="btn" id="toggle-sidebar-btn" onclick="toggleInspector()">📋 Toggle Details</button>
     </div>
   </header>
 
-  <div class="main-layout">
-    <div class="diagram-container" id="svg-host">
-      <div class="floating-nav">
-        <button onclick="zoomIn()">Zoom +</button>
-        <button onclick="zoomOut()">Zoom -</button>
-        <button onclick="resetZoom()">Center View</button>
+  <!-- Interactive Workflow Presets Filter Bar -->
+  <div class="filter-bar">
+    <span class="filter-label">Quick Pipeline Workflows:</span>
+    <span class="pill active" onclick="highlightPipeline('all')">Full System Pipeline</span>
+    <span class="pill" onclick="highlightPipeline('telemetry')">1. Telemetry Monitoring</span>
+    <span class="pill" onclick="highlightPipeline('manual')">2. Manual Dispensing & Stop</span>
+    <span class="pill" onclick="highlightPipeline('schedules')">3. Automated Schedules</span>
+    <span class="pill" onclick="highlightPipeline('history')">4. Research Analytics & CSV</span>
+  </div>
+
+  <!-- Workspace: Canvas + Inspector -->
+  <div class="main-workspace">
+    
+    <div class="canvas-container" id="svg-host">
+      <div class="canvas-controls">
+        <button class="btn" onclick="zoomIn()">Zoom +</button>
+        <button class="btn" onclick="zoomOut()">Zoom -</button>
+        <button class="btn" onclick="resetZoom()">Reset</button>
       </div>
       <div class="mermaid" id="mermaid-code">
-flowchart TD
-  %% ==========================================
-  %% SUBGRAPH 1: HARDWARE FINAL OUTPUTS & ACTUATION
-  %% ==========================================
-  subgraph HW ["1. Hardware Interface (Final Physical Outputs)"]
-    HW_OUT["Hardware Sensor Final Outputs<br>- Hopper Feed Level (% and remaining kg)<br>- 12V Battery Pack (% and Volts)<br>- Live Digital Scale Reading (grams)<br>- Online Heartbeat & Operational Status"]
-    HW_ACT["Physical Dispenser Actuation<br>- Receives Dispense Command with Target Grams<br>- Executes closed-loop dispensing via scale<br>- Halts on target reached or Emergency Stop"]
+flowchart LR
+  %% ========================================================
+  %% COLUMN 1: HARDWARE FINAL OUTPUTS & ACTUATION
+  %% ========================================================
+  subgraph HW ["1. Hardware Output Interface"]
+    direction TB
+    HW_OUT["Sensor Telemetry Stream<br>• Hopper Level (% & kg)<br>• Battery Level (% & Volts)<br>• Scale Grams (live)<br>• Heartbeat & State"]
+    HW_ACT["Dispenser Actuation Unit<br>• Receives target grams<br>• Closed-loop scale cutoff<br>• Instant emergency halt"]
   end
 
-  %% ==========================================
-  %% SUBGRAPH 2: CLOUD DATABASE LAYER (Firebase RTDB)
-  %% ==========================================
-  subgraph DB ["2. Cloud Database (Firebase Realtime Database)"]
-    DB_TEL[("Node: /telemetry<br>- feedLevelPercent: 78.0<br>- batteryVolts: 12.6<br>- batteryPercent: 92<br>- currentWeightGrams: 0.0<br>- status: 'idle' | 'dispensing'<br>- lastHeartbeat: timestamp")]
-    
-    DB_SCH[("Node: /schedules<br>- id: 'sch_1'<br>- label: 'Morning Routine'<br>- hour: 6, minute: 30<br>- targetGrams: 180.0<br>- isEnabled: true")]
-    
-    DB_CMD[("Node: /commands<br>- triggerManual: boolean<br>- targetGrams: 150.0<br>- emergencyStop: boolean<br>- timestamp: epoch")]
-    
-    DB_HIS[("Node: /history<br>- logId: 'log_101'<br>- timestamp: ISO date<br>- targetGrams vs actualGrams<br>- accuracyPercent & isSuccess<br>- batteryVolts & feedLevelPercent")]
+  %% ========================================================
+  %% COLUMN 2: CLOUD DATABASE (FIREBASE REALTIME DB)
+  %% ========================================================
+  subgraph DB ["2. Cloud Database (Firebase RTDB)"]
+    direction TB
+    DB_TEL[("Node: /telemetry<br>• feedLevelPercent<br>• batteryVolts & %<br>• currentWeightGrams<br>• status: idle|dispensing")]
+    DB_CMD[("Node: /commands<br>• triggerManual: bool<br>• targetGrams: 150g<br>• emergencyStop: bool")]
+    DB_SCH[("Node: /schedules<br>• hour & minute<br>• targetGrams<br>• isEnabled flag")]
+    DB_HIS[("Node: /history<br>• logId & timestamp<br>• target vs actual grams<br>• accuracyPercent")]
   end
 
-  %% ==========================================
-  %% SUBGRAPH 3: APP STATE & DATA MANAGEMENT LAYER
-  %% ==========================================
-  subgraph SVC ["3. App State & Logic Layer (FeederService)"]
-    SYNC["Real-Time Synchronization Engine<br>- Live stream listeners on /telemetry and /history<br>- Pull-to-refresh on-demand telemetry sync<br>- Optimistic local state updates"]
-    
-    RULES["Usability & Validation Logic (Nielsen Heuristics)<br>- Computes countdown to next feeding (e.g. in 2h 15m)<br>- Computes hopper days of supply left<br>- Aggregates total daily flock ration<br>- Validates schedule time duplicates and 20g-500g limits<br>- Manages 4-second Undo deletion stack"]
+  %% ========================================================
+  %% COLUMN 3: STATE & SYNC ENGINE (FeederService)
+  %% ========================================================
+  subgraph SVC ["3. App State & Logic Layer"]
+    direction TB
+    SYNC["Real-Time Sync Engine<br>• Firebase stream listeners<br>• Pull-to-refresh handler<br>• Optimistic state updates"]
+    RULES["Usability Rules Engine<br>• Next feed countdown<br>• Hopper supply days left<br>• Daily flock intake totals<br>• Form & duplicate checks<br>• 4s Undo deletion stack"]
   end
 
-  %% ==========================================
-  %% SUBGRAPH 4: FLUTTER MOBILE APP SCREENS
-  %% ==========================================
-  subgraph APP ["4. Flutter Mobile Application"]
-    SHELL["Adaptive Responsive Shell<br>- Mobile: Material 3 Bottom NavigationBar<br>- Tablet/Desktop: Side NavigationRail"]
-
-    subgraph DASH ["Dashboard Screen (Visibility, Control & Error Prevention)"]
-      D_STAT["Live Connection Status Badge & Sync Timestamp"]
-      D_GAUGE["Hopper Capacity Gauge (Level %, kg, & Days Left)"]
-      D_PWR["Solar System & 12V Battery Indicators"]
-      D_NEXT["Next Automated Feeding Card with Live Countdown"]
-      D_CHIP["Portion Presets (50g, 100g, 150g, 200g) + Fine Slider"]
-      D_BTN["Dispense Button (Guarded: Disabled if Hopper < 5%)"]
-      D_PROG["Active Dispensing Banner with Real-Time Scale Grams"]
-      D_STOP["Immediate Emergency Stop / Abort Button"]
-      D_INFO["System & Hardware Documentation Modal"]
-    end
-
-    subgraph SCHED ["Schedules Screen (User Freedom & Error Prevention)"]
-      S_SUMM["Daily Flock Intake Summary (Active count & Total grams)"]
-      S_LIST["Interactive Schedule Cards (Time, Label, Grams, Toggle)"]
-      S_FORM["Add / Edit Modal Dialog with Time Picker & Presets"]
-      S_VAL["Input Validation (Duplicate Time & Gram Limit Guard)"]
-      S_UNDO["Delete Routine -> SnackBar with 4-Second UNDO Action"]
-    end
-
-    subgraph HIST ["History & Analytics Screen (Flexibility & Research Evaluation)"]
-      H_METRIC["Chapter IV Performance Summary (Total Feeds, Avg %, Total kg)"]
-      H_FILTER["Interactive Filter Chips (All, Scheduled Only, Manual Only)"]
-      H_CARDS["Chronological Log Cards with Friendly Relative Times"]
-      H_DEV["Accuracy Variance Badge (+/- grams and %)"]
-      H_CSV["One-Tap CSV Export for Excel, SPSS, or Google Sheets"]
-    end
+  %% ========================================================
+  %% COLUMN 4: FLUTTER MOBILE APP UI SCREENS
+  %% ========================================================
+  subgraph APP ["4. Flutter Mobile App Screens"]
+    direction TB
+    DASH["Dashboard Screen<br>• Live hopper gauge & days<br>• Battery & solar indicators<br>• Countdown to next feed<br>• Presets (50-200g) + Slider<br>• Active dispensing progress<br>• Emergency stop button"]
+    SCHED["Schedules Screen<br>• Daily intake summary card<br>• Tap-to-edit time dialog<br>• Time & portion validation<br>• 4-second Undo SnackBar"]
+    HIST["History & Analytics Screen<br>• Performance metrics card<br>• Filter chips (All/Sch/Man)<br>• Accuracy variance badges<br>• One-tap CSV export"]
   end
 
-  %% ==========================================
-  %% INTERACTION & DATA FLOW PIPELINES
-  %% ==========================================
-  
-  %% Hardware <-> Cloud
-  HW_OUT -->|Pushes telemetry packet every 10s| DB_TEL
-  HW_ACT -->|Saves verified feeding log| DB_HIS
-  DB_CMD -->|Hardware listens for dispense/stop| HW_ACT
+  %% ========================================================
+  %% LOGICAL LEFT-TO-RIGHT PIPELINE CONNECTIONS
+  %% ========================================================
+  HW_OUT -->|Pushes telemetry every 10s| DB_TEL
+  HW_ACT -->|Saves completed feed log| DB_HIS
+  DB_CMD -->|Hardware executes dispense/stop| HW_ACT
 
-  %% Cloud <-> Service Layer
   DB_TEL <==> SYNC
-  DB_SCH <==> SYNC
   DB_CMD <== SYNC
+  DB_SCH <==> SYNC
   DB_HIS <==> SYNC
-  
+
   SYNC <--> RULES
-  RULES <--> SHELL
 
-  %% Shell -> Screens
-  SHELL --> DASH
-  SHELL --> SCHED
-  SHELL --> HIST
-
-  %% User Actions -> Service/Database
-  D_BTN -->|Confirm Dispense| DB_CMD
-  D_STOP -->|Emergency Stop| DB_CMD
-  S_VAL -->|Save Routine| DB_SCH
-  S_UNDO -->|Delete / Restore| DB_SCH
-  H_CSV -->|Export Dataset| CLIP["System Clipboard / CSV File"]
+  RULES <==> DASH
+  RULES <==> SCHED
+  RULES <==> HIST
 
   %% STYLING
   classDef hwStyle fill:#FEF3C7,stroke:#D97706,stroke-width:1.5px,color:#92400E;
-  classDef dbStyle fill:#F3E8FF,stroke:#A855F7,stroke-width:1.5px,color:#6B21A8;
-  classDef svcStyle fill:#EFF6FF,stroke:#3B82F6,stroke-width:1.5px,color:#1E40AF;
+  classDef dbStyle fill:#F3E8FF,stroke:#9333EA,stroke-width:1.5px,color:#6B21A8;
+  classDef svcStyle fill:#EFF6FF,stroke:#2563EB,stroke-width:1.5px,color:#1E40AF;
   classDef appStyle fill:#CCFBF1,stroke:#0F766E,stroke-width:1.5px,color:#115E59;
-  
+
   class HW_OUT,HW_ACT hwStyle;
-  class DB_TEL,DB_SCH,DB_CMD,DB_HIS dbStyle;
+  class DB_TEL,DB_CMD,DB_SCH,DB_HIS dbStyle;
   class SYNC,RULES svcStyle;
-  class SHELL,D_STAT,D_GAUGE,D_PWR,D_NEXT,D_CHIP,D_BTN,D_PROG,D_STOP,D_INFO,S_SUMM,S_LIST,S_FORM,S_VAL,S_UNDO,H_METRIC,H_FILTER,H_CARDS,H_DEV,H_CSV appStyle;
+  class DASH,SCHED,HIST appStyle;
       </div>
     </div>
 
-    <aside class="sidebar">
-      <div class="panel-card">
-        <h3>🧭 Subsystem Legend</h3>
-        <div class="legend">
-          <div class="legend-item">
-            <div class="legend-color" style="background: #FEF3C7; border-color: #D97706;"></div>
-            <span>1. Hardware Outputs</span>
+    <!-- Right Sidebar Inspector -->
+    <aside class="inspector" id="inspector-panel">
+      
+      <!-- Subsystem Legend -->
+      <div class="card">
+        <div class="card-title">Subsystem Legend</div>
+        <div class="subsystem-grid">
+          <div class="subsystem-pill">
+            <div class="dot" style="background: #D97706;"></div>
+            <span>1. Hardware</span>
           </div>
-          <div class="legend-item">
-            <div class="legend-color" style="background: #F3E8FF; border-color: #A855F7;"></div>
-            <span>2. Cloud Database</span>
+          <div class="subsystem-pill">
+            <div class="dot" style="background: #9333EA;"></div>
+            <span>2. Cloud DB</span>
           </div>
-          <div class="legend-item">
-            <div class="legend-color" style="background: #EFF6FF; border-color: #3B82F6;"></div>
-            <span>3. State & Sync</span>
+          <div class="subsystem-pill">
+            <div class="dot" style="background: #2563EB;"></div>
+            <span>3. State Sync</span>
           </div>
-          <div class="legend-item">
-            <div class="legend-color" style="background: #CCFBF1; border-color: #0F766E;"></div>
-            <span>4. Mobile App (Flutter)</span>
+          <div class="subsystem-pill">
+            <div class="dot" style="background: #0F766E;"></div>
+            <span>4. Flutter App</span>
           </div>
         </div>
       </div>
 
-      <div class="panel-card" id="default-info">
-        <h3>💡 Interactive Guide</h3>
-        <p>• <strong>Pan & Zoom:</strong> Drag to pan across the flowchart. Use the mouse wheel or control buttons to zoom in and out.</p>
-        <p style="margin-top: 8px;">• <strong>Node Details:</strong> Click any block in the flowchart to inspect its data model, UI behavior, and usability heuristic role.</p>
+      <!-- Selected Component Inspector -->
+      <div class="card" id="detail-card">
+        <div class="card-title">Component Inspector</div>
+        <div id="detail-header">
+          <span id="detail-badge">Ready</span>
+          <span id="detail-title">Select Any Node</span>
+        </div>
+        <p id="detail-desc">Click on any block in the flowchart to inspect its data contract, Firebase schema, UI behavior, and usability heuristic role.</p>
+        <div id="detail-extra"></div>
       </div>
 
-      <div class="panel-card" id="node-details">
-        <h3 id="detail-title" style="color: var(--primary);">Component Details</h3>
-        <p id="detail-body"></p>
+      <!-- Quick Research Architecture Highlights -->
+      <div class="card">
+        <div class="card-title">Nielsen Heuristics Highlights</div>
+        <p>• <strong>Status Visibility:</strong> Live sync dot, pull-to-refresh, real-time scale gram buildup readout.</p>
+        <p style="margin-top: 6px;">• <strong>User Freedom:</strong> Instant Emergency Stop button & 4-second Undo SnackBar on deletion.</p>
+        <p style="margin-top: 6px;">• <strong>Error Prevention:</strong> Dispense blocked when hopper &lt; 5%; duplicate schedule times prevented.</p>
+        <p style="margin-top: 6px;">• <strong>Chapter IV Export:</strong> One-tap CSV export of target vs actual dispensed grams.</p>
       </div>
 
-      <div class="panel-card">
-        <h3>📱 App & Database Highlights</h3>
-        <p>• <strong>Heuristic 1 (Status):</strong> Live sync dot, pull-to-refresh, live gram countdown scale.</p>
-        <p style="margin-top: 4px;">• <strong>Heuristic 3 (Control):</strong> Emergency stop button, 4-second Undo SnackBar on delete.</p>
-        <p style="margin-top: 4px;">• <strong>Heuristic 5 (Error Prevention):</strong> Blocks dispense when hopper < 5%; prevents duplicate schedule times.</p>
-        <p style="margin-top: 4px;">• <strong>Chapter IV Analytics:</strong> 1-Tap CSV export of target vs actual grams and accuracy %.</p>
-      </div>
     </aside>
+
   </div>
 
   <script>
@@ -380,18 +477,97 @@ flowchart TD
       }
     }
 
+    function toggleInspector() {
+      const panel = document.getElementById('inspector-panel');
+      const btn = document.getElementById('toggle-sidebar-btn');
+      if (panel.classList.contains('collapsed')) {
+        panel.classList.remove('collapsed');
+        btn.textContent = '📋 Hide Details';
+      } else {
+        panel.classList.add('collapsed');
+        btn.textContent = '📋 Show Details';
+      }
+      setTimeout(() => resetZoom(), 250);
+    }
+
     const nodeMetadata = {
-      'HW_OUT': { title: 'Hardware Sensor Final Outputs', desc: 'The physical device computes its final measurements (hopper %, 12V battery %, scale grams, online heartbeat) and packages them for transmission.' },
-      'HW_ACT': { title: 'Physical Dispenser Actuation', desc: 'Receives the dispense command from Firebase, opens the servo gate, monitors the digital scale in real time, and shuts off immediately when target grams are reached.' },
-      'DB_TEL': { title: 'Firebase /telemetry Node', desc: 'Real-time database node streaming live hopper level, battery volts, scale weight, and online connection status to the Flutter application.' },
-      'DB_SCH': { title: 'Firebase /schedules Node', desc: 'Stores configured daily feeding times, target grams, and enabled status. Synchronized across devices.' },
-      'DB_CMD': { title: 'Firebase /commands Node', desc: 'Acts as the control pipe. Writing a command here triggers the physical feeder to dispense or emergency abort.' },
-      'DB_HIS': { title: 'Firebase /history Node', desc: 'Stores completed feeding logs including target grams, actual dispensed grams, accuracy %, duration, and hardware voltage at dispense time.' },
-      'SYNC': { title: 'Real-Time Sync Engine (FeederService)', desc: 'Listens to Firebase real-time streams, updates local state, provides pull-to-refresh, and keeps the UI responsive.' },
-      'RULES': { title: 'Usability & Validation Logic', desc: 'Computes next feeding countdowns, hopper days remaining, daily intake sums, and enforces form validation (duplicate time prevention).' },
-      'DASH': { title: 'Dashboard Screen', desc: 'Main control center featuring live hopper gauge, battery monitor, next feed countdown, portion chips (50g-200g), and emergency stop.' },
-      'SCHED': { title: 'Schedules Screen', desc: 'Allows farmers to manage feeding routines with daily intake summaries, time pickers, portion validators, and 4-second Undo deletion.' },
-      'HIST': { title: 'History & Analytics Screen', desc: 'Displays research data, filter chips (All, Scheduled, Manual), empirical variance metrics, and one-tap CSV export for thesis evaluation.' }
+      'HW_OUT': {
+        badge: 'Hardware Final Output',
+        title: 'Sensor Telemetry Stream',
+        desc: 'The physical controller computes final processed sensor values and streams them to the cloud every 10 seconds.',
+        payload: '{\n  "feedLevelPercent": 78.0,\n  "batteryVolts": 12.6,\n  "batteryPercent": 92,\n  "currentWeightGrams": 0.0,\n  "status": "idle"\n}',
+        heuristic: 'Heuristic 1: Visibility of System Status'
+      },
+      'HW_ACT': {
+        badge: 'Hardware Actuator',
+        title: 'Dispenser Actuation Unit',
+        desc: 'Listens to the cloud for dispense or stop commands. Opens the servo gate, monitors the digital load cell scale in real time, and shuts off at target grams.',
+        payload: '// Triggers when /commands/triggerManual == true\n// Closes gate when scale weight >= targetGrams\n// Emergency stops if /commands/emergencyStop == true',
+        heuristic: 'Heuristic 3: User Control & Emergency Freedom'
+      },
+      'DB_TEL': {
+        badge: 'Firebase RTDB',
+        title: 'Node: /telemetry',
+        desc: 'Streams live feeder telemetry to all connected mobile clients with sub-second synchronization.',
+        payload: '{\n  "feedLevelPercent": 78.0,\n  "batteryVolts": 12.6,\n  "batteryPercent": 92,\n  "currentWeightGrams": 0.0,\n  "status": "idle",\n  "lastHeartbeat": 1728400000\n}',
+        heuristic: 'Heuristic 1: Continuous Live Telemetry'
+      },
+      'DB_CMD': {
+        badge: 'Firebase RTDB',
+        title: 'Node: /commands',
+        desc: 'Acts as the bidirectional command pipe. Writing a flag here directs the physical feeder to dispense or abort.',
+        payload: '{\n  "triggerManual": true,\n  "targetGrams": 150.0,\n  "emergencyStop": false,\n  "timestamp": 1728400120\n}',
+        heuristic: 'Heuristic 3: Immediate Remote Command & Abort'
+      },
+      'DB_SCH': {
+        badge: 'Firebase RTDB',
+        title: 'Node: /schedules',
+        desc: 'Stores active daily feeding routines configured by the farmer. Kept in sync with the hardware DS3231 RTC.',
+        payload: '[\n  {\n    "id": "sch_1",\n    "label": "Morning Feeding",\n    "hour": 6,\n    "minute": 30,\n    "targetGrams": 180.0,\n    "isEnabled": true\n  }\n]',
+        heuristic: 'Heuristic 6: Recognition Over Recall'
+      },
+      'DB_HIS': {
+        badge: 'Firebase RTDB',
+        title: 'Node: /history',
+        desc: 'Permanent record of all automated and manual feeding sessions. Used for Chapter IV empirical analysis.',
+        payload: '{\n  "logId": "log_101",\n  "targetGrams": 180.0,\n  "actualGrams": 181.4,\n  "accuracyPercent": 99.2,\n  "isSuccess": true,\n  "batteryVolts": 12.6,\n  "feedLevelPercent": 78.0\n}',
+        heuristic: 'Chapter IV Research Evaluation'
+      },
+      'SYNC': {
+        badge: 'Flutter Service',
+        title: 'Real-Time Sync Engine (FeederService)',
+        desc: 'Manages asynchronous streams, optimistic local caching, and manual pull-to-refresh actions.',
+        payload: '// feeder_service.dart\nStreamSubscription _telemetrySub;\nvoid refreshTelemetry() { ... }\nvoid cancelDispensing() { ... }',
+        heuristic: 'Heuristic 1 & 7: Responsive Synchronization'
+      },
+      'RULES': {
+        badge: 'Business Logic',
+        title: 'Usability Rules Engine',
+        desc: 'Calculates countdowns to next feeding, estimates hopper supply days, and validates schedule times to prevent duplicates.',
+        payload: '// Computes countdown: "in 2h 15m"\n// Computes days left: "~7.2 days left"\n// Blocks duplicates: hour & minute check',
+        heuristic: 'Heuristic 5: Error Prevention & Heuristic 6'
+      },
+      'DASH': {
+        badge: 'Mobile UI',
+        title: 'Dashboard Screen',
+        desc: 'Main cockpit with live hopper gauge, battery monitor, next feed countdown, portion preset chips (50g-200g), fine slider, and emergency stop button.',
+        payload: '// dashboard_screen.dart\n- Feed Hopper Gauge (kg & days)\n- Next Automated Feeding countdown\n- Emergency Stop Button',
+        heuristic: 'Heuristics 1, 2, 3, 5, 6, 7'
+      },
+      'SCHED': {
+        badge: 'Mobile UI',
+        title: 'Schedules Screen',
+        desc: 'Allows farmers to review total daily flock intake, tap cards to edit times, and delete routines with a 4-second Undo SnackBar.',
+        payload: '// schedules_screen.dart\n- Total Daily Intake Banner\n- Tap-to-edit time picker\n- 4-second Undo SnackBar',
+        heuristic: 'Heuristics 3, 4, 5: Control & Error Recovery'
+      },
+      'HIST': {
+        badge: 'Mobile UI',
+        title: 'History & Analytics Screen',
+        desc: 'Displays Chapter IV research metrics, filter chips (All, Scheduled, Manual), empirical variance data, and one-tap CSV export.',
+        payload: '// history_screen.dart\n- Total Feeds, Avg Accuracy %, Total kg\n- Interactive Filter Chips\n- One-Tap CSV Data Copy',
+        heuristic: 'Heuristics 1, 7, 9 & Research Dataset'
+      }
     };
 
     function setupNodeInteractivity() {
@@ -401,22 +577,62 @@ flowchart TD
         node.addEventListener('click', () => {
           const id = node.id.replace(/^flowchart-/, '').split('-')[0];
           const meta = nodeMetadata[id];
-          const detailsPanel = document.getElementById('node-details');
-          const title = document.getElementById('detail-title');
-          const body = document.getElementById('detail-body');
-
+          
           if (meta) {
-            title.textContent = meta.title;
-            body.textContent = meta.desc;
-            detailsPanel.style.display = 'block';
+            document.getElementById('detail-badge').textContent = meta.badge;
+            document.getElementById('detail-title').textContent = meta.title;
+            document.getElementById('detail-desc').textContent = meta.desc;
+            
+            let extraHtml = '';
+            if (meta.payload) {
+              extraHtml += '<div class="card-title" style="margin-top:10px;">Payload / Code Interface</div><div class="payload-box">' + escapeHtml(meta.payload) + '</div>';
+            }
+            if (meta.heuristic) {
+              extraHtml += '<div class="heuristic-tag">' + meta.heuristic + '</div>';
+            }
+            document.getElementById('detail-extra').innerHTML = extraHtml;
           } else {
             const labelText = node.textContent.trim().replace(/\s+/g, ' ');
-            title.textContent = 'Flowchart Element';
-            body.textContent = 'Selected element: ' + labelText;
-            detailsPanel.style.display = 'block';
+            document.getElementById('detail-badge').textContent = 'Node';
+            document.getElementById('detail-title').textContent = labelText;
+            document.getElementById('detail-desc').textContent = 'Detailed inspection for this component.';
+            document.getElementById('detail-extra').innerHTML = '';
           }
         });
       });
+    }
+
+    function highlightPipeline(type) {
+      document.querySelectorAll('.filter-bar .pill').forEach(el => el.classList.remove('active'));
+      event.target.classList.add('active');
+
+      const allNodes = document.querySelectorAll('#svg-host svg g.node');
+      if (type === 'all') {
+        allNodes.forEach(n => n.style.opacity = '1');
+        return;
+      }
+
+      const activeIds = {
+        'telemetry': ['HW_OUT', 'DB_TEL', 'SYNC', 'RULES', 'DASH'],
+        'manual': ['DASH', 'RULES', 'SYNC', 'DB_CMD', 'HW_ACT'],
+        'schedules': ['SCHED', 'RULES', 'SYNC', 'DB_SCH', 'HW_ACT'],
+        'history': ['HW_ACT', 'DB_HIS', 'SYNC', 'RULES', 'HIST']
+      }[type] || [];
+
+      allNodes.forEach(node => {
+        const id = node.id.replace(/^flowchart-/, '').split('-')[0];
+        if (activeIds.includes(id)) {
+          node.style.opacity = '1';
+          node.style.filter = 'drop-shadow(0 0 6px rgba(15,118,110,0.6))';
+        } else {
+          node.style.opacity = '0.25';
+          node.style.filter = 'none';
+        }
+      });
+    }
+
+    function escapeHtml(text) {
+      return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
     }
   </script>
 </body>

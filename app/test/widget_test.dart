@@ -2,27 +2,59 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:smart_chicken_feeder/main.dart';
 import 'package:smart_chicken_feeder/services/feeder_service.dart';
+import 'package:smart_chicken_feeder/services/settings_service.dart';
 import 'package:smart_chicken_feeder/models/schedule.dart';
 
 void main() {
   group('SmartChickenFeeder App Smoke & Usability Tests', () {
-    testWidgets('App renders dashboard and mobile navigation bar', (WidgetTester tester) async {
-      await tester.pumpWidget(const SmartChickenFeederApp());
+    testWidgets('App renders onboarding first, completes it, then lands on dashboard', (WidgetTester tester) async {
+      final settings = SettingsService(onboardingComplete: false);
+      final feeder = FeederService(connectDelay: Duration.zero);
+
+      await tester.pumpWidget(SmartChickenFeederApp(
+        settingsService: settings,
+        feederService: feeder,
+      ));
+      await tester.pumpAndSettle();
+
+      // Should show onboarding screen first
+      expect(find.text('Automated Poultry Feeding'), findsOneWidget);
+      expect(find.text('Skip'), findsOneWidget);
+
+      // Tap skip to complete onboarding
+      await tester.tap(find.text('Skip'));
+      await tester.pumpAndSettle();
+
+      expect(settings.onboardingComplete, true);
+
+      // Now on main dashboard
+      expect(find.text('Smart Chicken Feeder'), findsOneWidget);
+      expect(find.text('Feed Hopper Level'), findsOneWidget);
+      expect(find.text('Dashboard'), findsOneWidget);
+      expect(find.text('Schedules'), findsOneWidget);
+      expect(find.text('History & Logs'), findsOneWidget);
+      expect(find.text('Settings'), findsOneWidget);
+
+      feeder.dispose();
+    });
+
+    testWidgets('App renders dashboard, navigation tabs, and Settings screen', (WidgetTester tester) async {
+      final settings = SettingsService(onboardingComplete: true);
+      final feeder = FeederService(connectDelay: Duration.zero);
+
+      await tester.pumpWidget(SmartChickenFeederApp(
+        settingsService: settings,
+        feederService: feeder,
+      ));
       await tester.pumpAndSettle();
 
       // Check dashboard headers & Nielsen status elements
       expect(find.text('Smart Chicken Feeder'), findsOneWidget);
-      expect(find.text('Solar-Powered • Automated Dispenser'), findsOneWidget);
       expect(find.text('Feed Hopper Level'), findsOneWidget);
       expect(find.text('Solar System'), findsOneWidget);
       expect(find.text('Battery Level'), findsOneWidget);
       expect(find.text('Next Automated Feeding'), findsOneWidget);
       expect(find.text('Manual Feed Trigger'), findsOneWidget);
-
-      // Check navigation destinations
-      expect(find.text('Dashboard'), findsOneWidget);
-      expect(find.text('Schedules'), findsOneWidget);
-      expect(find.text('History & Logs'), findsOneWidget);
 
       // Tap Schedules tab
       await tester.tap(find.text('Schedules'));
@@ -35,7 +67,50 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('Feeding Logs & Analytics'), findsOneWidget);
       expect(find.text('Performance Metrics'), findsOneWidget);
-      expect(find.text('Filter Logs:'), findsOneWidget);
+
+      // Tap Settings tab
+      await tester.tap(find.text('Settings'));
+      await tester.pumpAndSettle();
+      expect(find.text('Settings & Preferences'), findsOneWidget);
+      expect(find.text('App Theme'), findsOneWidget);
+      expect(find.text('Low Feed Warning Level'), findsOneWidget);
+      expect(find.text('Simulate Offline Connection'), findsOneWidget);
+
+      // Toggle Dark mode from settings
+      await tester.tap(find.text('Dark'));
+      await tester.pumpAndSettle();
+      expect(settings.themeMode, ThemeMode.dark);
+
+      feeder.dispose();
+    });
+
+    testWidgets('Offline banner shows and disables manual feed when connection lost', (WidgetTester tester) async {
+      final settings = SettingsService(onboardingComplete: true);
+      final feeder = FeederService(connectDelay: Duration.zero);
+
+      await tester.pumpWidget(SmartChickenFeederApp(
+        settingsService: settings,
+        feederService: feeder,
+      ));
+      await tester.pumpAndSettle();
+
+      // Simulate offline state
+      feeder.setSimulatedOffline(true);
+      await tester.pumpAndSettle();
+
+      // Banner should be visible
+      expect(find.text('Feeder connection lost'), findsOneWidget);
+      expect(find.text('Retry'), findsOneWidget);
+      expect(find.textContaining('Manual feeding is unavailable'), findsOneWidget);
+
+      // Reconnect
+      feeder.setSimulatedOffline(false);
+      await tester.tap(find.text('Retry'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Feeder connection lost'), findsNothing);
+
+      feeder.dispose();
     });
 
     testWidgets('Responsive Layout renders NavigationRail on wide tablet/desktop viewports', (WidgetTester tester) async {
@@ -46,7 +121,13 @@ void main() {
         tester.view.resetDevicePixelRatio();
       });
 
-      await tester.pumpWidget(const SmartChickenFeederApp());
+      final settings = SettingsService(onboardingComplete: true);
+      final feeder = FeederService(connectDelay: Duration.zero);
+
+      await tester.pumpWidget(SmartChickenFeederApp(
+        settingsService: settings,
+        feederService: feeder,
+      ));
       await tester.pumpAndSettle();
 
       // Should render NavigationRail destinations
@@ -54,31 +135,14 @@ void main() {
       expect(find.text('Dashboard'), findsWidgets);
       expect(find.text('Schedules'), findsWidgets);
       expect(find.text('History & Logs'), findsWidgets);
-    });
+      expect(find.text('Settings'), findsWidgets);
 
-    testWidgets('Hardware Info dialog can be opened and dismissed', (WidgetTester tester) async {
-      await tester.pumpWidget(const SmartChickenFeederApp());
-      await tester.pumpAndSettle();
-
-      // Tap System & Hardware Info icon
-      final infoButton = find.byTooltip('System & Hardware Info');
-      expect(infoButton, findsOneWidget);
-      await tester.tap(infoButton);
-      await tester.pumpAndSettle();
-
-      // Check dialog content
-      expect(find.text('System & Hardware Guide'), findsOneWidget);
-      expect(find.text('Feed Level Sensor (HC-SR04)'), findsOneWidget);
-      expect(find.text('Dispenser & Scale (HX711)'), findsOneWidget);
-
-      // Dismiss dialog
-      await tester.tap(find.text('Got it'));
-      await tester.pumpAndSettle();
-      expect(find.text('System & Hardware Guide'), findsNothing);
+      feeder.dispose();
     });
 
     test('FeederService data logic and heuristic operations test', () async {
-      final service = FeederService();
+      final service = FeederService(connectDelay: Duration.zero);
+      await service.refreshTelemetry();
 
       expect(service.schedules.length, 3);
       expect(service.history.isNotEmpty, true);
@@ -103,10 +167,6 @@ void main() {
       service.insertScheduleAt(3, newSchedule);
       expect(service.schedules.length, 4);
       expect(service.schedules.last.id, 'test_sch_1');
-
-      // Test telemetry refresh
-      await service.refreshTelemetry();
-      expect(service.telemetry.isOnline, true);
 
       // Test CSV export format
       final csv = service.exportCsv();

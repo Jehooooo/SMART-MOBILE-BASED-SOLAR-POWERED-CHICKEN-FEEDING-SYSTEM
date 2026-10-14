@@ -74,9 +74,12 @@ void main() {
       expect(find.text('Settings & Preferences'), findsOneWidget);
       expect(find.text('App Theme'), findsOneWidget);
       expect(find.text('Low Feed Warning Level'), findsOneWidget);
+
+      await tester.scrollUntilVisible(find.text('Simulate Offline Connection'), 100);
       expect(find.text('Simulate Offline Connection'), findsOneWidget);
 
-      // Toggle Dark mode from settings
+      // Scroll back up and toggle Dark mode from settings
+      await tester.scrollUntilVisible(find.text('Dark'), -100);
       await tester.tap(find.text('Dark'));
       await tester.pumpAndSettle();
       expect(settings.themeMode, ThemeMode.dark);

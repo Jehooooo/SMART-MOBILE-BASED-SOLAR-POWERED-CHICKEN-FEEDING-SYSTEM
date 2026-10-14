@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import '../services/feeder_service.dart';
 import '../models/schedule.dart';
+import '../theme/app_theme.dart';
+import '../widgets/connection_banner.dart';
+import '../widgets/skeleton.dart';
 
 class SchedulesScreen extends StatefulWidget {
   final FeederService feederService;
@@ -17,9 +20,11 @@ class _SchedulesScreenState extends State<SchedulesScreen> {
     return ListenableBuilder(
       listenable: widget.feederService,
       builder: (context, _) {
+        final c = context.colors;
         final schedules = widget.feederService.schedules;
         final activeCount = widget.feederService.activeScheduleCount;
         final totalGrams = widget.feederService.totalDailyTargetGrams;
+        final isLoading = widget.feederService.isInitialLoading;
 
         return Scaffold(
           appBar: AppBar(
@@ -28,50 +33,67 @@ class _SchedulesScreenState extends State<SchedulesScreen> {
               style: TextStyle(fontWeight: FontWeight.bold),
             ),
           ),
-          body: Center(
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 850),
-              child: schedules.isEmpty
-                  ? _buildEmptyState()
-                  : ListView(
-                      padding: const EdgeInsets.all(16.0),
-                      children: [
-                        // Summary Banner
-                        _buildSummaryBanner(activeCount, totalGrams),
-                        const SizedBox(height: 16),
+          body: Column(
+            children: [
+              ConnectionBanner(feederService: widget.feederService),
+              Expanded(
+                child: AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 280),
+                  child: isLoading
+                      ? const ListSkeleton(key: ValueKey('sched-skeleton'))
+                      : Center(
+                          key: const ValueKey('sched-content'),
+                          child: ConstrainedBox(
+                            constraints: const BoxConstraints(maxWidth: 850),
+                            child: schedules.isEmpty
+                                ? _buildEmptyState()
+                                : ListView(
+                                    padding: const EdgeInsets.all(16.0),
+                                    children: [
+                                      // Summary Banner
+                                      _buildSummaryBanner(activeCount, totalGrams),
+                                      const SizedBox(height: 16),
 
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Text(
-                              'Configured Routines (${schedules.length})',
-                              style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
-                            ),
-                            Text(
-                              'Tap card to edit',
-                              style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
-                            ),
-                          ],
+                                      Row(
+                                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                        children: [
+                                          Text(
+                                            'Configured Routines (${schedules.length})',
+                                            style: TextStyle(
+                                              fontSize: 15,
+                                              fontWeight: FontWeight.bold,
+                                              color: c.textPrimary,
+                                            ),
+                                          ),
+                                          Text(
+                                            'Tap card to edit',
+                                            style: TextStyle(fontSize: 12, color: c.textMuted),
+                                          ),
+                                        ],
+                                      ),
+                                      const SizedBox(height: 10),
+
+                                      ...schedules.asMap().entries.map((entry) {
+                                        final index = entry.key;
+                                        final item = entry.value;
+                                        return Padding(
+                                          padding: const EdgeInsets.only(bottom: 10.0),
+                                          child: _buildScheduleCard(item, index),
+                                        );
+                                      }),
+                                      const SizedBox(height: 70), // Spacing for FAB
+                                    ],
+                                  ),
+                          ),
                         ),
-                        const SizedBox(height: 10),
-
-                        ...schedules.asMap().entries.map((entry) {
-                          final index = entry.key;
-                          final item = entry.value;
-                          return Padding(
-                            padding: const EdgeInsets.only(bottom: 10.0),
-                            child: _buildScheduleCard(item, index),
-                          );
-                        }),
-                        const SizedBox(height: 70), // Spacing for FAB
-                      ],
-                    ),
-            ),
+                ),
+              ),
+            ],
           ),
           floatingActionButton: FloatingActionButton.extended(
             onPressed: () => _showScheduleDialog(context),
-            backgroundColor: const Color(0xFF0F766E),
-            foregroundColor: Colors.white,
+            backgroundColor: c.brand,
+            foregroundColor: c.onBrand,
             icon: const Icon(Icons.add_alarm),
             label: const Text('Add Schedule'),
           ),
@@ -81,13 +103,13 @@ class _SchedulesScreenState extends State<SchedulesScreen> {
   }
 
   Widget _buildSummaryBanner(int activeCount, double totalDailyGrams) {
+    final c = context.colors;
     return Card(
-      elevation: 0.5,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
-        side: const BorderSide(color: Color(0xFFCCFBF1)),
+        side: BorderSide(color: c.brandBorder),
       ),
-      color: const Color(0xFFF0FDFA),
+      color: c.brandSurface,
       child: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Row(
@@ -95,10 +117,10 @@ class _SchedulesScreenState extends State<SchedulesScreen> {
             Container(
               padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(
-                color: const Color(0xFFCCFBF1),
+                color: c.brandSoft,
                 borderRadius: BorderRadius.circular(10),
               ),
-              child: const Icon(Icons.calendar_month_rounded, color: Color(0xFF0F766E), size: 24),
+              child: Icon(Icons.calendar_month_rounded, color: c.brand, size: 24),
             ),
             const SizedBox(width: 14),
             Expanded(
@@ -107,12 +129,12 @@ class _SchedulesScreenState extends State<SchedulesScreen> {
                 children: [
                   Text(
                     '$activeCount Active Daily ${activeCount == 1 ? 'Routine' : 'Routines'}',
-                    style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
+                    style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: c.textPrimary),
                   ),
                   const SizedBox(height: 2),
                   Text(
                     'Total daily flock ration: ${totalDailyGrams.toInt()} grams',
-                    style: const TextStyle(fontSize: 13, color: Color(0xFF0F766E), fontWeight: FontWeight.w500),
+                    style: TextStyle(fontSize: 13, color: c.brand, fontWeight: FontWeight.w500),
                   ),
                 ],
               ),
@@ -120,16 +142,16 @@ class _SchedulesScreenState extends State<SchedulesScreen> {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: c.surface,
                 borderRadius: BorderRadius.circular(20),
-                border: Border.all(color: const Color(0xFF99F6E4)),
+                border: Border.all(color: c.brandBorder),
               ),
               child: Text(
                 activeCount > 0 ? 'Active' : 'Paused',
                 style: TextStyle(
                   fontSize: 11,
                   fontWeight: FontWeight.bold,
-                  color: activeCount > 0 ? const Color(0xFF0F766E) : Colors.grey.shade600,
+                  color: activeCount > 0 ? c.brand : c.textMuted,
                 ),
               ),
             ),
@@ -140,6 +162,7 @@ class _SchedulesScreenState extends State<SchedulesScreen> {
   }
 
   Widget _buildEmptyState() {
+    final c = context.colors;
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(32.0),
@@ -149,20 +172,20 @@ class _SchedulesScreenState extends State<SchedulesScreen> {
             Container(
               padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
-                color: Colors.grey.shade100,
+                color: c.surfaceMuted,
                 shape: BoxShape.circle,
               ),
-              child: Icon(Icons.alarm_off, size: 56, color: Colors.grey.shade400),
+              child: Icon(Icons.alarm_off, size: 56, color: c.textMuted),
             ),
             const SizedBox(height: 16),
-            const Text(
+            Text(
               'No Feeding Schedules Set',
-              style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
+              style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: c.textPrimary),
             ),
             const SizedBox(height: 8),
             Text(
               'Tap the "+ Add Schedule" button below to set up automated poultry feeding times.',
-              style: TextStyle(fontSize: 13, color: Colors.grey.shade600, height: 1.4),
+              style: TextStyle(fontSize: 13, color: c.textMuted, height: 1.4),
               textAlign: TextAlign.center,
             ),
           ],
@@ -172,24 +195,20 @@ class _SchedulesScreenState extends State<SchedulesScreen> {
   }
 
   Widget _buildScheduleCard(FeedingSchedule schedule, int index) {
+    final c = context.colors;
     return InkWell(
       borderRadius: BorderRadius.circular(12),
       onTap: () => _showScheduleDialog(context, existing: schedule),
       child: Card(
-        elevation: 0.5,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
-          side: const BorderSide(color: Color(0xFFE2E8F0)),
-        ),
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 12.0),
           child: Row(
             children: [
               CircleAvatar(
-                backgroundColor: schedule.isEnabled ? const Color(0xFFCCFBF1) : Colors.grey.shade100,
+                backgroundColor: schedule.isEnabled ? c.brandSoft : c.track,
                 child: Icon(
                   Icons.access_time_filled,
-                  color: schedule.isEnabled ? const Color(0xFF0F766E) : Colors.grey.shade400,
+                  color: schedule.isEnabled ? c.brand : c.textMuted,
                 ),
               ),
               const SizedBox(width: 12),
@@ -202,7 +221,7 @@ class _SchedulesScreenState extends State<SchedulesScreen> {
                       style: TextStyle(
                         fontSize: 20,
                         fontWeight: FontWeight.bold,
-                        color: schedule.isEnabled ? const Color(0xFF0F172A) : Colors.grey.shade500,
+                        color: schedule.isEnabled ? c.textPrimary : c.textMuted,
                       ),
                     ),
                     const SizedBox(height: 2),
@@ -216,7 +235,7 @@ class _SchedulesScreenState extends State<SchedulesScreen> {
                             style: TextStyle(
                               fontSize: 13,
                               fontWeight: FontWeight.w500,
-                              color: schedule.isEnabled ? const Color(0xFF475569) : Colors.grey.shade500,
+                              color: schedule.isEnabled ? c.textSecondary : c.textMuted,
                             ),
                           ),
                         ),
@@ -224,7 +243,7 @@ class _SchedulesScreenState extends State<SchedulesScreen> {
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                           decoration: BoxDecoration(
-                            color: schedule.isEnabled ? const Color(0xFFCCFBF1) : Colors.grey.shade100,
+                            color: schedule.isEnabled ? c.brandSoft : c.track,
                             borderRadius: BorderRadius.circular(4),
                           ),
                           child: Text(
@@ -232,7 +251,7 @@ class _SchedulesScreenState extends State<SchedulesScreen> {
                             style: TextStyle(
                               fontSize: 11,
                               fontWeight: FontWeight.bold,
-                              color: schedule.isEnabled ? const Color(0xFF0F766E) : Colors.grey.shade600,
+                              color: schedule.isEnabled ? c.brand : c.textMuted,
                             ),
                           ),
                         ),
@@ -246,7 +265,6 @@ class _SchedulesScreenState extends State<SchedulesScreen> {
                 message: schedule.isEnabled ? 'Pause schedule' : 'Enable schedule',
                 child: Switch(
                   value: schedule.isEnabled,
-                  activeThumbColor: const Color(0xFF0F766E),
                   materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
                   onChanged: (val) {
                     widget.feederService.toggleSchedule(schedule.id, val);
@@ -254,7 +272,7 @@ class _SchedulesScreenState extends State<SchedulesScreen> {
                 ),
               ),
               IconButton(
-                icon: Icon(Icons.delete_outline, color: Colors.grey.shade500, size: 22),
+                icon: Icon(Icons.delete_outline, color: c.textMuted, size: 22),
                 tooltip: 'Delete schedule',
                 visualDensity: VisualDensity.compact,
                 padding: const EdgeInsets.all(4),
@@ -269,6 +287,7 @@ class _SchedulesScreenState extends State<SchedulesScreen> {
   }
 
   void _confirmDelete(FeedingSchedule schedule, int originalIndex) {
+    final c = context.colors;
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -290,7 +309,7 @@ class _SchedulesScreenState extends State<SchedulesScreen> {
                     content: Text('Deleted "${schedule.label}" (${schedule.timeFormatted})'),
                     action: SnackBarAction(
                       label: 'UNDO',
-                      textColor: const Color(0xFF99F6E4),
+                      textColor: c.brandBorder,
                       onPressed: () {
                         widget.feederService.insertScheduleAt(originalIndex, schedule);
                       },
@@ -301,7 +320,7 @@ class _SchedulesScreenState extends State<SchedulesScreen> {
               }
             },
             style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.red.shade700,
+              backgroundColor: c.danger,
               foregroundColor: Colors.white,
             ),
             child: const Text('Delete'),
@@ -312,6 +331,7 @@ class _SchedulesScreenState extends State<SchedulesScreen> {
   }
 
   void _showScheduleDialog(BuildContext context, {FeedingSchedule? existing}) {
+    final c = context.colors;
     final isEditing = existing != null;
     TimeOfDay selectedTime = isEditing
         ? TimeOfDay(hour: existing.hour, minute: existing.minute)
@@ -329,7 +349,7 @@ class _SchedulesScreenState extends State<SchedulesScreen> {
         builder: (context, setDialogState) => AlertDialog(
           title: Row(
             children: [
-              Icon(isEditing ? Icons.edit_calendar : Icons.alarm_add, color: const Color(0xFF0F766E)),
+              Icon(isEditing ? Icons.edit_calendar : Icons.alarm_add, color: c.brand),
               const SizedBox(width: 8),
               Text(isEditing ? 'Edit Feeding Schedule' : 'New Feeding Schedule'),
             ],
@@ -344,18 +364,18 @@ class _SchedulesScreenState extends State<SchedulesScreen> {
                     margin: const EdgeInsets.only(bottom: 12),
                     padding: const EdgeInsets.all(10),
                     decoration: BoxDecoration(
-                      color: Colors.red.shade50,
+                      color: c.dangerSoft,
                       borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: Colors.red.shade200),
+                      border: Border.all(color: c.dangerBorder),
                     ),
                     child: Row(
                       children: [
-                        const Icon(Icons.error_outline, color: Colors.red, size: 18),
+                        Icon(Icons.error_outline, color: c.danger, size: 18),
                         const SizedBox(width: 8),
                         Expanded(
                           child: Text(
                             validationError!,
-                            style: TextStyle(color: Colors.red.shade800, fontSize: 12, fontWeight: FontWeight.w600),
+                            style: TextStyle(color: c.danger, fontSize: 12, fontWeight: FontWeight.w600),
                           ),
                         ),
                       ],
@@ -393,9 +413,9 @@ class _SchedulesScreenState extends State<SchedulesScreen> {
                   contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(10),
-                    side: const BorderSide(color: Color(0xFFE2E8F0)),
+                    side: BorderSide(color: c.border),
                   ),
-                  leading: const Icon(Icons.schedule, color: Color(0xFF0F766E)),
+                  leading: Icon(Icons.schedule, color: c.brand),
                   title: const Text('Dispensing Time', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
                   trailing: OutlinedButton(
                     onPressed: () async {
@@ -411,8 +431,8 @@ class _SchedulesScreenState extends State<SchedulesScreen> {
                       }
                     },
                     style: OutlinedButton.styleFrom(
-                      foregroundColor: const Color(0xFF0F766E),
-                      side: const BorderSide(color: Color(0xFF0F766E)),
+                      foregroundColor: c.brand,
+                      side: BorderSide(color: c.brand),
                     ),
                     child: Text(selectedTime.format(context), style: const TextStyle(fontWeight: FontWeight.bold)),
                   ),
@@ -489,8 +509,8 @@ class _SchedulesScreenState extends State<SchedulesScreen> {
                 Navigator.pop(ctx);
               },
               style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF0F766E),
-                foregroundColor: Colors.white,
+                backgroundColor: c.brand,
+                foregroundColor: c.onBrand,
               ),
               child: Text(isEditing ? 'Save Changes' : 'Save Schedule'),
             ),

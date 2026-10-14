@@ -73,6 +73,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('Settings & Preferences'), findsOneWidget);
       expect(find.text('App Theme'), findsOneWidget);
+      await tester.scrollUntilVisible(find.text('Low Feed Warning Level'), 100);
       expect(find.text('Low Feed Warning Level'), findsOneWidget);
 
       await tester.scrollUntilVisible(find.text('Simulate Offline Connection'), 100);

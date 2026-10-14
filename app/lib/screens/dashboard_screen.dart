@@ -85,10 +85,42 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   'Smart Chicken Feeder',
                   style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
                 ),
-                Text(
-                  '${_settings.feederName} • Solar-Powered',
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(fontSize: 12, color: c.textMuted),
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Flexible(
+                      child: Text(
+                        '${_settings.feederName} • Solar-Powered',
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(fontSize: 12, color: c.textMuted),
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    Tooltip(
+                      message: widget.feederService.isMock
+                          ? 'Operating in simulated mock mode for pre-fabrication testing'
+                          : 'Connected to physical ESP32 hardware',
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                        decoration: BoxDecoration(
+                          color: widget.feederService.isMock ? c.manualSoft : c.brandSoft,
+                          borderRadius: BorderRadius.circular(4),
+                          border: Border.all(
+                            color: widget.feederService.isMock ? c.manual : c.brandBorder,
+                            width: 0.8,
+                          ),
+                        ),
+                        child: Text(
+                          widget.feederService.isMock ? 'SIMULATOR' : 'LIVE HW',
+                          style: TextStyle(
+                            fontSize: 9,
+                            fontWeight: FontWeight.bold,
+                            color: widget.feederService.isMock ? c.manual : c.brand,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),

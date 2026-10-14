@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
 import '../services/feeder_service.dart';
 import '../services/settings_service.dart';
+import '../services/hardware/hardware_adapter.dart';
+import '../services/hardware/mock_hardware_adapter.dart';
+import '../services/hardware/firebase_hardware_adapter.dart';
+import '../services/hardware/rest_hardware_adapter.dart';
 import '../theme/app_theme.dart';
 import 'dashboard_screen.dart';
 
@@ -165,6 +169,86 @@ class _SettingsScreenState extends State<SettingsScreen> {
                               },
                             ),
                           ),
+                          const Divider(height: 20),
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  CircleAvatar(
+                                    radius: 16,
+                                    backgroundColor: _feeder.isMock ? c.manualSoft : c.brandSoft,
+                                    child: Icon(
+                                      _feeder.isMock ? Icons.developer_mode : Icons.hub_outlined,
+                                      size: 18,
+                                      color: _feeder.isMock ? c.warning : c.brand,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 10),
+                                  Text(
+                                    'Hardware Transport',
+                                    style: TextStyle(fontWeight: FontWeight.bold, color: c.textPrimary),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                    decoration: BoxDecoration(
+                                      color: _feeder.isMock
+                                          ? c.warning.withValues(alpha: 0.15)
+                                          : c.brand.withValues(alpha: 0.15),
+                                      borderRadius: BorderRadius.circular(4),
+                                    ),
+                                    child: Text(
+                                      _feeder.isMock ? 'SIMULATOR' : 'LIVE HW',
+                                      style: TextStyle(
+                                        fontSize: 10,
+                                        fontWeight: FontWeight.bold,
+                                        color: _feeder.isMock ? c.warning : c.brand,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 6),
+                              Text(
+                                _feeder.hardwareSourceLabel,
+                                style: TextStyle(fontSize: 12, color: c.textMuted),
+                              ),
+                              const SizedBox(height: 10),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 12),
+                                decoration: BoxDecoration(
+                                  borderRadius: BorderRadius.circular(8),
+                                  border: Border.all(color: c.border),
+                                ),
+                                child: DropdownButtonHideUnderline(
+                                  child: DropdownButton<HardwareTransportType>(
+                                    isExpanded: true,
+                                    value: _feeder.transportType,
+                                    items: const [
+                                      DropdownMenuItem(
+                                        value: HardwareTransportType.mockSimulator,
+                                        child: Text('Mock Simulator (Off-Grid Emulation)'),
+                                      ),
+                                      DropdownMenuItem(
+                                        value: HardwareTransportType.firebaseCloud,
+                                        child: Text('Firebase Realtime Cloud (ESP32)'),
+                                      ),
+                                      DropdownMenuItem(
+                                        value: HardwareTransportType.localRestHttp,
+                                        child: Text('Local Farm Wi-Fi HTTP (SoftAP)'),
+                                      ),
+                                    ],
+                                    onChanged: (val) {
+                                      if (val != null && val != _feeder.transportType) {
+                                        _switchHardwareTransport(val);
+                                      }
+                                    },
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
                         ],
                       ),
                     ),
@@ -288,30 +372,139 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     child: Padding(
                       padding: const EdgeInsets.all(16.0),
                       child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          SwitchListTile(
-                            contentPadding: EdgeInsets.zero,
-                            secondary: CircleAvatar(
-                              backgroundColor: _feeder.isSimulatingOffline ? c.dangerSoft : c.brandSoft,
-                              child: Icon(
-                                _feeder.isSimulatingOffline ? Icons.cloud_off : Icons.cloud_done,
-                                color: _feeder.isSimulatingOffline ? c.danger : c.brand,
+                          if (_feeder.isMock) ...[
+                            SwitchListTile(
+                              contentPadding: EdgeInsets.zero,
+                              secondary: CircleAvatar(
+                                backgroundColor: _feeder.isSimulatingOffline ? c.dangerSoft : c.brandSoft,
+                                child: Icon(
+                                  _feeder.isSimulatingOffline ? Icons.cloud_off : Icons.cloud_done,
+                                  color: _feeder.isSimulatingOffline ? c.danger : c.brand,
+                                ),
+                              ),
+                              title: Text(
+                                'Simulate Offline Connection',
+                                style: TextStyle(fontWeight: FontWeight.bold, color: c.textPrimary),
+                              ),
+                              subtitle: Text(
+                                'Test offline banner, retry countdown, and manual feeding safety locks.',
+                                style: TextStyle(fontSize: 12, color: c.textMuted),
+                              ),
+                              value: _feeder.isSimulatingOffline,
+                              onChanged: (val) {
+                                _feeder.setSimulatedOffline(val);
+                              },
+                            ),
+                            const Divider(height: 16),
+                            SwitchListTile(
+                              contentPadding: EdgeInsets.zero,
+                              secondary: CircleAvatar(
+                                backgroundColor: _feeder.isSimulatingMotorJam ? c.dangerSoft : c.manualSoft,
+                                child: Icon(
+                                  Icons.lock_clock,
+                                  color: _feeder.isSimulatingMotorJam ? c.danger : c.warning,
+                                ),
+                              ),
+                              title: Text(
+                                'Simulate Motor Jam (Servo Stall)',
+                                style: TextStyle(fontWeight: FontWeight.bold, color: c.textPrimary),
+                              ),
+                              subtitle: Text(
+                                'Simulates auger physical blockage during dispensing cycle.',
+                                style: TextStyle(fontSize: 12, color: c.textMuted),
+                              ),
+                              value: _feeder.isSimulatingMotorJam,
+                              onChanged: (val) {
+                                _feeder.setSimulatedMotorJam(val);
+                              },
+                            ),
+                            const Divider(height: 16),
+                            SwitchListTile(
+                              contentPadding: EdgeInsets.zero,
+                              secondary: CircleAvatar(
+                                backgroundColor: _feeder.isSimulatingSensorError ? c.dangerSoft : c.infoSoft,
+                                child: Icon(
+                                  Icons.error_outline,
+                                  color: _feeder.isSimulatingSensorError ? c.danger : c.info,
+                                ),
+                              ),
+                              title: Text(
+                                'Simulate Sensor Failure',
+                                style: TextStyle(fontWeight: FontWeight.bold, color: c.textPrimary),
+                              ),
+                              subtitle: Text(
+                                'Simulates HC-SR04 ultrasonic echo loss or HX711 disconnection.',
+                                style: TextStyle(fontSize: 12, color: c.textMuted),
+                              ),
+                              value: _feeder.isSimulatingSensorError,
+                              onChanged: (val) {
+                                _feeder.setSimulatedSensorError(val);
+                              },
+                            ),
+                            const Divider(height: 20),
+                            Wrap(
+                              spacing: 8,
+                              runSpacing: 8,
+                              children: [
+                                OutlinedButton.icon(
+                                  onPressed: () {
+                                    _feeder.refillHopper();
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(content: Text('Simulated hopper refilled to 100%')),
+                                    );
+                                  },
+                                  icon: const Icon(Icons.refresh, size: 16),
+                                  label: const Text('Refill Hopper'),
+                                ),
+                                OutlinedButton.icon(
+                                  onPressed: () async {
+                                    await _feeder.tareScale();
+                                    if (context.mounted) {
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        const SnackBar(content: Text('Load cell tared to 0.0g')),
+                                      );
+                                    }
+                                  },
+                                  icon: const Icon(Icons.scale, size: 16),
+                                  label: const Text('Tare Load Cell'),
+                                ),
+                              ],
+                            ),
+                          ] else ...[
+                            ListTile(
+                              contentPadding: EdgeInsets.zero,
+                              leading: CircleAvatar(
+                                backgroundColor: c.brandSoft,
+                                child: Icon(Icons.scale, color: c.brand),
+                              ),
+                              title: Text(
+                                'Zero / Tare Scale Sensor',
+                                style: TextStyle(fontWeight: FontWeight.bold, color: c.textPrimary),
+                              ),
+                              subtitle: Text(
+                                'Sends hardware calibration command to HX711 load cell.',
+                                style: TextStyle(fontSize: 12, color: c.textMuted),
+                              ),
+                              trailing: ElevatedButton(
+                                onPressed: () async {
+                                  final ok = await _feeder.tareScale();
+                                  if (context.mounted) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(
+                                        content: Text(ok
+                                            ? 'Tare command sent to hardware successfully.'
+                                            : 'Failed to send tare command. Check connection.'),
+                                      ),
+                                    );
+                                  }
+                                },
+                                child: const Text('Tare (0.0g)'),
                               ),
                             ),
-                            title: Text(
-                              'Simulate Offline Connection',
-                              style: TextStyle(fontWeight: FontWeight.bold, color: c.textPrimary),
-                            ),
-                            subtitle: Text(
-                              'Test app recovery, offline banners, and disabled states without turning off hardware.',
-                              style: TextStyle(fontSize: 12, color: c.textMuted),
-                            ),
-                            value: _feeder.isSimulatingOffline,
-                            onChanged: (val) {
-                              _feeder.setSimulatedOffline(val);
-                            },
-                          ),
-                          const Divider(height: 20),
+                          ],
+                          const Divider(height: 24),
                           ListTile(
                             contentPadding: EdgeInsets.zero,
                             leading: CircleAvatar(
@@ -495,6 +688,31 @@ class _SettingsScreenState extends State<SettingsScreen> {
             child: const Text('Reset'),
           ),
         ],
+      ),
+    );
+  }
+
+  void _switchHardwareTransport(HardwareTransportType type) {
+    FeederHardwareAdapter newAdapter;
+    switch (type) {
+      case HardwareTransportType.mockSimulator:
+        newAdapter = MockHardwareAdapter();
+        break;
+      case HardwareTransportType.firebaseCloud:
+        newAdapter = FirebaseHardwareAdapter();
+        break;
+      case HardwareTransportType.localRestHttp:
+        newAdapter = RestHardwareAdapter();
+        break;
+      case HardwareTransportType.bluetoothLowEnergy:
+        newAdapter = MockHardwareAdapter();
+        break;
+    }
+    _feeder.switchAdapter(newAdapter);
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Hardware transport switched to ${newAdapter.hardwareSourceLabel}'),
+        duration: const Duration(seconds: 2),
       ),
     );
   }

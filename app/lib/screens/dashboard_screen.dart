@@ -1,12 +1,17 @@
 import 'package:flutter/material.dart';
 import '../services/feeder_service.dart';
+import '../services/settings_service.dart';
 import '../models/telemetry.dart';
 import '../models/schedule.dart';
+import '../theme/app_theme.dart';
+import '../widgets/connection_banner.dart';
+import '../widgets/skeleton.dart';
 
 class DashboardScreen extends StatefulWidget {
   final FeederService feederService;
+  final SettingsService settingsService;
 
-  const DashboardScreen({super.key, required this.feederService});
+  const DashboardScreen({super.key, required this.feederService, required this.settingsService});
 
   @override
   State<DashboardScreen> createState() => _DashboardScreenState();
@@ -14,6 +19,8 @@ class DashboardScreen extends StatefulWidget {
 
 class _DashboardScreenState extends State<DashboardScreen> {
   double _selectedPortionGrams = 150.0;
+
+  SettingsService get _settings => widget.settingsService;
 
   String _getTimeUntilNextFeed(FeedingSchedule? nextSch) {
     if (nextSch == null) return 'No active schedule';
@@ -32,7 +39,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   String _getHopperEstimatedDays(double feedPercent, double dailyTarget) {
-    const totalCapacityGrams = 5000.0; // 5 kg hopper
+    final totalCapacityGrams = _settings.hopperCapacityKg * 1000.0; // Hopper capacity from Settings
     final remainingGrams = (feedPercent / 100.0) * totalCapacityGrams;
     if (dailyTarget <= 0) return '~${(remainingGrams / 1000.0).toStringAsFixed(1)} kg available';
     final days = remainingGrams / dailyTarget;
@@ -42,230 +49,258 @@ class _DashboardScreenState extends State<DashboardScreen> {
   @override
   Widget build(BuildContext context) {
     return ListenableBuilder(
-      listenable: widget.feederService,
+      listenable: Listenable.merge([widget.feederService, _settings]),
       builder: (context, _) {
+        final c = context.colors;
         final telemetry = widget.feederService.telemetry;
         final nextSch = widget.feederService.nextSchedule;
         final isDispensing = widget.feederService.isDispensing;
         final dailyTarget = widget.feederService.totalDailyTargetGrams;
+        final connection = widget.feederService.connection;
+        final isLoading = widget.feederService.isInitialLoading;
+        final isOnline = widget.feederService.isConnected && telemetry.isOnline;
+
+        final String chipLabel;
+        final Color chipDot;
+        if (isDispensing) {
+          chipLabel = 'Dispensing';
+          chipDot = c.manual;
+        } else if (connection == FeederConnection.connecting) {
+          chipLabel = 'Connecting';
+          chipDot = c.info;
+        } else if (isOnline) {
+          chipLabel = 'Online';
+          chipDot = c.success;
+        } else {
+          chipLabel = 'Offline';
+          chipDot = c.danger;
+        }
 
         return Scaffold(
           appBar: AppBar(
-            title: const Column(
+            title: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
+                const Text(
                   'Smart Chicken Feeder',
                   style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
                 ),
                 Text(
-                  'Solar-Powered • Automated Dispenser',
-                  style: TextStyle(fontSize: 12, color: Colors.grey),
+                  '${_settings.feederName} • Solar-Powered',
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(fontSize: 12, color: c.textMuted),
                 ),
               ],
             ),
             actions: [
               IconButton(
-                icon: const Icon(Icons.info_outline, color: Color(0xFF0F766E)),
+                icon: Icon(Icons.info_outline, color: c.brand),
                 tooltip: 'System & Hardware Info',
-                onPressed: () => _showSystemInfoDialog(context),
+                onPressed: () => showHardwareGuideDialog(context),
               ),
               IconButton(
                 icon: const Icon(Icons.refresh_rounded),
                 tooltip: 'Sync Feeder Telemetry',
-                onPressed: () async {
-                  await widget.feederService.refreshTelemetry();
-                  if (context.mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Telemetry refreshed from hardware controller'),
-                        duration: Duration(seconds: 1),
-                      ),
-                    );
-                  }
-                },
+                onPressed: isLoading
+                    ? null
+                    : () async {
+                        final ok = await widget.feederService.refreshTelemetry();
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(ok
+                                  ? 'Telemetry refreshed from hardware controller'
+                                  : 'Could not reach the feeder. Showing last known data.'),
+                              duration: const Duration(seconds: 2),
+                            ),
+                          );
+                        }
+                      },
               ),
               Padding(
                 padding: const EdgeInsets.only(right: 12.0),
                 child: Tooltip(
-                  message: telemetry.isOnline
+                  message: isOnline
                       ? 'Feeder is online and connected via 2.4GHz Wi-Fi'
                       : 'Feeder is offline. Check solar battery and Wi-Fi signal.',
                   child: Chip(
-                    avatar: CircleAvatar(
-                      backgroundColor: isDispensing
-                          ? Colors.orange
-                          : (telemetry.isOnline ? const Color(0xFF10B981) : Colors.red),
-                      radius: 5,
-                    ),
+                    avatar: CircleAvatar(backgroundColor: chipDot, radius: 5),
                     label: Text(
-                      isDispensing ? 'Dispensing' : (telemetry.isOnline ? 'Online' : 'Offline'),
-                      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                      chipLabel,
+                      style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: c.textPrimary),
                     ),
-                    backgroundColor: Colors.grey.shade100,
-                    side: BorderSide(color: Colors.grey.shade300),
+                    backgroundColor: c.surfaceMuted,
+                    side: BorderSide(color: c.border),
                   ),
                 ),
               ),
             ],
           ),
-          body: RefreshIndicator(
-            onRefresh: () => widget.feederService.refreshTelemetry(),
-            color: const Color(0xFF0F766E),
-            child: LayoutBuilder(
-              builder: (context, constraints) {
-                final isWide = constraints.maxWidth >= 768;
-
-                if (isWide) {
-                  return Center(
-                    child: ConstrainedBox(
-                      constraints: const BoxConstraints(maxWidth: 1100),
-                      child: SingleChildScrollView(
-                        physics: const AlwaysScrollableScrollPhysics(),
-                        padding: const EdgeInsets.all(20.0),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [
-                            if (isDispensing)
-                              _buildDispensingBanner(telemetry)
-                            else if (telemetry.feedLevelPercent < 20)
-                              _buildWarningBanner(
-                                'Low Feed Warning: Hopper below 20% capacity. Refill feed pellets to ensure regular feeding routines.',
-                                Colors.amber.shade800,
-                              )
-                            else if (telemetry.batteryPercent < 20)
-                              _buildWarningBanner(
-                                'Low Battery Warning: Battery below 20%. Verify solar panel orientation and sun exposure.',
-                                Colors.red.shade700,
-                              ),
-                            const SizedBox(height: 12),
-                            Row(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Expanded(
-                                  flex: 6,
-                                  child: Column(
-                                    children: [
-                                      _buildHopperCard(telemetry, dailyTarget),
-                                      const SizedBox(height: 16),
-                                      Row(
-                                        children: [
-                                          Expanded(
-                                            child: _buildMetricTile(
-                                              icon: Icons.solar_power,
-                                              iconColor: Colors.amber.shade700,
-                                              title: 'Solar System',
-                                              value: telemetry.isSolarCharging ? 'Charging' : 'Idle',
-                                              subtitle: '12V Solar Panel',
-                                            ),
-                                          ),
-                                          const SizedBox(width: 12),
-                                          Expanded(
-                                            child: _buildMetricTile(
-                                              icon: Icons.battery_charging_full,
-                                              iconColor: telemetry.batteryPercent > 30 ? Colors.green : Colors.red,
-                                              title: 'Battery Level',
-                                              value: '${telemetry.batteryPercent}%',
-                                              subtitle: '${telemetry.batteryVolts.toStringAsFixed(1)} Volts',
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                                const SizedBox(width: 20),
-                                Expanded(
-                                  flex: 6,
-                                  child: Column(
-                                    children: [
-                                      _buildNextScheduleCard(nextSch),
-                                      const SizedBox(height: 16),
-                                      _buildManualFeedSection(isDispensing, telemetry),
-                                    ],
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ],
+          body: Column(
+            children: [
+              ConnectionBanner(feederService: widget.feederService),
+              Expanded(
+                child: AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 300),
+                  child: isLoading
+                      ? const DashboardSkeleton(key: ValueKey('dash-skeleton'))
+                      : KeyedSubtree(
+                          key: const ValueKey('dash-content'),
+                          child: _buildContent(telemetry, nextSch, isDispensing, dailyTarget, isOnline),
                         ),
-                      ),
-                    ),
-                  );
-                }
-
-                // Mobile Single Column View
-                return SingleChildScrollView(
-                  physics: const AlwaysScrollableScrollPhysics(),
-                  padding: const EdgeInsets.all(16.0),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      // Top Status Alert Banners
-                      if (isDispensing)
-                        _buildDispensingBanner(telemetry)
-                      else if (telemetry.feedLevelPercent < 20)
-                        _buildWarningBanner(
-                          'Low Feed Warning: Hopper below 20% capacity. Refill feed pellets to ensure regular feeding routines.',
-                          Colors.amber.shade800,
-                        )
-                      else if (telemetry.batteryPercent < 20)
-                        _buildWarningBanner(
-                          'Low Battery Warning: Battery below 20%. Verify solar panel orientation and sun exposure.',
-                          Colors.red.shade700,
-                        ),
-
-                      const SizedBox(height: 8),
-
-                      // Hopper Feed Level Card
-                      _buildHopperCard(telemetry, dailyTarget),
-
-                      const SizedBox(height: 16),
-
-                      // Solar & Battery Metrics Row
-                      Row(
-                        children: [
-                          Expanded(
-                            child: _buildMetricTile(
-                              icon: Icons.solar_power,
-                              iconColor: Colors.amber.shade700,
-                              title: 'Solar System',
-                              value: telemetry.isSolarCharging ? 'Charging' : 'Idle',
-                              subtitle: '12V Solar Panel',
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: _buildMetricTile(
-                              icon: Icons.battery_charging_full,
-                              iconColor: telemetry.batteryPercent > 30 ? Colors.green : Colors.red,
-                              title: 'Battery Level',
-                              value: '${telemetry.batteryPercent}%',
-                              subtitle: '${telemetry.batteryVolts.toStringAsFixed(1)} Volts',
-                            ),
-                          ),
-                        ],
-                      ),
-
-                      const SizedBox(height: 16),
-
-                      // Next Scheduled Feeding Card
-                      _buildNextScheduleCard(nextSch),
-
-                      const SizedBox(height: 20),
-
-                      // Manual Feeding Section
-                      _buildManualFeedSection(isDispensing, telemetry),
-                      const SizedBox(height: 16),
-                    ],
-                  ),
-                );
-              },
-            ),
+                ),
+              ),
+            ],
           ),
         );
       },
     );
+  }
+
+  Widget _buildContent(
+    FeederTelemetry telemetry,
+    FeedingSchedule? nextSch,
+    bool isDispensing,
+    double dailyTarget,
+    bool isOnline,
+  ) {
+    final c = context.colors;
+    return RefreshIndicator(
+      onRefresh: () => widget.feederService.refreshTelemetry(),
+      color: c.brand,
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final isWide = constraints.maxWidth >= 768;
+
+          final metricsRow = Row(
+            children: [
+              Expanded(
+                child: _buildMetricTile(
+                  icon: Icons.solar_power,
+                  iconColor: c.solar,
+                  title: 'Solar System',
+                  value: telemetry.isSolarCharging ? 'Charging' : 'Idle',
+                  subtitle: '12V Solar Panel',
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: _buildMetricTile(
+                  icon: Icons.battery_charging_full,
+                  iconColor: telemetry.batteryPercent > _settings.lowBatteryThreshold + 10 ? c.success : c.danger,
+                  title: 'Battery Level',
+                  value: '${telemetry.batteryPercent}%',
+                  subtitle: '${telemetry.batteryVolts.toStringAsFixed(1)} Volts',
+                ),
+              ),
+            ],
+          );
+
+          if (isWide) {
+            return Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 1100),
+                child: SingleChildScrollView(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  padding: const EdgeInsets.all(20.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      ..._buildStatusBanners(telemetry, isDispensing),
+                      const SizedBox(height: 12),
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Expanded(
+                            flex: 6,
+                            child: Column(
+                              children: [
+                                _buildHopperCard(telemetry, dailyTarget),
+                                const SizedBox(height: 16),
+                                metricsRow,
+                              ],
+                            ),
+                          ),
+                          const SizedBox(width: 20),
+                          Expanded(
+                            flex: 6,
+                            child: Column(
+                              children: [
+                                _buildNextScheduleCard(nextSch),
+                                const SizedBox(height: 16),
+                                _buildManualFeedSection(isDispensing, telemetry, isOnline),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            );
+          }
+
+          // Mobile Single Column View
+          return SingleChildScrollView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            padding: const EdgeInsets.all(16.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                // Top Status Alert Banners
+                ..._buildStatusBanners(telemetry, isDispensing),
+
+                const SizedBox(height: 8),
+
+                // Hopper Feed Level Card
+                _buildHopperCard(telemetry, dailyTarget),
+
+                const SizedBox(height: 16),
+
+                // Solar & Battery Metrics Row
+                metricsRow,
+
+                const SizedBox(height: 16),
+
+                // Next Scheduled Feeding Card
+                _buildNextScheduleCard(nextSch),
+
+                const SizedBox(height: 20),
+
+                // Manual Feeding Section
+                _buildManualFeedSection(isDispensing, telemetry, isOnline),
+                const SizedBox(height: 16),
+              ],
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  List<Widget> _buildStatusBanners(FeederTelemetry telemetry, bool isDispensing) {
+    final c = context.colors;
+    final lowFeed = _settings.lowFeedThreshold;
+    final lowBattery = _settings.lowBatteryThreshold;
+    if (isDispensing) return [_buildDispensingBanner(telemetry)];
+    if (telemetry.feedLevelPercent < lowFeed) {
+      return [
+        _buildWarningBanner(
+          'Low Feed Warning: Hopper below ${lowFeed.toInt()}% capacity. Refill feed pellets to ensure regular feeding routines.',
+          c.warning,
+        ),
+      ];
+    }
+    if (telemetry.batteryPercent < lowBattery) {
+      return [
+        _buildWarningBanner(
+          'Low Battery Warning: Battery below ${lowBattery.toInt()}%. Verify solar panel orientation and sun exposure.',
+          c.danger,
+        ),
+      ];
+    }
+    return const [];
   }
 
   Widget _buildWarningBanner(String message, Color color) {
@@ -294,6 +329,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   Widget _buildDispensingBanner(FeederTelemetry telemetry) {
+    final c = context.colors;
     final progress = (_selectedPortionGrams > 0)
         ? (telemetry.currentWeightGrams / _selectedPortionGrams).clamp(0.0, 1.0)
         : 0.0;
@@ -302,40 +338,45 @@ class _DashboardScreenState extends State<DashboardScreen> {
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: const Color(0xFFEFF6FF),
+        color: c.infoSoft,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFF93C5FD)),
+        border: Border.all(color: c.infoBorder),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              const SizedBox(
+              SizedBox(
                 width: 18,
                 height: 18,
-                child: CircularProgressIndicator(strokeWidth: 2.2, color: Color(0xFF2563EB)),
+                child: CircularProgressIndicator(strokeWidth: 2.2, color: c.info),
               ),
               const SizedBox(width: 10),
-              const Text(
+              Text(
                 'Dispensing in Progress...',
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Color(0xFF1E40AF)),
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: c.infoStrong),
               ),
               const Spacer(),
               Text(
                 '${telemetry.currentWeightGrams.toStringAsFixed(1)}g / ${_selectedPortionGrams.toInt()}g',
-                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Color(0xFF1E40AF)),
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: c.infoStrong),
               ),
             ],
           ),
           const SizedBox(height: 10),
           ClipRRect(
             borderRadius: BorderRadius.circular(4),
-            child: LinearProgressIndicator(
-              value: progress,
-              minHeight: 8,
-              backgroundColor: const Color(0xFFDBEAFE),
-              valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFF2563EB)),
+            child: TweenAnimationBuilder<double>(
+              tween: Tween(begin: 0, end: progress),
+              duration: const Duration(milliseconds: 450),
+              curve: Curves.easeOut,
+              builder: (context, value, _) => LinearProgressIndicator(
+                value: value,
+                minHeight: 8,
+                backgroundColor: c.infoBorder.withValues(alpha: 0.4),
+                valueColor: AlwaysStoppedAnimation<Color>(c.info),
+              ),
             ),
           ),
           const SizedBox(height: 10),
@@ -344,12 +385,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
             children: [
               Text(
                 'Motor active • Scale monitoring',
-                style: TextStyle(fontSize: 12, color: Colors.blue.shade700),
+                style: TextStyle(fontSize: 12, color: c.info),
               ),
               TextButton.icon(
                 onPressed: () => widget.feederService.cancelDispensing(),
-                icon: const Icon(Icons.stop_circle, size: 16, color: Colors.red),
-                label: const Text('Emergency Stop', style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold, fontSize: 12)),
+                icon: Icon(Icons.stop_circle, size: 16, color: c.danger),
+                label: Text('Emergency Stop', style: TextStyle(color: c.danger, fontWeight: FontWeight.bold, fontSize: 12)),
                 style: TextButton.styleFrom(
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                   visualDensity: VisualDensity.compact,
@@ -363,14 +404,15 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   Widget _buildHopperCard(FeederTelemetry telemetry, double dailyTarget) {
+    final c = context.colors;
     final pct = telemetry.feedLevelPercent;
-    final color = pct > 40 ? const Color(0xFF0F766E) : (pct > 20 ? Colors.amber.shade700 : Colors.red.shade700);
-    final remainingKg = ((pct / 100.0) * 5.0).clamp(0.0, 5.0);
+    final lowFeed = _settings.lowFeedThreshold;
+    final capacityKg = _settings.hopperCapacityKg;
+    final color = pct > lowFeed * 2 ? c.brand : (pct > lowFeed ? c.warning : c.danger);
+    final remainingKg = ((pct / 100.0) * capacityKg).clamp(0.0, capacityKg);
     final daysSupplyText = _getHopperEstimatedDays(pct, dailyTarget);
 
     return Card(
-      elevation: 0.5,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12), side: const BorderSide(color: Color(0xFFE2E8F0))),
       child: Padding(
         padding: const EdgeInsets.all(20.0),
         child: Column(
@@ -384,15 +426,15 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     Container(
                       padding: const EdgeInsets.all(8),
                       decoration: BoxDecoration(
-                        color: color.withValues(alpha: 0.1),
+                        color: color.withValues(alpha: 0.12),
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: Icon(Icons.inventory_2_outlined, color: color, size: 20),
                     ),
                     const SizedBox(width: 10),
-                    const Text(
+                    Text(
                       'Feed Hopper Level',
-                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: c.textPrimary),
                     ),
                   ],
                 ),
@@ -405,11 +447,16 @@ class _DashboardScreenState extends State<DashboardScreen> {
             const SizedBox(height: 16),
             ClipRRect(
               borderRadius: BorderRadius.circular(8),
-              child: LinearProgressIndicator(
-                value: (pct / 100.0).clamp(0.0, 1.0),
-                minHeight: 18,
-                backgroundColor: const Color(0xFFF1F5F9),
-                valueColor: AlwaysStoppedAnimation<Color>(color),
+              child: TweenAnimationBuilder<double>(
+                tween: Tween(begin: 0, end: (pct / 100.0).clamp(0.0, 1.0)),
+                duration: const Duration(milliseconds: 700),
+                curve: Curves.easeOutCubic,
+                builder: (context, value, _) => LinearProgressIndicator(
+                  value: value,
+                  minHeight: 18,
+                  backgroundColor: c.track,
+                  valueColor: AlwaysStoppedAnimation<Color>(color),
+                ),
               ),
             ),
             const SizedBox(height: 14),
@@ -419,9 +466,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 Flexible(
                   flex: 6,
                   child: Text(
-                    '~${remainingKg.toStringAsFixed(2)} kg remaining (of 5.0 kg)',
+                    '~${remainingKg.toStringAsFixed(2)} kg remaining (of ${capacityKg.toStringAsFixed(1)} kg)',
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF475569)),
+                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: c.textSecondary),
                   ),
                 ),
                 const SizedBox(width: 8),
@@ -431,7 +478,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     daysSupplyText,
                     overflow: TextOverflow.ellipsis,
                     textAlign: TextAlign.end,
-                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: Colors.teal.shade800),
+                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: c.brand),
                   ),
                 ),
               ],
@@ -439,7 +486,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             const SizedBox(height: 4),
             Text(
               'Telemetry Source: HC-SR04 Ultrasonic Sensor',
-              style: TextStyle(fontSize: 11, color: Colors.grey.shade500),
+              style: TextStyle(fontSize: 11, color: c.textMuted),
             ),
           ],
         ),
@@ -454,9 +501,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
     required String value,
     required String subtitle,
   }) {
+    final c = context.colors;
     return Card(
-      elevation: 0.5,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12), side: const BorderSide(color: Color(0xFFE2E8F0))),
       child: Padding(
         padding: const EdgeInsets.all(14.0),
         child: Column(
@@ -467,7 +513,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 Container(
                   padding: const EdgeInsets.all(6),
                   decoration: BoxDecoration(
-                    color: iconColor.withValues(alpha: 0.1),
+                    color: iconColor.withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(6),
                   ),
                   child: Icon(icon, color: iconColor, size: 18),
@@ -477,15 +523,15 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   child: Text(
                     title,
                     overflow: TextOverflow.ellipsis,
-                    style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: Colors.grey.shade700),
+                    style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: c.textSecondary),
                   ),
                 ),
               ],
             ),
             const SizedBox(height: 10),
-            Text(value, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            Text(value, style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: c.textPrimary)),
             const SizedBox(height: 2),
-            Text(subtitle, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 11, color: Colors.grey.shade600)),
+            Text(subtitle, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 11, color: c.textMuted)),
           ],
         ),
       ),
@@ -493,19 +539,18 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   Widget _buildNextScheduleCard(FeedingSchedule? nextSch) {
+    final c = context.colors;
     final countdown = _getTimeUntilNextFeed(nextSch);
 
     return Card(
-      elevation: 0.5,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12), side: const BorderSide(color: Color(0xFFE2E8F0))),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 14.0),
         child: Row(
           children: [
             CircleAvatar(
-              backgroundColor: const Color(0xFFCCFBF1),
+              backgroundColor: c.brandSoft,
               radius: 22,
-              child: const Icon(Icons.alarm_on_rounded, color: Color(0xFF0F766E), size: 24),
+              child: Icon(Icons.alarm_on_rounded, color: c.brand, size: 24),
             ),
             const SizedBox(width: 14),
             Expanded(
@@ -514,11 +559,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 children: [
                   Row(
                     children: [
-                      const Flexible(
+                      Flexible(
                         child: Text(
                           'Next Automated Feeding',
                           overflow: TextOverflow.ellipsis,
-                          style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: Color(0xFF64748B)),
+                          style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: c.textMuted),
                         ),
                       ),
                       if (nextSch != null) ...[
@@ -526,12 +571,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
                           decoration: BoxDecoration(
-                            color: const Color(0xFFF1F5F9),
+                            color: c.track,
                             borderRadius: BorderRadius.circular(4),
                           ),
                           child: Text(
                             countdown,
-                            style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF0F766E)),
+                            style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: c.brand),
                           ),
                         ),
                       ],
@@ -540,7 +585,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   const SizedBox(height: 3),
                   Text(
                     nextSch != null ? '${nextSch.label} at ${nextSch.timeFormatted}' : 'No active automated schedules',
-                    style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
+                    style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: c.textPrimary),
                   ),
                 ],
               ),
@@ -549,12 +594,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFCCFBF1),
+                  color: c.brandSoft,
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Text(
                   '${nextSch.targetGrams.toInt()}g',
-                  style: const TextStyle(color: Color(0xFF0F766E), fontWeight: FontWeight.bold, fontSize: 13),
+                  style: TextStyle(color: c.brand, fontWeight: FontWeight.bold, fontSize: 13),
                 ),
               ),
           ],
@@ -563,9 +608,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  Widget _buildManualFeedSection(bool isDispensing, FeederTelemetry telemetry) {
+  Widget _buildManualFeedSection(bool isDispensing, FeederTelemetry telemetry, bool isOnline) {
+    final c = context.colors;
     final bool isHopperEmpty = telemetry.feedLevelPercent < 5;
-    final bool isOffline = !telemetry.isOnline;
+    final bool isOffline = !isOnline;
     final bool canDispense = !isDispensing && !isHopperEmpty && !isOffline;
 
     final portionOptions = [
@@ -579,7 +625,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       elevation: 1,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(14),
-        side: const BorderSide(color: Color(0xFF99F6E4), width: 1.2),
+        side: BorderSide(color: c.brandBorder, width: 1.2),
       ),
       child: Padding(
         padding: const EdgeInsets.all(18.0),
@@ -589,24 +635,24 @@ class _DashboardScreenState extends State<DashboardScreen> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Flexible(
+                Flexible(
                   child: Text(
                     'Manual Feed Trigger',
                     overflow: TextOverflow.ellipsis,
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: c.textPrimary),
                   ),
                 ),
                 const SizedBox(width: 8),
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                   decoration: BoxDecoration(
-                    color: const Color(0xFFF0FDFA),
+                    color: c.brandSurface,
                     borderRadius: BorderRadius.circular(6),
-                    border: Border.all(color: const Color(0xFF99F6E4)),
+                    border: Border.all(color: c.brandBorder),
                   ),
                   child: Text(
                     'Selected: ${_selectedPortionGrams.toInt()}g',
-                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF0F766E)),
+                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: c.brand),
                   ),
                 ),
               ],
@@ -614,7 +660,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             const SizedBox(height: 4),
             Text(
               'Select standard flock portion or fine-tune with the slider below:',
-              style: TextStyle(fontSize: 13, color: Colors.grey.shade600),
+              style: TextStyle(fontSize: 13, color: c.textMuted),
             ),
             const SizedBox(height: 14),
 
@@ -630,16 +676,22 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Text(opt['name'] as String, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-                      Text(opt['desc'] as String, style: TextStyle(fontSize: 10, color: isSelected ? Colors.white70 : Colors.grey.shade600)),
+                      Text(
+                        opt['desc'] as String,
+                        style: TextStyle(fontSize: 10, color: isSelected ? c.onBrand.withValues(alpha: 0.8) : c.textMuted),
+                      ),
                     ],
                   ),
                   selected: isSelected,
+                  showCheckmark: false,
                   onSelected: isDispensing ? null : (selected) {
                     if (selected) setState(() => _selectedPortionGrams = grams);
                   },
-                  selectedColor: const Color(0xFF0F766E),
+                  selectedColor: c.brand,
+                  backgroundColor: c.surface,
+                  side: BorderSide(color: isSelected ? c.brand : c.border),
                   labelStyle: TextStyle(
-                    color: isSelected ? Colors.white : const Color(0xFF0F172A),
+                    color: isSelected ? c.onBrand : c.textPrimary,
                   ),
                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                 );
@@ -656,13 +708,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Row(
-                      children: const [
-                        Icon(Icons.tune_rounded, size: 16, color: Color(0xFF64748B)),
-                        SizedBox(width: 6),
-                        Text('Fine-tune Portion:', style: TextStyle(fontSize: 12, color: Color(0xFF64748B))),
+                      children: [
+                        Icon(Icons.tune_rounded, size: 16, color: c.textMuted),
+                        const SizedBox(width: 6),
+                        Text('Fine-tune Portion:', style: TextStyle(fontSize: 12, color: c.textMuted)),
                       ],
                     ),
-                    Text('${_selectedPortionGrams.toInt()}g', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Color(0xFF0F766E))),
+                    Text('${_selectedPortionGrams.toInt()}g', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: c.brand)),
                   ],
                 ),
                 Slider(
@@ -670,84 +722,102 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   min: 20.0,
                   max: 400.0,
                   divisions: 38,
-                  activeColor: const Color(0xFF0F766E),
+                  activeColor: c.brand,
+                  inactiveColor: c.track,
+                  label: '${_selectedPortionGrams.toInt()}g',
                   onChanged: isDispensing ? null : (val) => setState(() => _selectedPortionGrams = val.roundToDouble()),
                 ),
               ],
             ),
 
             if (isHopperEmpty)
-              Padding(
-                padding: const EdgeInsets.only(bottom: 10.0),
-                child: Row(
-                  children: [
-                    const Icon(Icons.error_outline, size: 16, color: Colors.red),
-                    const SizedBox(width: 6),
-                    Expanded(
-                      child: Text(
-                        'Dispense blocked: Hopper is empty. Refill feed first.',
-                        style: TextStyle(color: Colors.red.shade700, fontSize: 12, fontWeight: FontWeight.w600),
-                      ),
-                    ),
-                  ],
-                ),
+              _buildBlockedReason(Icons.error_outline, 'Dispense blocked: Hopper is empty. Refill feed first.', c.danger)
+            else if (isOffline && !isDispensing)
+              _buildBlockedReason(
+                Icons.cloud_off_rounded,
+                'Manual feeding is unavailable while the feeder is offline. Tap Retry on the banner above.',
+                c.danger,
               ),
 
             const SizedBox(height: 6),
 
             // Action Button (or Emergency Cancel if dispensing)
-            if (isDispensing)
-              SizedBox(
-                width: double.infinity,
-                height: 48,
-                child: OutlinedButton.icon(
-                  onPressed: () => widget.feederService.cancelDispensing(),
-                  icon: const Icon(Icons.stop_circle_outlined, color: Colors.red),
-                  label: const Text(
-                    'CANCEL / EMERGENCY STOP',
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Colors.red),
-                  ),
-                  style: OutlinedButton.styleFrom(
-                    side: const BorderSide(color: Colors.red, width: 1.5),
-                    backgroundColor: Colors.red.shade50,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                  ),
-                ),
-              )
-            else
-              SizedBox(
-                width: double.infinity,
-                height: 48,
-                child: ElevatedButton.icon(
-                  onPressed: canDispense ? () => _confirmManualFeed(context) : null,
-                  icon: const Icon(Icons.play_arrow_rounded),
-                  label: Text(
-                    'DISPENSE ${_selectedPortionGrams.toInt()}g NOW',
-                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
-                  ),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF0F766E),
-                    foregroundColor: Colors.white,
-                    disabledBackgroundColor: Colors.grey.shade300,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                  ),
-                ),
-              ),
+            AnimatedSwitcher(
+              duration: const Duration(milliseconds: 200),
+              child: isDispensing
+                  ? SizedBox(
+                      key: const ValueKey('cancel'),
+                      width: double.infinity,
+                      height: 48,
+                      child: OutlinedButton.icon(
+                        onPressed: () => widget.feederService.cancelDispensing(),
+                        icon: Icon(Icons.stop_circle_outlined, color: c.danger),
+                        label: Text(
+                          'CANCEL / EMERGENCY STOP',
+                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: c.danger),
+                        ),
+                        style: OutlinedButton.styleFrom(
+                          side: BorderSide(color: c.danger, width: 1.5),
+                          backgroundColor: c.dangerSoft,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                        ),
+                      ),
+                    )
+                  : SizedBox(
+                      key: const ValueKey('dispense'),
+                      width: double.infinity,
+                      height: 48,
+                      child: ElevatedButton.icon(
+                        onPressed: canDispense ? () => _confirmManualFeed(context) : null,
+                        icon: const Icon(Icons.play_arrow_rounded),
+                        label: Text(
+                          'DISPENSE ${_selectedPortionGrams.toInt()}g NOW',
+                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                        ),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: c.brand,
+                          foregroundColor: c.onBrand,
+                          disabledBackgroundColor: c.track,
+                          disabledForegroundColor: c.textMuted,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                        ),
+                      ),
+                    ),
+            ),
           ],
         ),
       ),
     );
   }
 
+  Widget _buildBlockedReason(IconData icon, String message, Color color) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10.0),
+      child: Row(
+        children: [
+          Icon(icon, size: 16, color: color),
+          const SizedBox(width: 6),
+          Expanded(
+            child: Text(
+              message,
+              style: TextStyle(color: color, fontSize: 12, fontWeight: FontWeight.w600),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   void _confirmManualFeed(BuildContext context) {
+    final c = context.colors;
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Row(
+        title: Row(
           children: [
-            Icon(Icons.touch_app, color: Color(0xFF0F766E)),
-            SizedBox(width: 8),
-            Text('Confirm Manual Feed'),
+            Icon(Icons.touch_app, color: c.brand),
+            const SizedBox(width: 8),
+            const Text('Confirm Manual Feed'),
           ],
         ),
         content: Column(
@@ -762,18 +832,18 @@ class _DashboardScreenState extends State<DashboardScreen> {
             Container(
               padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(
-                color: const Color(0xFFF8FAFC),
+                color: c.surfaceMuted,
                 borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: const Color(0xFFE2E8F0)),
+                border: Border.all(color: c.border),
               ),
               child: Row(
                 children: [
-                  const Icon(Icons.info_outline, size: 18, color: Color(0xFF0F766E)),
+                  Icon(Icons.info_outline, size: 18, color: c.brand),
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
                       'The auger motor will activate and verify target weight with the load cell scale.',
-                      style: TextStyle(fontSize: 12, color: Colors.grey.shade700),
+                      style: TextStyle(fontSize: 12, color: c.textSecondary),
                     ),
                   ),
                 ],
@@ -792,26 +862,46 @@ class _DashboardScreenState extends State<DashboardScreen> {
               widget.feederService.triggerManualFeed(_selectedPortionGrams);
             },
             icon: const Icon(Icons.check),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF0F766E),
-              foregroundColor: Colors.white,
-            ),
             label: const Text('Confirm & Dispense'),
           ),
         ],
       ),
     );
   }
+}
 
-  void _showSystemInfoDialog(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Row(
+/// Shared "System & Hardware Guide" dialog, also reachable from Settings › Help.
+void showHardwareGuideDialog(BuildContext context) {
+  showDialog(
+    context: context,
+    builder: (ctx) {
+      final c = ctx.colors;
+      Widget guideItem({required String title, required String desc, required IconData icon}) {
+        return Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Icon(Icons.help_outline_rounded, color: Color(0xFF0F766E)),
-            SizedBox(width: 8),
-            Text('System & Hardware Guide'),
+            Icon(icon, size: 20, color: c.brand),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(title, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: c.textPrimary)),
+                  const SizedBox(height: 2),
+                  Text(desc, style: TextStyle(fontSize: 12, color: c.textSecondary, height: 1.3)),
+                ],
+              ),
+            ),
+          ],
+        );
+      }
+
+      return AlertDialog(
+        title: Row(
+          children: [
+            Icon(Icons.help_outline_rounded, color: c.brand),
+            const SizedBox(width: 8),
+            const Flexible(child: Text('System & Hardware Guide')),
           ],
         ),
         content: SingleChildScrollView(
@@ -819,25 +909,25 @@ class _DashboardScreenState extends State<DashboardScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
             children: [
-              _buildGuideItem(
+              guideItem(
                 title: 'Feed Level Sensor (HC-SR04)',
-                desc: 'Ultrasonic sensor mounted inside the hopper lid. Measures feed depth down to 5 kg capacity in real time.',
+                desc: 'Ultrasonic sensor mounted inside the hopper lid. Measures feed depth across the full hopper capacity in real time.',
                 icon: Icons.sensors,
               ),
               const Divider(height: 18),
-              _buildGuideItem(
+              guideItem(
                 title: 'Solar & Power Subsystem',
                 desc: '12V Monocrystalline solar panel charging a deep-cycle battery through a solar charge controller to ensure 24/7 off-grid operation.',
                 icon: Icons.solar_power,
               ),
               const Divider(height: 18),
-              _buildGuideItem(
+              guideItem(
                 title: 'Dispenser & Scale (HX711)',
                 desc: 'High-torque auger driven by a 12V motor paired with an HX711 load cell amplifier to deliver ±2g portion accuracy.',
                 icon: Icons.scale,
               ),
               const Divider(height: 18),
-              _buildGuideItem(
+              guideItem(
                 title: 'Automated Scheduling',
                 desc: 'Configurable feeding routines that execute automatically even during temporary mobile app disconnection.',
                 icon: Icons.schedule,
@@ -848,34 +938,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
         actions: [
           ElevatedButton(
             onPressed: () => Navigator.pop(ctx),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF0F766E),
-              foregroundColor: Colors.white,
-            ),
             child: const Text('Got it'),
           ),
         ],
-      ),
-    );
-  }
-
-  Widget _buildGuideItem({required String title, required String desc, required IconData icon}) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Icon(icon, size: 20, color: const Color(0xFF0F766E)),
-        const SizedBox(width: 10),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-              const SizedBox(height: 2),
-              Text(desc, style: const TextStyle(fontSize: 12, color: Color(0xFF475569), height: 1.3)),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
+      );
+    },
+  );
 }

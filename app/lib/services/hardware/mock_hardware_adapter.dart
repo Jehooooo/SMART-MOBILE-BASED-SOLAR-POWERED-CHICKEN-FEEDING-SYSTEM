@@ -261,11 +261,30 @@ class MockHardwareAdapter implements FeederHardwareAdapter {
         await cancelDispense();
         return command.copyWith(status: CommandStatus.completed);
       case FeederAction.tareScale:
+        tareScale();
+        return command.copyWith(status: CommandStatus.completed);
       case FeederAction.calibrateScale:
       case FeederAction.syncClock:
       case FeederAction.restartController:
         return command.copyWith(status: CommandStatus.completed);
     }
+  }
+
+  /// Restores simulated ultrasonic hopper capacity to 100%.
+  void refillHopper() {
+    _currentTelemetry = _currentTelemetry.copyWith(
+      feedLevelPercent: 100.0,
+      status: FeederStatus.idle,
+    );
+    _telemetryController.add(_currentTelemetry);
+  }
+
+  /// Resets simulated load cell weight to zero.
+  void tareScale() {
+    _currentTelemetry = _currentTelemetry.copyWith(
+      currentWeightGrams: 0.0,
+    );
+    _telemetryController.add(_currentTelemetry);
   }
 
   @override

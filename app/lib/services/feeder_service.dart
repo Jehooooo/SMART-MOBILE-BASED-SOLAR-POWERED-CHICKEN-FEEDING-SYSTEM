@@ -3,11 +3,16 @@ import 'package:flutter/material.dart';
 import '../models/telemetry.dart';
 import '../models/schedule.dart';
 import '../models/feeding_log.dart';
+import '../models/feeder_command.dart';
+import 'hardware/hardware_adapter.dart';
+import 'hardware/mock_hardware_adapter.dart';
 
 /// Link state between the mobile app and the cloud database / feeder.
 enum FeederConnection { connecting, online, offline }
 
 class FeederService extends ChangeNotifier {
+  FeederHardwareAdapter _adapter;
+
   FeederTelemetry _telemetry = FeederTelemetry.initial();
   List<FeedingSchedule> _schedules = [];
   List<FeedingLog> _history = [];
@@ -15,10 +20,12 @@ class FeederService extends ChangeNotifier {
 
   FeederConnection _connection = FeederConnection.connecting;
   bool _isInitialLoading = true;
-  bool _simulateOffline = false;
   bool _disposed = false;
   DateTime? _lastSyncedAt;
-  final Duration connectDelay;
+
+  StreamSubscription<FeederTelemetry>? _telemetrySub;
+  StreamSubscription<FeederConnection>? _connectionSub;
+  StreamSubscription<FeedingLog>? _logSub;
 
   FeederTelemetry get telemetry => _telemetry;
   List<FeedingSchedule> get schedules => List.unmodifiable(_schedules);
@@ -28,75 +35,133 @@ class FeederService extends ChangeNotifier {
   FeederConnection get connection => _connection;
   bool get isConnected => _connection == FeederConnection.online;
   bool get isInitialLoading => _isInitialLoading;
-  bool get isSimulatingOffline => _simulateOffline;
   DateTime? get lastSyncedAt => _lastSyncedAt;
 
-  /// [connectDelay] simulates the time needed for the first cloud sync.
-  FeederService({this.connectDelay = const Duration(milliseconds: 900)}) {
+  FeederHardwareAdapter get adapter => _adapter;
+  String get hardwareSourceLabel => _adapter.hardwareSourceLabel;
+  HardwareTransportType get transportType => _adapter.transportType;
+  bool get isMock => _adapter.isMock;
+
+  /// Checks if the mock adapter currently has simulated offline mode enabled.
+  bool get isSimulatingOffline {
+    if (_adapter is MockHardwareAdapter) {
+      return (_adapter as MockHardwareAdapter).simulateOffline;
+    }
+    return false;
+  }
+
+  /// Checks if the mock adapter has motor jam simulation enabled.
+  bool get isSimulatingMotorJam {
+    if (_adapter is MockHardwareAdapter) {
+      return (_adapter as MockHardwareAdapter).simulateMotorJam;
+    }
+    return false;
+  }
+
+  /// Checks if the mock adapter has sensor error simulation enabled.
+  bool get isSimulatingSensorError {
+    if (_adapter is MockHardwareAdapter) {
+      return (_adapter as MockHardwareAdapter).simulateSensorError;
+    }
+    return false;
+  }
+
+  /// Optional injected adapter (defaults to MockHardwareAdapter for zero-hardware development).
+  FeederService({
+    FeederHardwareAdapter? adapter,
+    Duration connectDelay = const Duration(milliseconds: 600),
+  }) : _adapter = adapter ?? MockHardwareAdapter(connectDelay: connectDelay) {
     _initSampleData();
-    _connect();
+    _bindAdapter(_adapter);
   }
 
-  Future<void> _connect() async {
-    await Future.delayed(connectDelay);
-    if (_disposed) return;
-    _isInitialLoading = false;
-    _applyConnectionResult();
-  }
+  void _bindAdapter(FeederHardwareAdapter adapter) {
+    _telemetrySub?.cancel();
+    _connectionSub?.cancel();
+    _logSub?.cancel();
 
-  void _applyConnectionResult() {
-    if (_simulateOffline) {
-      _connection = FeederConnection.offline;
-    } else {
-      _connection = FeederConnection.online;
+    _telemetrySub = adapter.telemetryStream.listen((t) {
+      _telemetry = t;
+      _isDispensing = t.status == FeederStatus.dispensing;
       _lastSyncedAt = DateTime.now();
-      _telemetry = _telemetryWith(lastHeartbeat: DateTime.now());
-    }
-    notifyListeners();
-  }
-
-  /// Attempts to re-establish the cloud link. Returns true when online.
-  Future<bool> retryConnection() async {
-    if (_connection == FeederConnection.connecting) return false;
-    _connection = FeederConnection.connecting;
-    notifyListeners();
-    await Future.delayed(const Duration(milliseconds: 800));
-    if (_disposed) return false;
-    _applyConnectionResult();
-    return isConnected;
-  }
-
-  /// Testing aid: forces the app into the offline state so the connection
-  /// banner and disabled controls can be demonstrated without hardware.
-  void setSimulatedOffline(bool value) {
-    _simulateOffline = value;
-    if (_isInitialLoading) return;
-    if (value) {
-      _connection = FeederConnection.offline;
+      _isInitialLoading = false;
       notifyListeners();
-    } else {
-      _applyConnectionResult();
+    });
+
+    _connectionSub = adapter.connectionStream.listen((c) {
+      _connection = c;
+      if (c == FeederConnection.online) {
+        _lastSyncedAt = DateTime.now();
+      }
+      _isInitialLoading = false;
+      notifyListeners();
+    });
+
+    _logSub = adapter.feedingLogStream.listen((log) {
+      _history.insert(0, log);
+      notifyListeners();
+    });
+
+    adapter.initialize();
+  }
+
+  /// Seamlessly switches the hardware communication transport at runtime.
+  Future<void> switchAdapter(FeederHardwareAdapter newAdapter) async {
+    if (_disposed) return;
+    _adapter.dispose();
+    _adapter = newAdapter;
+    _connection = FeederConnection.connecting;
+    _isInitialLoading = true;
+    notifyListeners();
+    _bindAdapter(_adapter);
+  }
+
+  /// Testing helper: toggles simulated offline in mock mode.
+  void setSimulatedOffline(bool value) {
+    if (_adapter is MockHardwareAdapter) {
+      final mock = _adapter as MockHardwareAdapter;
+      mock.simulateOffline = value;
+      if (value) {
+        _connection = FeederConnection.offline;
+      } else {
+        mock.refreshTelemetry();
+      }
+      notifyListeners();
     }
   }
 
-  FeederTelemetry _telemetryWith({DateTime? lastHeartbeat}) {
-    return FeederTelemetry(
-      feedLevelPercent: _telemetry.feedLevelPercent,
-      batteryVolts: _telemetry.batteryVolts,
-      batteryPercent: _telemetry.batteryPercent,
-      currentWeightGrams: _telemetry.currentWeightGrams,
-      status: _telemetry.status,
-      lastHeartbeat: lastHeartbeat ?? _telemetry.lastHeartbeat,
-      lastFedTimestamp: _telemetry.lastFedTimestamp,
-      lastFedGrams: _telemetry.lastFedGrams,
-      isSolarCharging: _telemetry.isSolarCharging,
-    );
+  /// Testing helper: toggles simulated motor jam / auger stall in mock mode.
+  void setSimulatedMotorJam(bool value) {
+    if (_adapter is MockHardwareAdapter) {
+      final mock = _adapter as MockHardwareAdapter;
+      mock.simulateMotorJam = value;
+      notifyListeners();
+    }
   }
 
-  @override
-  void dispose() {
-    _disposed = true;
-    super.dispose();
+  /// Testing helper: toggles simulated ultrasonic / sensor error in mock mode.
+  void setSimulatedSensorError(bool value) {
+    if (_adapter is MockHardwareAdapter) {
+      final mock = _adapter as MockHardwareAdapter;
+      mock.simulateSensorError = value;
+      mock.refreshTelemetry();
+      notifyListeners();
+    }
+  }
+
+  /// Restores simulated hopper level to 100%.
+  void refillHopper() {
+    if (_adapter is MockHardwareAdapter) {
+      (_adapter as MockHardwareAdapter).refillHopper();
+      notifyListeners();
+    }
+  }
+
+  /// Sends a zero/tare calibration command to the scale.
+  Future<bool> tareScale() async {
+    final cmd = FeederCommand.tareScale();
+    final res = await _adapter.sendCommand(cmd);
+    return res.status == CommandStatus.completed;
   }
 
   void _initSampleData() {
@@ -128,7 +193,6 @@ class FeederService extends ChangeNotifier {
       ),
     ];
 
-    // Realistic baseline history for testing Chapter IV analytics
     final now = DateTime.now();
     _history = [
       FeedingLog(
@@ -185,7 +249,6 @@ class FeederService extends ChangeNotifier {
     final enabled = _schedules.where((s) => s.isEnabled).toList();
     if (enabled.isEmpty) return null;
 
-    // Sort by time
     enabled.sort((a, b) => (a.hour * 60 + a.minute).compareTo(b.hour * 60 + b.minute));
 
     for (final s in enabled) {
@@ -193,11 +256,8 @@ class FeederService extends ChangeNotifier {
         return s;
       }
     }
-    // Otherwise it's the first schedule tomorrow
     return enabled.first;
   }
-
-  bool _cancelRequested = false;
 
   double get totalDailyTargetGrams => _schedules
       .where((s) => s.isEnabled)
@@ -205,112 +265,32 @@ class FeederService extends ChangeNotifier {
 
   int get activeScheduleCount => _schedules.where((s) => s.isEnabled).length;
 
-  /// Pulls the latest telemetry. Returns false if the cloud link is down.
-  Future<bool> refreshTelemetry() async {
-    await Future.delayed(const Duration(milliseconds: 350));
-    if (_disposed) return false;
-    if (_simulateOffline) {
-      _connection = FeederConnection.offline;
-      notifyListeners();
-      return false;
-    }
-    _connection = FeederConnection.online;
-    _lastSyncedAt = DateTime.now();
-    _telemetry = _telemetryWith(lastHeartbeat: DateTime.now());
+  /// Attempts to re-establish the connection.
+  Future<bool> retryConnection() async {
+    _connection = FeederConnection.connecting;
     notifyListeners();
-    return true;
+    return _adapter.refreshTelemetry();
   }
 
+  /// Pulls the latest telemetry from the hardware adapter.
+  Future<bool> refreshTelemetry() async {
+    return _adapter.refreshTelemetry();
+  }
+
+  /// Triggers emergency stop on the hardware.
   void cancelDispensing() {
-    if (_isDispensing) {
-      _cancelRequested = true;
-    }
+    _adapter.cancelDispense();
   }
 
+  /// Triggers a closed-loop manual feed on the hardware.
   Future<bool> triggerManualFeed(double targetGrams) async {
     if (_isDispensing || !isConnected) return false;
-
-    _isDispensing = true;
-    _cancelRequested = false;
-    _telemetry = FeederTelemetry(
-      feedLevelPercent: _telemetry.feedLevelPercent,
-      batteryVolts: _telemetry.batteryVolts,
-      batteryPercent: _telemetry.batteryPercent,
-      currentWeightGrams: 0.0,
-      status: FeederStatus.dispensing,
-      lastHeartbeat: DateTime.now(),
-      lastFedTimestamp: _telemetry.lastFedTimestamp,
-      lastFedGrams: _telemetry.lastFedGrams,
-      isSolarCharging: _telemetry.isSolarCharging,
-    );
-    notifyListeners();
-
-    double dispensedGrams = 0.0;
-    // Simulate weight building up as servo dispenses
-    for (int i = 1; i <= 5; i++) {
-      if (_cancelRequested) {
-        break;
-      }
-      await Future.delayed(const Duration(milliseconds: 600));
-      if (_cancelRequested) {
-        break;
-      }
-      dispensedGrams = (targetGrams / 5) * i;
-      _telemetry = FeederTelemetry(
-        feedLevelPercent: _telemetry.feedLevelPercent,
-        batteryVolts: _telemetry.batteryVolts,
-        batteryPercent: _telemetry.batteryPercent,
-        currentWeightGrams: dispensedGrams,
-        status: FeederStatus.dispensing,
-        lastHeartbeat: DateTime.now(),
-        lastFedTimestamp: _telemetry.lastFedTimestamp,
-        lastFedGrams: _telemetry.lastFedGrams,
-        isSolarCharging: _telemetry.isSolarCharging,
-      );
-      notifyListeners();
-    }
-
-    final wasCancelled = _cancelRequested;
-    final variance = (DateTime.now().millisecond % 5 - 2) * 0.4;
-    final actualGrams = wasCancelled
-        ? dispensedGrams
-        : (targetGrams + variance).clamp(0.0, 1000.0);
-    final newFeedLevel = (_telemetry.feedLevelPercent - (actualGrams / 20.0)).clamp(0.0, 100.0);
-
-    final newLog = FeedingLog(
-      id: 'log_${DateTime.now().millisecondsSinceEpoch}',
-      timestamp: DateTime.now(),
-      targetGrams: targetGrams,
-      actualGrams: double.parse(actualGrams.toStringAsFixed(1)),
-      durationSeconds: wasCancelled ? 2 : 3,
-      triggerType: wasCancelled ? 'Manual (Aborted)' : 'Manual',
-      isSuccess: !wasCancelled,
-      batteryVolts: _telemetry.batteryVolts,
-      feedLevelPercent: newFeedLevel,
-    );
-
-    _history.insert(0, newLog);
-    _isDispensing = false;
-    _cancelRequested = false;
-
-    _telemetry = FeederTelemetry(
-      feedLevelPercent: newFeedLevel,
-      batteryVolts: _telemetry.batteryVolts,
-      batteryPercent: _telemetry.batteryPercent,
-      currentWeightGrams: 0.0,
-      status: newFeedLevel < 20 ? FeederStatus.lowFeed : FeederStatus.idle,
-      lastHeartbeat: DateTime.now(),
-      lastFedTimestamp: DateTime.now(),
-      lastFedGrams: actualGrams,
-      isSolarCharging: _telemetry.isSolarCharging,
-    );
-
-    notifyListeners();
-    return !wasCancelled;
+    return _adapter.triggerManualDispense(targetGrams);
   }
 
   void addSchedule(FeedingSchedule schedule) {
     _schedules.add(schedule);
+    _adapter.syncSchedules(_schedules);
     notifyListeners();
   }
 
@@ -320,6 +300,7 @@ class FeederService extends ChangeNotifier {
     } else {
       _schedules.add(schedule);
     }
+    _adapter.syncSchedules(_schedules);
     notifyListeners();
   }
 
@@ -327,6 +308,7 @@ class FeederService extends ChangeNotifier {
     final idx = _schedules.indexWhere((s) => s.id == updated.id);
     if (idx != -1) {
       _schedules[idx] = updated;
+      _adapter.syncSchedules(_schedules);
       notifyListeners();
     }
   }
@@ -335,12 +317,14 @@ class FeederService extends ChangeNotifier {
     final idx = _schedules.indexWhere((s) => s.id == id);
     if (idx != -1) {
       _schedules[idx] = _schedules[idx].copyWith(isEnabled: enabled);
+      _adapter.syncSchedules(_schedules);
       notifyListeners();
     }
   }
 
   void deleteSchedule(String id) {
     _schedules.removeWhere((s) => s.id == id);
+    _adapter.syncSchedules(_schedules);
     notifyListeners();
   }
 
@@ -351,5 +335,15 @@ class FeederService extends ChangeNotifier {
       buffer.writeln(log.toCsvRow());
     }
     return buffer.toString();
+  }
+
+  @override
+  void dispose() {
+    _disposed = true;
+    _telemetrySub?.cancel();
+    _connectionSub?.cancel();
+    _logSub?.cancel();
+    _adapter.dispose();
+    super.dispose();
   }
 }

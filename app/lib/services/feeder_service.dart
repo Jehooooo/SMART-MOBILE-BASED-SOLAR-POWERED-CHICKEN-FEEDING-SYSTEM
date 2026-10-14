@@ -4,19 +4,100 @@ import '../models/telemetry.dart';
 import '../models/schedule.dart';
 import '../models/feeding_log.dart';
 
+/// Link state between the mobile app and the cloud database / feeder.
+enum FeederConnection { connecting, online, offline }
+
 class FeederService extends ChangeNotifier {
   FeederTelemetry _telemetry = FeederTelemetry.initial();
   List<FeedingSchedule> _schedules = [];
   List<FeedingLog> _history = [];
   bool _isDispensing = false;
 
+  FeederConnection _connection = FeederConnection.connecting;
+  bool _isInitialLoading = true;
+  bool _simulateOffline = false;
+  bool _disposed = false;
+  DateTime? _lastSyncedAt;
+  final Duration _connectDelay;
+
   FeederTelemetry get telemetry => _telemetry;
   List<FeedingSchedule> get schedules => List.unmodifiable(_schedules);
   List<FeedingLog> get history => List.unmodifiable(_history);
   bool get isDispensing => _isDispensing;
 
-  FeederService() {
+  FeederConnection get connection => _connection;
+  bool get isConnected => _connection == FeederConnection.online;
+  bool get isInitialLoading => _isInitialLoading;
+  bool get isSimulatingOffline => _simulateOffline;
+  DateTime? get lastSyncedAt => _lastSyncedAt;
+
+  /// [connectDelay] simulates the time needed for the first cloud sync.
+  FeederService({Duration connectDelay = const Duration(milliseconds: 900)})
+      : _connectDelay = connectDelay {
     _initSampleData();
+    _connect();
+  }
+
+  Future<void> _connect() async {
+    await Future.delayed(_connectDelay);
+    if (_disposed) return;
+    _isInitialLoading = false;
+    _applyConnectionResult();
+  }
+
+  void _applyConnectionResult() {
+    if (_simulateOffline) {
+      _connection = FeederConnection.offline;
+    } else {
+      _connection = FeederConnection.online;
+      _lastSyncedAt = DateTime.now();
+      _telemetry = _telemetryWith(lastHeartbeat: DateTime.now());
+    }
+    notifyListeners();
+  }
+
+  /// Attempts to re-establish the cloud link. Returns true when online.
+  Future<bool> retryConnection() async {
+    if (_connection == FeederConnection.connecting) return false;
+    _connection = FeederConnection.connecting;
+    notifyListeners();
+    await Future.delayed(const Duration(milliseconds: 800));
+    if (_disposed) return false;
+    _applyConnectionResult();
+    return isConnected;
+  }
+
+  /// Testing aid: forces the app into the offline state so the connection
+  /// banner and disabled controls can be demonstrated without hardware.
+  void setSimulatedOffline(bool value) {
+    _simulateOffline = value;
+    if (_isInitialLoading) return;
+    if (value) {
+      _connection = FeederConnection.offline;
+      notifyListeners();
+    } else {
+      _applyConnectionResult();
+    }
+  }
+
+  FeederTelemetry _telemetryWith({DateTime? lastHeartbeat}) {
+    return FeederTelemetry(
+      feedLevelPercent: _telemetry.feedLevelPercent,
+      batteryVolts: _telemetry.batteryVolts,
+      batteryPercent: _telemetry.batteryPercent,
+      currentWeightGrams: _telemetry.currentWeightGrams,
+      status: _telemetry.status,
+      lastHeartbeat: lastHeartbeat ?? _telemetry.lastHeartbeat,
+      lastFedTimestamp: _telemetry.lastFedTimestamp,
+      lastFedGrams: _telemetry.lastFedGrams,
+      isSolarCharging: _telemetry.isSolarCharging,
+    );
+  }
+
+  @override
+  void dispose() {
+    _disposed = true;
+    super.dispose();
   }
 
   void _initSampleData() {
@@ -125,20 +206,20 @@ class FeederService extends ChangeNotifier {
 
   int get activeScheduleCount => _schedules.where((s) => s.isEnabled).length;
 
-  Future<void> refreshTelemetry() async {
+  /// Pulls the latest telemetry. Returns false if the cloud link is down.
+  Future<bool> refreshTelemetry() async {
     await Future.delayed(const Duration(milliseconds: 350));
-    _telemetry = FeederTelemetry(
-      feedLevelPercent: _telemetry.feedLevelPercent,
-      batteryVolts: _telemetry.batteryVolts,
-      batteryPercent: _telemetry.batteryPercent,
-      currentWeightGrams: _telemetry.currentWeightGrams,
-      status: _telemetry.status,
-      lastHeartbeat: DateTime.now(),
-      lastFedTimestamp: _telemetry.lastFedTimestamp,
-      lastFedGrams: _telemetry.lastFedGrams,
-      isSolarCharging: _telemetry.isSolarCharging,
-    );
+    if (_disposed) return false;
+    if (_simulateOffline) {
+      _connection = FeederConnection.offline;
+      notifyListeners();
+      return false;
+    }
+    _connection = FeederConnection.online;
+    _lastSyncedAt = DateTime.now();
+    _telemetry = _telemetryWith(lastHeartbeat: DateTime.now());
     notifyListeners();
+    return true;
   }
 
   void cancelDispensing() {
@@ -148,7 +229,7 @@ class FeederService extends ChangeNotifier {
   }
 
   Future<bool> triggerManualFeed(double targetGrams) async {
-    if (_isDispensing) return false;
+    if (_isDispensing || !isConnected) return false;
 
     _isDispensing = true;
     _cancelRequested = false;

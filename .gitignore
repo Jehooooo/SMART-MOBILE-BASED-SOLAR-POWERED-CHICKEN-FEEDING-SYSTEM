@@ -37,6 +37,7 @@ app/.packages
 app/android/local.properties
 app/android/.gradle/
 app/ios/Pods/
+app/smart_feeder_settings.json
 
 # ---- Editors / OS / local ----
 .obsidian/

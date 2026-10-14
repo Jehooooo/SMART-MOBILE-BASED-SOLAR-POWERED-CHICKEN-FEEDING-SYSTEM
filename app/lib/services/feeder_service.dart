@@ -18,7 +18,7 @@ class FeederService extends ChangeNotifier {
   bool _simulateOffline = false;
   bool _disposed = false;
   DateTime? _lastSyncedAt;
-  final Duration _connectDelay;
+  final Duration connectDelay;
 
   FeederTelemetry get telemetry => _telemetry;
   List<FeedingSchedule> get schedules => List.unmodifiable(_schedules);
@@ -32,14 +32,13 @@ class FeederService extends ChangeNotifier {
   DateTime? get lastSyncedAt => _lastSyncedAt;
 
   /// [connectDelay] simulates the time needed for the first cloud sync.
-  FeederService({Duration connectDelay = const Duration(milliseconds: 900)})
-      : _connectDelay = connectDelay {
+  FeederService({this.connectDelay = const Duration(milliseconds: 900)}) {
     _initSampleData();
     _connect();
   }
 
   Future<void> _connect() async {
-    await Future.delayed(_connectDelay);
+    await Future.delayed(connectDelay);
     if (_disposed) return;
     _isInitialLoading = false;
     _applyConnectionResult();

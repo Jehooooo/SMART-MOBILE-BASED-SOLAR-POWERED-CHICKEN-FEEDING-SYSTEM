@@ -183,16 +183,22 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              Row(
-                                children: [
-                                  Icon(Icons.inventory_2, size: 18, color: c.warning),
-                                  const SizedBox(width: 8),
-                                  Text(
-                                    'Low Feed Warning Level',
-                                    style: TextStyle(fontWeight: FontWeight.bold, color: c.textPrimary),
-                                  ),
-                                ],
+                              Expanded(
+                                child: Row(
+                                  children: [
+                                    Icon(Icons.inventory_2, size: 18, color: c.warning),
+                                    const SizedBox(width: 8),
+                                    Flexible(
+                                      child: Text(
+                                        'Low Feed Warning Level',
+                                        overflow: TextOverflow.ellipsis,
+                                        style: TextStyle(fontWeight: FontWeight.bold, color: c.textPrimary),
+                                      ),
+                                    ),
+                                  ],
+                                ),
                               ),
+                              const SizedBox(width: 8),
                               Container(
                                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                                 decoration: BoxDecoration(
@@ -200,7 +206,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                   borderRadius: BorderRadius.circular(6),
                                 ),
                                 child: Text(
-                                  'Trigger below ${_settings.lowFeedThreshold.toInt()}%',
+                                  '< ${_settings.lowFeedThreshold.toInt()}%',
                                   style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: c.warning),
                                 ),
                               ),
@@ -226,16 +232,22 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              Row(
-                                children: [
-                                  Icon(Icons.battery_alert, size: 18, color: c.danger),
-                                  const SizedBox(width: 8),
-                                  Text(
-                                    'Low Solar Battery Warning',
-                                    style: TextStyle(fontWeight: FontWeight.bold, color: c.textPrimary),
-                                  ),
-                                ],
+                              Expanded(
+                                child: Row(
+                                  children: [
+                                    Icon(Icons.battery_alert, size: 18, color: c.danger),
+                                    const SizedBox(width: 8),
+                                    Flexible(
+                                      child: Text(
+                                        'Low Solar Battery Warning',
+                                        overflow: TextOverflow.ellipsis,
+                                        style: TextStyle(fontWeight: FontWeight.bold, color: c.textPrimary),
+                                      ),
+                                    ),
+                                  ],
+                                ),
                               ),
+                              const SizedBox(width: 8),
                               Container(
                                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                                 decoration: BoxDecoration(
@@ -243,7 +255,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                   borderRadius: BorderRadius.circular(6),
                                 ),
                                 child: Text(
-                                  'Trigger below ${_settings.lowBatteryThreshold.toInt()}%',
+                                  '< ${_settings.lowBatteryThreshold.toInt()}%',
                                   style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: c.danger),
                                 ),
                               ),

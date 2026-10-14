@@ -102,6 +102,30 @@ class FeederTelemetry {
     );
   }
 
+  FeederTelemetry copyWith({
+    double? feedLevelPercent,
+    double? batteryVolts,
+    int? batteryPercent,
+    double? currentWeightGrams,
+    FeederStatus? status,
+    DateTime? lastHeartbeat,
+    DateTime? lastFedTimestamp,
+    double? lastFedGrams,
+    bool? isSolarCharging,
+  }) {
+    return FeederTelemetry(
+      feedLevelPercent: feedLevelPercent ?? this.feedLevelPercent,
+      batteryVolts: batteryVolts ?? this.batteryVolts,
+      batteryPercent: batteryPercent ?? this.batteryPercent,
+      currentWeightGrams: currentWeightGrams ?? this.currentWeightGrams,
+      status: status ?? this.status,
+      lastHeartbeat: lastHeartbeat ?? this.lastHeartbeat,
+      lastFedTimestamp: lastFedTimestamp ?? this.lastFedTimestamp,
+      lastFedGrams: lastFedGrams ?? this.lastFedGrams,
+      isSolarCharging: isSolarCharging ?? this.isSolarCharging,
+    );
+  }
+
   Map<String, dynamic> toMap() {
     return {
       'feedLevelPercent': feedLevelPercent,

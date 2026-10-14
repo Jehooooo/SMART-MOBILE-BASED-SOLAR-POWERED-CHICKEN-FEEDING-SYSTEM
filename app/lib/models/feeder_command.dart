@@ -133,4 +133,29 @@ class FeederCommand {
       errorMessage: json['errorMessage'] as String?,
     );
   }
+
+  factory FeederCommand.dispense(double targetGrams) {
+    return FeederCommand(
+      id: 'cmd_${DateTime.now().millisecondsSinceEpoch}',
+      action: FeederAction.dispense,
+      targetGrams: targetGrams,
+      timestamp: DateTime.now(),
+    );
+  }
+
+  factory FeederCommand.emergencyStop() {
+    return FeederCommand(
+      id: 'cmd_${DateTime.now().millisecondsSinceEpoch}',
+      action: FeederAction.emergencyStop,
+      timestamp: DateTime.now(),
+    );
+  }
+
+  factory FeederCommand.tareScale() {
+    return FeederCommand(
+      id: 'cmd_${DateTime.now().millisecondsSinceEpoch}',
+      action: FeederAction.tareScale,
+      timestamp: DateTime.now(),
+    );
+  }
 }

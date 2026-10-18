@@ -1,15 +1,15 @@
-// ignore_for_file: prefer_initializing_formals
 import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'hardware/hardware_adapter.dart';
 
 /// App version shown on the About section. Keep in sync with pubspec.yaml.
 const String kAppVersion = '1.0.0';
 const String kAppBuild = '1';
 
 /// User preferences saved on the device (theme, feeder name, alert
-/// thresholds, onboarding state).
+/// thresholds, onboarding state, hardware transport).
 ///
 /// Pure Dart JSON persistence: uses `settings.json` locally when file system
 /// is available (Windows / Android), and gracefully falls back to in-memory
@@ -19,6 +19,7 @@ class SettingsService extends ChangeNotifier {
   static const defaultLowFeedThreshold = 20.0;
   static const defaultLowBatteryThreshold = 20.0;
   static const defaultHopperCapacityKg = 5.0;
+  static const defaultHardwareTransport = HardwareTransportType.mockSimulator;
 
   static const _fileName = 'smart_feeder_settings.json';
 
@@ -28,6 +29,7 @@ class SettingsService extends ChangeNotifier {
   double _lowBatteryThreshold;
   double _hopperCapacityKg;
   bool _onboardingComplete;
+  HardwareTransportType _hardwareTransport;
 
   SettingsService({
     ThemeMode themeMode = ThemeMode.system,
@@ -36,12 +38,14 @@ class SettingsService extends ChangeNotifier {
     double lowBatteryThreshold = defaultLowBatteryThreshold,
     double hopperCapacityKg = defaultHopperCapacityKg,
     bool onboardingComplete = false,
+    HardwareTransportType hardwareTransport = defaultHardwareTransport,
   })  : _themeMode = themeMode,
         _feederName = feederName,
         _lowFeedThreshold = lowFeedThreshold,
         _lowBatteryThreshold = lowBatteryThreshold,
         _hopperCapacityKg = hopperCapacityKg,
-        _onboardingComplete = onboardingComplete;
+        _onboardingComplete = onboardingComplete,
+        _hardwareTransport = hardwareTransport;
 
   static File? _getStorageFile() {
     if (kIsWeb) return null;
@@ -67,6 +71,8 @@ class SettingsService extends ChangeNotifier {
         service._lowBatteryThreshold = (data['low_battery_threshold'] as num?)?.toDouble() ?? defaultLowBatteryThreshold;
         service._hopperCapacityKg = (data['hopper_capacity_kg'] as num?)?.toDouble() ?? defaultHopperCapacityKg;
         service._onboardingComplete = data['onboarding_complete'] as bool? ?? false;
+        final transportIdx = data['hardware_transport'] as int? ?? defaultHardwareTransport.index;
+        service._hardwareTransport = HardwareTransportType.values[transportIdx.clamp(0, HardwareTransportType.values.length - 1)];
       }
     } catch (e) {
       debugPrint('SettingsService.load fallback to memory: $e');
@@ -85,6 +91,7 @@ class SettingsService extends ChangeNotifier {
           'low_battery_threshold': _lowBatteryThreshold,
           'hopper_capacity_kg': _hopperCapacityKg,
           'onboarding_complete': _onboardingComplete,
+          'hardware_transport': _hardwareTransport.index,
         };
         await file.writeAsString(jsonEncode(map));
       }
@@ -99,6 +106,14 @@ class SettingsService extends ChangeNotifier {
   double get lowBatteryThreshold => _lowBatteryThreshold;
   double get hopperCapacityKg => _hopperCapacityKg;
   bool get onboardingComplete => _onboardingComplete;
+  HardwareTransportType get hardwareTransport => _hardwareTransport;
+
+  Future<void> setHardwareTransport(HardwareTransportType transport) async {
+    if (transport == _hardwareTransport) return;
+    _hardwareTransport = transport;
+    _save();
+    notifyListeners();
+  }
 
   void setThemeMode(ThemeMode mode) {
     if (mode == _themeMode) return;

@@ -18,7 +18,7 @@ class FeederService extends ChangeNotifier {
   List<FeedingLog> _history = [];
   bool _isDispensing = false;
 
-  FeederConnection _connection = FeederConnection.connecting;
+  FeederConnection _connection = FeederConnection.offline;
   bool _isInitialLoading = true;
   bool _disposed = false;
   DateTime? _lastSyncedAt;
@@ -66,11 +66,12 @@ class FeederService extends ChangeNotifier {
     return false;
   }
 
-  /// Optional injected adapter (defaults to MockHardwareAdapter for zero-hardware development).
+  /// Optional injected adapter (defaults to MockHardwareAdapter with offline default for pre-fabrication testing).
   FeederService({
     FeederHardwareAdapter? adapter,
     Duration connectDelay = const Duration(milliseconds: 600),
-  }) : _adapter = adapter ?? MockHardwareAdapter(connectDelay: connectDelay) {
+    bool simulateOffline = true,
+  }) : _adapter = adapter ?? MockHardwareAdapter(connectDelay: connectDelay, simulateOffline: simulateOffline) {
     _initSampleData();
     _bindAdapter(_adapter);
   }
@@ -83,7 +84,9 @@ class FeederService extends ChangeNotifier {
     _telemetrySub = adapter.telemetryStream.listen((t) {
       _telemetry = t;
       _isDispensing = t.status == FeederStatus.dispensing;
-      _lastSyncedAt = DateTime.now();
+      if (t.isOnline) {
+        _lastSyncedAt = DateTime.now();
+      }
       _isInitialLoading = false;
       notifyListeners();
     });
@@ -123,7 +126,10 @@ class FeederService extends ChangeNotifier {
       mock.simulateOffline = value;
       if (value) {
         _connection = FeederConnection.offline;
+        _telemetry = _telemetry.copyWith(clearHeartbeat: true);
       } else {
+        _connection = FeederConnection.online;
+        _telemetry = _telemetry.copyWith(lastHeartbeat: DateTime.now());
         mock.refreshTelemetry();
       }
       notifyListeners();

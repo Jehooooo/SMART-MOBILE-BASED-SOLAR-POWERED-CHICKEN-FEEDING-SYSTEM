@@ -6,6 +6,7 @@ class FeedingSchedule {
   final String label;
   final int hour;
   final int minute;
+  final int durationSeconds;
   final double targetGrams;
   final bool isEnabled;
   final List<int> daysOfWeek; // 1 = Monday, 7 = Sunday
@@ -15,7 +16,8 @@ class FeedingSchedule {
     required this.label,
     required this.hour,
     required this.minute,
-    required this.targetGrams,
+    this.durationSeconds = 5,
+    this.targetGrams = 100.0,
     this.isEnabled = true,
     this.daysOfWeek = const [1, 2, 3, 4, 5, 6, 7],
   });
@@ -31,6 +33,7 @@ class FeedingSchedule {
     String? label,
     int? hour,
     int? minute,
+    int? durationSeconds,
     double? targetGrams,
     bool? isEnabled,
     List<int>? daysOfWeek,
@@ -40,6 +43,7 @@ class FeedingSchedule {
       label: label ?? this.label,
       hour: hour ?? this.hour,
       minute: minute ?? this.minute,
+      durationSeconds: durationSeconds ?? this.durationSeconds,
       targetGrams: targetGrams ?? this.targetGrams,
       isEnabled: isEnabled ?? this.isEnabled,
       daysOfWeek: daysOfWeek ?? this.daysOfWeek,
@@ -47,12 +51,16 @@ class FeedingSchedule {
   }
 
   factory FeedingSchedule.fromMap(String id, Map<dynamic, dynamic> map) {
+    final durSec = (map['durationSeconds'] as num?)?.toInt() ??
+        (map['duration'] as num?)?.toInt() ??
+        5;
     return FeedingSchedule(
       id: id,
       label: map['label'] as String? ?? 'Scheduled Feed',
       hour: (map['hour'] as num?)?.toInt() ?? 6,
       minute: (map['minute'] as num?)?.toInt() ?? 0,
-      targetGrams: (map['targetGrams'] as num?)?.toDouble() ?? 150.0,
+      durationSeconds: durSec,
+      targetGrams: (map['targetGrams'] as num?)?.toDouble() ?? (durSec * 20.0),
       isEnabled: map['isEnabled'] as bool? ?? true,
       daysOfWeek: (map['daysOfWeek'] as List<dynamic>?)
               ?.map((e) => (e as num).toInt())
@@ -66,6 +74,7 @@ class FeedingSchedule {
       'label': label,
       'hour': hour,
       'minute': minute,
+      'durationSeconds': durationSeconds,
       'targetGrams': targetGrams,
       'isEnabled': isEnabled,
       'daysOfWeek': daysOfWeek,

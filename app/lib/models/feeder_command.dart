@@ -79,6 +79,7 @@ enum CommandStatus {
 class FeederCommand {
   final String id;
   final FeederAction action;
+  final int durationSeconds;
   final double targetGrams;
   final DateTime timestamp;
   final CommandStatus status;
@@ -87,6 +88,7 @@ class FeederCommand {
   const FeederCommand({
     required this.id,
     required this.action,
+    this.durationSeconds = 5,
     this.targetGrams = 0.0,
     required this.timestamp,
     this.status = CommandStatus.pending,
@@ -96,11 +98,14 @@ class FeederCommand {
   FeederCommand copyWith({
     CommandStatus? status,
     String? errorMessage,
+    int? durationSeconds,
+    double? targetGrams,
   }) {
     return FeederCommand(
       id: id,
       action: action,
-      targetGrams: targetGrams,
+      durationSeconds: durationSeconds ?? this.durationSeconds,
+      targetGrams: targetGrams ?? this.targetGrams,
       timestamp: timestamp,
       status: status ?? this.status,
       errorMessage: errorMessage ?? this.errorMessage,
@@ -111,6 +116,7 @@ class FeederCommand {
     return {
       'id': id,
       'action': action.commandString,
+      'durationSeconds': durationSeconds,
       'targetGrams': targetGrams,
       'timestamp': timestamp.millisecondsSinceEpoch,
       'status': status.name,
@@ -122,6 +128,9 @@ class FeederCommand {
     return FeederCommand(
       id: json['id'] as String? ?? 'cmd_${DateTime.now().millisecondsSinceEpoch}',
       action: FeederAction.fromString(json['action'] as String? ?? 'DISPENSE'),
+      durationSeconds: (json['durationSeconds'] as num?)?.toInt() ??
+          (json['duration'] as num?)?.toInt() ??
+          5,
       targetGrams: (json['targetGrams'] as num?)?.toDouble() ?? 0.0,
       timestamp: json['timestamp'] != null
           ? DateTime.fromMillisecondsSinceEpoch(json['timestamp'] as int)
@@ -134,10 +143,11 @@ class FeederCommand {
     );
   }
 
-  factory FeederCommand.dispense(double targetGrams) {
+  factory FeederCommand.dispense({int durationSeconds = 5, double targetGrams = 0.0}) {
     return FeederCommand(
       id: 'cmd_${DateTime.now().millisecondsSinceEpoch}',
       action: FeederAction.dispense,
+      durationSeconds: durationSeconds,
       targetGrams: targetGrams,
       timestamp: DateTime.now(),
     );

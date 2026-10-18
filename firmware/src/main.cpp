@@ -149,6 +149,54 @@ bool dispenseFeed(float targetGrams, const char* triggerType) {
   return true;
 }
 
+// Timed dispensing: keep gate open for durationSeconds
+bool dispenseFeedDuration(int durationSec, const char* triggerType) {
+  if (isDispensing) return false;
+
+  float vbat = readBatteryVolts();
+  if (vbat < BATTERY_LOW_VOLTS) {
+    Serial.println("[ERROR] Dispense blocked: Low battery voltage (<11.5V)");
+    return false;
+  }
+
+  isDispensing = true;
+  emergencyStopRequested = false;
+
+  scale.tare();
+  gate.write(SERVO_OPEN_DEG);
+  printTelemetryJson("dispensing");
+
+  unsigned long startTime = millis();
+  unsigned long durationMs = (unsigned long)durationSec * 1000UL;
+
+  while (millis() - startTime < durationMs) {
+    if (emergencyStopRequested) {
+      gate.write(SERVO_CLOSED_DEG);
+      isDispensing = false;
+      Serial.println("[ABORT] Dispensing halted by emergency stop");
+      float currentWeight = scale.get_units(2);
+      emitFeedingLog(triggerType, 0, currentWeight, (int)((millis() - startTime) / 1000), false);
+      printTelemetryJson("idle");
+      return false;
+    }
+    delay(50);
+  }
+
+  gate.write(SERVO_CLOSED_DEG);
+  int actualDurationSec = (int)((millis() - startTime) / 1000);
+  float dispensedWeight = scale.get_units(2);
+  if (dispensedWeight < 0.0f) dispensedWeight = 0.0f;
+  isDispensing = false;
+
+  lastFedTimestampMs = millis();
+  lastFedGrams = dispensedWeight;
+
+  Serial.printf("[OK] Dispensed for %d s (approx %.1f g)\n", actualDurationSec, dispensedWeight);
+  emitFeedingLog(triggerType, 0, dispensedWeight, actualDurationSec, true);
+  printTelemetryJson("idle");
+  return true;
+}
+
 void handleCommand(const String& cmdJson) {
   JsonDocument doc;
   DeserializationError err = deserializeJson(doc, cmdJson);
@@ -158,10 +206,17 @@ void handleCommand(const String& cmdJson) {
   }
 
   const char* action = doc["action"] | "";
-  float targetGrams = doc["targetGrams"] | DEFAULT_TARGET_GRAMS;
+  int durationSec = doc["durationSeconds"] | doc["duration"] | 0;
+  float targetGrams = doc["targetGrams"] | 0.0f;
 
   if (strcmp(action, "DISPENSE") == 0) {
-    dispenseFeed(targetGrams, "Manual");
+    if (durationSec > 0) {
+      dispenseFeedDuration(durationSec, "Manual");
+    } else if (targetGrams > 0.0f) {
+      dispenseFeed(targetGrams, "Manual");
+    } else {
+      dispenseFeedDuration(5, "Manual");
+    }
   } else if (strcmp(action, "EMERGENCY_STOP") == 0 || strcmp(action, "STOP") == 0) {
     emergencyStopRequested = true;
     gate.write(SERVO_CLOSED_DEG);

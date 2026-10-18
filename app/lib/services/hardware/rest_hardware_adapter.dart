@@ -99,14 +99,18 @@ class RestHardwareAdapter implements FeederHardwareAdapter {
   }
 
   @override
-  Future<bool> triggerManualDispense(double targetGrams) async {
+  Future<bool> triggerManualDispense({int durationSeconds = 5, double targetGrams = 0.0}) async {
     if (kIsWeb) return false;
     try {
       final client = HttpClient();
       client.connectionTimeout = const Duration(seconds: 2);
       final request = await client.postUrl(Uri.parse('$_baseUrl/api/dispense'));
       request.headers.contentType = ContentType.json;
-      request.write(jsonEncode({'targetGrams': targetGrams}));
+      request.write(jsonEncode({
+        'durationSeconds': durationSeconds,
+        'duration': durationSeconds,
+        'targetGrams': targetGrams,
+      }));
       final response = await request.close();
       return response.statusCode == 200;
     } catch (e) {

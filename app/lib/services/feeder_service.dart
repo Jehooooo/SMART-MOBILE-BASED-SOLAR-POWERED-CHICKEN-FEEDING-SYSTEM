@@ -288,10 +288,13 @@ class FeederService extends ChangeNotifier {
     _adapter.cancelDispense();
   }
 
-  /// Triggers a closed-loop manual feed on the hardware.
-  Future<bool> triggerManualFeed(double targetGrams) async {
+  /// Triggers timed manual feeding on the hardware.
+  Future<bool> triggerManualFeed({int durationSeconds = 5, double targetGrams = 0.0}) async {
     if (_isDispensing || !isConnected) return false;
-    return _adapter.triggerManualDispense(targetGrams);
+    return _adapter.triggerManualDispense(
+      durationSeconds: durationSeconds,
+      targetGrams: targetGrams,
+    );
   }
 
   void addSchedule(FeedingSchedule schedule) {

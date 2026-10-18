@@ -128,11 +128,12 @@ class MockHardwareAdapter implements FeederHardwareAdapter {
   }
 
   @override
-  Future<bool> triggerManualDispense(double targetGrams) async {
+  Future<bool> triggerManualDispense({int durationSeconds = 5, double targetGrams = 0.0}) async {
     if (_isDispensing || _currentConnection != FeederConnection.online) {
       return false;
     }
 
+    final double effectiveTargetGrams = targetGrams > 0 ? targetGrams : (durationSeconds * 20.0);
     _isDispensing = true;
     _cancelRequested = false;
 
@@ -150,8 +151,8 @@ class MockHardwareAdapter implements FeederHardwareAdapter {
     );
     _telemetryController.add(_currentTelemetry);
 
-    // Incremental weighing ramp via simulated load cell
-    const steps = 5;
+    // Incremental ramp across durationSeconds
+    final steps = durationSeconds.clamp(1, 30);
     double currentWeight = 0.0;
 
     for (int i = 1; i <= steps; i++) {
@@ -177,7 +178,7 @@ class MockHardwareAdapter implements FeederHardwareAdapter {
         return false;
       }
 
-      currentWeight = (targetGrams / steps) * i;
+      currentWeight = (effectiveTargetGrams / steps) * i;
       _currentTelemetry = FeederTelemetry(
         feedLevelPercent: _currentTelemetry.feedLevelPercent,
         batteryVolts: _currentTelemetry.batteryVolts,
@@ -196,16 +197,16 @@ class MockHardwareAdapter implements FeederHardwareAdapter {
     final variance = (_rng.nextDouble() * 3.0) - 1.5; // ±1.5g empirical accuracy per methodology
     final actualGrams = wasCancelled
         ? currentWeight
-        : (targetGrams + variance).clamp(0.0, 1000.0);
+        : (effectiveTargetGrams + variance).clamp(0.0, 1000.0);
 
     final newFeedLevel = (_currentTelemetry.feedLevelPercent - (actualGrams / 20.0)).clamp(0.0, 100.0);
 
     final log = FeedingLog(
       id: 'log_${DateTime.now().millisecondsSinceEpoch}',
       timestamp: DateTime.now(),
-      targetGrams: targetGrams,
+      targetGrams: effectiveTargetGrams,
       actualGrams: double.parse(actualGrams.toStringAsFixed(1)),
-      durationSeconds: wasCancelled ? 2 : (targetGrams / 15.0).round().clamp(3, 30),
+      durationSeconds: wasCancelled ? 1 : durationSeconds,
       triggerType: wasCancelled ? 'Manual (Aborted)' : 'Manual',
       isSuccess: !wasCancelled,
       batteryVolts: _currentTelemetry.batteryVolts,
@@ -258,7 +259,10 @@ class MockHardwareAdapter implements FeederHardwareAdapter {
 
     switch (command.action) {
       case FeederAction.dispense:
-        final ok = await triggerManualDispense(command.targetGrams);
+        final ok = await triggerManualDispense(
+          durationSeconds: command.durationSeconds,
+          targetGrams: command.targetGrams,
+        );
         return command.copyWith(status: ok ? CommandStatus.completed : CommandStatus.failed);
       case FeederAction.emergencyStop:
         await cancelDispense();

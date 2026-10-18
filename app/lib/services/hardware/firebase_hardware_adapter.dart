@@ -116,11 +116,12 @@ class FirebaseHardwareAdapter implements FeederHardwareAdapter {
   }
 
   @override
-  Future<bool> triggerManualDispense(double targetGrams) async {
+  Future<bool> triggerManualDispense({int durationSeconds = 5, double targetGrams = 0.0}) async {
     if (_isDispensing || _rootRef == null) return false;
     final cmd = FeederCommand(
       id: 'cmd_${DateTime.now().millisecondsSinceEpoch}',
       action: FeederAction.dispense,
+      durationSeconds: durationSeconds,
       targetGrams: targetGrams,
       timestamp: DateTime.now(),
       status: CommandStatus.pending,

@@ -144,8 +144,15 @@ void main() {
       feeder.dispose();
     });
 
-    test('FeederService data logic and heuristic operations test', () async {
+    test('FeederService defaults to offline during development until hardware connects', () async {
       final service = FeederService(connectDelay: Duration.zero);
+      expect(service.connection, FeederConnection.offline);
+      expect(service.telemetry.isOnline, false);
+      service.dispose();
+    });
+
+    test('FeederService data logic and heuristic operations test', () async {
+      final service = FeederService(connectDelay: Duration.zero, simulateOffline: false);
       await service.refreshTelemetry();
 
       expect(service.schedules.length, 3);

@@ -33,7 +33,7 @@ class FeederTelemetry {
   final int batteryPercent;
   final double currentWeightGrams;
   final FeederStatus status;
-  final DateTime lastHeartbeat;
+  final DateTime? lastHeartbeat;
   final DateTime? lastFedTimestamp;
   final double lastFedGrams;
   final bool isSolarCharging;
@@ -44,14 +44,15 @@ class FeederTelemetry {
     required this.batteryPercent,
     required this.currentWeightGrams,
     required this.status,
-    required this.lastHeartbeat,
+    this.lastHeartbeat,
     this.lastFedTimestamp,
     this.lastFedGrams = 0.0,
     this.isSolarCharging = true,
   });
 
   bool get isOnline {
-    final diff = DateTime.now().difference(lastHeartbeat);
+    if (lastHeartbeat == null) return false;
+    final diff = DateTime.now().difference(lastHeartbeat!);
     return diff.inMinutes < 3;
   }
 
@@ -62,7 +63,7 @@ class FeederTelemetry {
       batteryPercent: 88,
       currentWeightGrams: 0.0,
       status: FeederStatus.idle,
-      lastHeartbeat: DateTime.now(),
+      lastHeartbeat: null,
       lastFedTimestamp: DateTime.now().subtract(const Duration(hours: 3)),
       lastFedGrams: 150.0,
       isSolarCharging: true,
@@ -93,7 +94,7 @@ class FeederTelemetry {
       status: parsedStatus,
       lastHeartbeat: hbMillis > 0
           ? DateTime.fromMillisecondsSinceEpoch(hbMillis)
-          : DateTime.now(),
+          : null,
       lastFedTimestamp: lastFedMillis != null && lastFedMillis > 0
           ? DateTime.fromMillisecondsSinceEpoch(lastFedMillis)
           : null,
@@ -109,6 +110,7 @@ class FeederTelemetry {
     double? currentWeightGrams,
     FeederStatus? status,
     DateTime? lastHeartbeat,
+    bool clearHeartbeat = false,
     DateTime? lastFedTimestamp,
     double? lastFedGrams,
     bool? isSolarCharging,
@@ -119,7 +121,7 @@ class FeederTelemetry {
       batteryPercent: batteryPercent ?? this.batteryPercent,
       currentWeightGrams: currentWeightGrams ?? this.currentWeightGrams,
       status: status ?? this.status,
-      lastHeartbeat: lastHeartbeat ?? this.lastHeartbeat,
+      lastHeartbeat: clearHeartbeat ? null : (lastHeartbeat ?? this.lastHeartbeat),
       lastFedTimestamp: lastFedTimestamp ?? this.lastFedTimestamp,
       lastFedGrams: lastFedGrams ?? this.lastFedGrams,
       isSolarCharging: isSolarCharging ?? this.isSolarCharging,
@@ -133,7 +135,7 @@ class FeederTelemetry {
       'batteryPercent': batteryPercent,
       'currentWeightGrams': currentWeightGrams,
       'status': status.name,
-      'lastHeartbeat': lastHeartbeat.millisecondsSinceEpoch,
+      'lastHeartbeat': lastHeartbeat?.millisecondsSinceEpoch,
       'lastFedTimestamp': lastFedTimestamp?.millisecondsSinceEpoch,
       'lastFedGrams': lastFedGrams,
       'isSolarCharging': isSolarCharging,

@@ -33,7 +33,7 @@ class MockHardwareAdapter implements FeederHardwareAdapter {
 
   // Simulation fault flags for integration testing
   bool simulateMotorJam = false;
-  bool simulateOffline = false;
+  bool simulateOffline = true;
   bool simulateSensorError = false;
 
   final Random _rng = Random();
@@ -41,6 +41,7 @@ class MockHardwareAdapter implements FeederHardwareAdapter {
   MockHardwareAdapter({
     this.connectDelay = const Duration(milliseconds: 600),
     this.dispenseTickInterval = const Duration(milliseconds: 400),
+    this.simulateOffline = true,
   });
 
   @override
@@ -71,6 +72,8 @@ class MockHardwareAdapter implements FeederHardwareAdapter {
 
     if (simulateOffline) {
       _currentConnection = FeederConnection.offline;
+      _currentTelemetry = FeederTelemetry.initial();
+      _telemetryController.add(_currentTelemetry);
     } else {
       _currentConnection = FeederConnection.online;
       _currentTelemetry = FeederTelemetry(

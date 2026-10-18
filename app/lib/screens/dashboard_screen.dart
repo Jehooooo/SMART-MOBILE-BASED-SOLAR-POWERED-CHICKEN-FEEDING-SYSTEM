@@ -153,16 +153,26 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 padding: const EdgeInsets.only(right: 12.0),
                 child: Tooltip(
                   message: isOnline
-                      ? 'Feeder is online and connected via 2.4GHz Wi-Fi'
-                      : 'Feeder is offline. Check solar battery and Wi-Fi signal.',
-                  child: Chip(
-                    avatar: CircleAvatar(backgroundColor: chipDot, radius: 5),
-                    label: Text(
-                      chipLabel,
-                      style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: c.textPrimary),
+                      ? (widget.feederService.isMock
+                          ? 'Simulator: Online emulation active'
+                          : 'Feeder is online and connected via 2.4GHz Wi-Fi')
+                      : (widget.feederService.isMock
+                          ? 'Feeder is offline (Development Default). Tap to toggle online simulation.'
+                          : 'Feeder is offline. Check solar battery and Wi-Fi signal.'),
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(16),
+                    onTap: widget.feederService.isMock
+                        ? () => _showSimulatorConnectionSheet(context)
+                        : null,
+                    child: Chip(
+                      avatar: CircleAvatar(backgroundColor: chipDot, radius: 5),
+                      label: Text(
+                        chipLabel,
+                        style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: c.textPrimary),
+                      ),
+                      backgroundColor: c.surfaceMuted,
+                      side: BorderSide(color: c.border),
                     ),
-                    backgroundColor: c.surfaceMuted,
-                    side: BorderSide(color: c.border),
                   ),
                 ),
               ),
@@ -898,6 +908,99 @@ class _DashboardScreenState extends State<DashboardScreen> {
           ),
         ],
       ),
+    );
+  }
+
+  void _showSimulatorConnectionSheet(BuildContext context) {
+    final c = context.colors;
+    final feeder = widget.feederService;
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (ctx, setSheetState) {
+            final isSimOffline = feeder.isSimulatingOffline;
+            return SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Center(
+                      child: Container(
+                        width: 40,
+                        height: 4,
+                        decoration: BoxDecoration(
+                          color: c.border,
+                          borderRadius: BorderRadius.circular(2),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    Row(
+                      children: [
+                        CircleAvatar(
+                          backgroundColor: isSimOffline ? c.dangerSoft : c.brandSoft,
+                          child: Icon(
+                            isSimOffline ? Icons.cloud_off : Icons.cloud_done,
+                            color: isSimOffline ? c.danger : c.brand,
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Hardware Simulator',
+                                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: c.textPrimary),
+                              ),
+                              Text(
+                                isSimOffline
+                                    ? 'Offline (Development Default)'
+                                    : 'Simulating Live Hardware Connection',
+                                style: TextStyle(fontSize: 12, color: c.textMuted),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 14),
+                    Text(
+                      'Because the physical feeder is still in development, the app defaults to Offline. You can toggle simulated online telemetry below to test dispensing.',
+                      style: TextStyle(fontSize: 13, color: c.textMuted, height: 1.4),
+                    ),
+                    const SizedBox(height: 12),
+                    SwitchListTile(
+                      contentPadding: EdgeInsets.zero,
+                      title: Text(
+                        'Simulate Online Feeder',
+                        style: TextStyle(fontWeight: FontWeight.bold, color: c.textPrimary),
+                      ),
+                      subtitle: Text(
+                        isSimOffline
+                            ? 'Toggle ON to test dispensing and live telemetry'
+                            : 'Toggle OFF to return to offline development default',
+                        style: TextStyle(fontSize: 12, color: c.textMuted),
+                      ),
+                      value: !isSimOffline,
+                      onChanged: (val) {
+                        feeder.setSimulatedOffline(!val);
+                        setSheetState(() {});
+                      },
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
     );
   }
 }

@@ -389,7 +389,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                 style: TextStyle(fontWeight: FontWeight.bold, color: c.textPrimary),
                               ),
                               subtitle: Text(
-                                'Test offline banner, retry countdown, and manual feeding safety locks.',
+                                _feeder.isSimulatingOffline
+                                    ? 'Feeder is offline by default in development. Turn OFF to test simulated online telemetry.'
+                                    : 'Simulated online connection active. Turn ON to return to development offline mode.',
                                 style: TextStyle(fontSize: 12, color: c.textMuted),
                               ),
                               value: _feeder.isSimulatingOffline,
@@ -696,7 +698,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     FeederHardwareAdapter newAdapter;
     switch (type) {
       case HardwareTransportType.mockSimulator:
-        newAdapter = MockHardwareAdapter();
+        newAdapter = MockHardwareAdapter(simulateOffline: true);
         break;
       case HardwareTransportType.firebaseCloud:
         newAdapter = FirebaseHardwareAdapter();
@@ -705,9 +707,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
         newAdapter = RestHardwareAdapter();
         break;
       case HardwareTransportType.bluetoothLowEnergy:
-        newAdapter = MockHardwareAdapter();
+        newAdapter = MockHardwareAdapter(simulateOffline: true);
         break;
     }
+    _settings.setHardwareTransport(type);
     _feeder.switchAdapter(newAdapter);
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(

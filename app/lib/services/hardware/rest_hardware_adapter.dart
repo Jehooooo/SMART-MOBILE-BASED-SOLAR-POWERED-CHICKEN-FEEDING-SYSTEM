@@ -153,7 +153,10 @@ class RestHardwareAdapter implements FeederHardwareAdapter {
   @override
   Future<FeederCommand> sendCommand(FeederCommand command) async {
     if (command.action == FeederAction.dispense) {
-      final ok = await triggerManualDispense(command.targetGrams);
+      final ok = await triggerManualDispense(
+        durationSeconds: command.durationSeconds,
+        targetGrams: command.targetGrams,
+      );
       return command.copyWith(status: ok ? CommandStatus.completed : CommandStatus.failed);
     } else if (command.action == FeederAction.emergencyStop) {
       await cancelDispense();

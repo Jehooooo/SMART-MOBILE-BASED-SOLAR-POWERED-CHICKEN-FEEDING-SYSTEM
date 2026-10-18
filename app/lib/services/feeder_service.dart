@@ -269,6 +269,10 @@ class FeederService extends ChangeNotifier {
       .where((s) => s.isEnabled)
       .fold<double>(0.0, (acc, item) => acc + item.targetGrams);
 
+  int get totalDailyDurationSeconds => _schedules
+      .where((s) => s.isEnabled)
+      .fold<int>(0, (acc, item) => acc + item.durationSeconds);
+
   int get activeScheduleCount => _schedules.where((s) => s.isEnabled).length;
 
   /// Attempts to re-establish the connection.

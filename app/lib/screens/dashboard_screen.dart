@@ -18,7 +18,7 @@ class DashboardScreen extends StatefulWidget {
 }
 
 class _DashboardScreenState extends State<DashboardScreen> {
-  double _selectedPortionGrams = 150.0;
+  int _selectedDurationSeconds = 5;
 
   SettingsService get _settings => widget.settingsService;
 
@@ -372,8 +372,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   Widget _buildDispensingBanner(FeederTelemetry telemetry) {
     final c = context.colors;
-    final progress = (_selectedPortionGrams > 0)
-        ? (telemetry.currentWeightGrams / _selectedPortionGrams).clamp(0.0, 1.0)
+    final estimatedTargetGrams = _selectedDurationSeconds * 20.0;
+    final progress = (estimatedTargetGrams > 0)
+        ? (telemetry.currentWeightGrams / estimatedTargetGrams).clamp(0.0, 1.0)
         : 0.0;
 
     return Container(
@@ -401,7 +402,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               ),
               const Spacer(),
               Text(
-                '${telemetry.currentWeightGrams.toStringAsFixed(1)}g / ${_selectedPortionGrams.toInt()}g',
+                '${telemetry.currentWeightGrams.toStringAsFixed(1)}g / ~${estimatedTargetGrams.toInt()}g (${_selectedDurationSeconds}s)',
                 style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: c.infoStrong),
               ),
             ],
@@ -656,11 +657,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final bool isOffline = !isOnline;
     final bool canDispense = !isDispensing && !isHopperEmpty && !isOffline;
 
-    final portionOptions = [
-      {'grams': 50.0, 'name': '50g', 'desc': 'Snack'},
-      {'grams': 100.0, 'name': '100g', 'desc': 'Half'},
-      {'grams': 150.0, 'name': '150g', 'desc': 'Standard'},
-      {'grams': 200.0, 'name': '200g', 'desc': 'Full'},
+    final durationOptions = [
+      {'seconds': 3, 'name': '3s', 'desc': 'Quick (~60g)'},
+      {'seconds': 5, 'name': '5s', 'desc': 'Half (~100g)'},
+      {'seconds': 10, 'name': '10s', 'desc': 'Standard (~200g)'},
+      {'seconds': 15, 'name': '15s', 'desc': 'Full (~300g)'},
     ];
 
     return Card(
@@ -693,7 +694,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     border: Border.all(color: c.brandBorder),
                   ),
                   child: Text(
-                    'Selected: ${_selectedPortionGrams.toInt()}g',
+                    'Selected: ${_selectedDurationSeconds}s (~${_selectedDurationSeconds * 20}g)',
                     style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: c.brand),
                   ),
                 ),
@@ -701,18 +702,18 @@ class _DashboardScreenState extends State<DashboardScreen> {
             ),
             const SizedBox(height: 4),
             Text(
-              'Select standard flock portion or fine-tune with the slider below:',
+              'Select standard feed duration or fine-tune with the slider below:',
               style: TextStyle(fontSize: 13, color: c.textMuted),
             ),
             const SizedBox(height: 14),
 
-            // Portion Preset Chips
+            // Duration Preset Chips
             Wrap(
               spacing: 8,
               runSpacing: 8,
-              children: portionOptions.map((opt) {
-                final grams = opt['grams'] as double;
-                final isSelected = _selectedPortionGrams == grams;
+              children: durationOptions.map((opt) {
+                final seconds = opt['seconds'] as int;
+                final isSelected = _selectedDurationSeconds == seconds;
                 return ChoiceChip(
                   label: Column(
                     mainAxisSize: MainAxisSize.min,
@@ -727,7 +728,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   selected: isSelected,
                   showCheckmark: false,
                   onSelected: isDispensing ? null : (selected) {
-                    if (selected) setState(() => _selectedPortionGrams = grams);
+                    if (selected) setState(() => _selectedDurationSeconds = seconds);
                   },
                   selectedColor: c.brand,
                   backgroundColor: c.surface,
@@ -742,7 +743,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
             const SizedBox(height: 12),
 
-            // Fine-tune portion slider
+            // Fine-tune duration slider
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -753,21 +754,21 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       children: [
                         Icon(Icons.tune_rounded, size: 16, color: c.textMuted),
                         const SizedBox(width: 6),
-                        Text('Fine-tune Portion:', style: TextStyle(fontSize: 12, color: c.textMuted)),
+                        Text('Fine-tune Duration:', style: TextStyle(fontSize: 12, color: c.textMuted)),
                       ],
                     ),
-                    Text('${_selectedPortionGrams.toInt()}g', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: c.brand)),
+                    Text('${_selectedDurationSeconds}s (~${_selectedDurationSeconds * 20}g)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: c.brand)),
                   ],
                 ),
                 Slider(
-                  value: _selectedPortionGrams.clamp(20.0, 400.0),
-                  min: 20.0,
-                  max: 400.0,
-                  divisions: 38,
+                  value: _selectedDurationSeconds.toDouble().clamp(1.0, 30.0),
+                  min: 1.0,
+                  max: 30.0,
+                  divisions: 29,
                   activeColor: c.brand,
                   inactiveColor: c.track,
-                  label: '${_selectedPortionGrams.toInt()}g',
-                  onChanged: isDispensing ? null : (val) => setState(() => _selectedPortionGrams = val.roundToDouble()),
+                  label: '${_selectedDurationSeconds}s',
+                  onChanged: isDispensing ? null : (val) => setState(() => _selectedDurationSeconds = val.round()),
                 ),
               ],
             ),
@@ -813,7 +814,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         onPressed: canDispense ? () => _confirmManualFeed(context) : null,
                         icon: const Icon(Icons.play_arrow_rounded),
                         label: Text(
-                          'DISPENSE ${_selectedPortionGrams.toInt()}g NOW',
+                          'DISPENSE ${_selectedDurationSeconds}s NOW',
                           style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
                         ),
                         style: ElevatedButton.styleFrom(
@@ -867,7 +868,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'You are about to dispense ${_selectedPortionGrams.toInt()} grams of poultry feed directly to the feeding trough.',
+              'You are about to run the feeder dispenser for $_selectedDurationSeconds seconds directly into the feeding trough.',
               style: const TextStyle(fontSize: 14),
             ),
             const SizedBox(height: 12),
@@ -880,11 +881,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
               ),
               child: Row(
                 children: [
-                  Icon(Icons.info_outline, size: 18, color: c.brand),
+                  Icon(Icons.timer_outlined, size: 18, color: c.brand),
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
-                      'The auger motor will activate and verify target weight with the load cell scale.',
+                      'The dispenser gate/auger motor will run for $_selectedDurationSeconds seconds (dispenses approx. ${_selectedDurationSeconds * 20}g).',
                       style: TextStyle(fontSize: 12, color: c.textSecondary),
                     ),
                   ),
@@ -901,7 +902,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           ElevatedButton.icon(
             onPressed: () {
               Navigator.pop(ctx);
-              widget.feederService.triggerManualFeed(_selectedPortionGrams);
+              widget.feederService.triggerManualFeed(durationSeconds: _selectedDurationSeconds);
             },
             icon: const Icon(Icons.check),
             label: const Text('Confirm & Dispense'),

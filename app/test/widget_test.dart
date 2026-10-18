@@ -186,5 +186,18 @@ void main() {
 
       service.dispose();
     });
+
+    test('FeederService manual dispense and command duration seconds test', () async {
+      final service = FeederService(connectDelay: Duration.zero, simulateOffline: false);
+      await service.refreshTelemetry();
+
+      expect(service.totalDailyDurationSeconds, greaterThan(0));
+
+      final success = await service.triggerManualFeed(durationSeconds: 7);
+      expect(success, true);
+      expect(service.isDispensing, true);
+
+      service.dispose();
+    });
   });
 }

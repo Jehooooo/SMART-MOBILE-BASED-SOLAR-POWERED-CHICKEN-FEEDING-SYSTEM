@@ -24,6 +24,7 @@ class _SchedulesScreenState extends State<SchedulesScreen> {
         final schedules = widget.feederService.schedules;
         final activeCount = widget.feederService.activeScheduleCount;
         final totalGrams = widget.feederService.totalDailyTargetGrams;
+        final totalSeconds = widget.feederService.totalDailyDurationSeconds;
         final isLoading = widget.feederService.isInitialLoading;
 
         return Scaffold(
@@ -51,7 +52,7 @@ class _SchedulesScreenState extends State<SchedulesScreen> {
                                     padding: const EdgeInsets.all(16.0),
                                     children: [
                                       // Summary Banner
-                                      _buildSummaryBanner(activeCount, totalGrams),
+                                      _buildSummaryBanner(activeCount, totalSeconds, totalGrams),
                                       const SizedBox(height: 16),
 
                                       Row(
@@ -102,7 +103,7 @@ class _SchedulesScreenState extends State<SchedulesScreen> {
     );
   }
 
-  Widget _buildSummaryBanner(int activeCount, double totalDailyGrams) {
+  Widget _buildSummaryBanner(int activeCount, int totalDailySeconds, double totalDailyGrams) {
     final c = context.colors;
     return Card(
       shape: RoundedRectangleBorder(
@@ -133,7 +134,7 @@ class _SchedulesScreenState extends State<SchedulesScreen> {
                   ),
                   const SizedBox(height: 2),
                   Text(
-                    'Total daily flock ration: ${totalDailyGrams.toInt()} grams',
+                    'Total daily flock runtime: ${totalDailySeconds}s (~${totalDailyGrams.toInt()}g)',
                     style: TextStyle(fontSize: 13, color: c.brand, fontWeight: FontWeight.w500),
                   ),
                 ],
@@ -247,7 +248,7 @@ class _SchedulesScreenState extends State<SchedulesScreen> {
                             borderRadius: BorderRadius.circular(4),
                           ),
                           child: Text(
-                            '${schedule.targetGrams.toInt()}g',
+                            '${schedule.durationSeconds}s (~${schedule.targetGrams.toInt()}g)',
                             style: TextStyle(
                               fontSize: 11,
                               fontWeight: FontWeight.bold,
@@ -338,10 +339,13 @@ class _SchedulesScreenState extends State<SchedulesScreen> {
         : const TimeOfDay(hour: 7, minute: 0);
 
     final labelCtrl = TextEditingController(text: isEditing ? existing.label : 'Routine Feed');
-    final gramsCtrl = TextEditingController(text: isEditing ? existing.targetGrams.toInt().toString() : '150');
+    final durationCtrl = TextEditingController(
+      text: isEditing ? existing.durationSeconds.toString() : '5',
+    );
     String? validationError;
 
     final presetLabels = ['Morning Feeding', 'Midday Feeding', 'Afternoon Feeding', 'Evening Snack'];
+    final presetDurations = [3, 5, 10, 15];
 
     showDialog(
       context: context,
@@ -441,19 +445,34 @@ class _SchedulesScreenState extends State<SchedulesScreen> {
                 const SizedBox(height: 14),
 
                 TextField(
-                  controller: gramsCtrl,
+                  controller: durationCtrl,
                   keyboardType: TextInputType.number,
                   decoration: const InputDecoration(
-                    labelText: 'Target Portion (grams)',
-                    hintText: 'e.g. 150',
-                    suffixText: 'g',
-                    helperText: 'Recommended portion: 50g - 400g per feeding',
+                    labelText: 'Dispense Duration (seconds)',
+                    hintText: 'e.g. 5',
+                    suffixText: 'sec',
+                    helperText: 'Recommended runtime: 1s - 30s (~20g/sec output)',
                   ),
                   onChanged: (_) {
                     if (validationError != null) {
                       setDialogState(() => validationError = null);
                     }
                   },
+                ),
+                const SizedBox(height: 6),
+                Wrap(
+                  spacing: 6,
+                  children: presetDurations.map((sec) {
+                    return ActionChip(
+                      label: Text('${sec}s (~${sec * 20}g)', style: const TextStyle(fontSize: 11)),
+                      padding: EdgeInsets.zero,
+                      onPressed: () {
+                        setDialogState(() {
+                          durationCtrl.text = sec.toString();
+                        });
+                      },
+                    );
+                  }).toList(),
                 ),
               ],
             ),
@@ -465,13 +484,14 @@ class _SchedulesScreenState extends State<SchedulesScreen> {
             ),
             ElevatedButton(
               onPressed: () {
-                final grams = double.tryParse(gramsCtrl.text.trim());
-                if (grams == null || grams < 20 || grams > 500) {
+                final duration = int.tryParse(durationCtrl.text.trim());
+                if (duration == null || duration < 1 || duration > 60) {
                   setDialogState(() {
-                    validationError = 'Please enter a valid portion between 20g and 500g.';
+                    validationError = 'Please enter a valid runtime between 1s and 60s.';
                   });
                   return;
                 }
+                final grams = duration * 20.0;
 
                 // Check for duplicate time (ignoring itself if editing)
                 final isDuplicate = widget.feederService.schedules.any(
@@ -492,6 +512,7 @@ class _SchedulesScreenState extends State<SchedulesScreen> {
                     label: label,
                     hour: selectedTime.hour,
                     minute: selectedTime.minute,
+                    durationSeconds: duration,
                     targetGrams: grams,
                   );
                   widget.feederService.updateSchedule(updated);
@@ -501,6 +522,7 @@ class _SchedulesScreenState extends State<SchedulesScreen> {
                     label: label,
                     hour: selectedTime.hour,
                     minute: selectedTime.minute,
+                    durationSeconds: duration,
                     targetGrams: grams,
                     isEnabled: true,
                   );

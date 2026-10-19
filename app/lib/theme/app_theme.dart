@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 
-/// Semantic color tokens used across every screen.
+/// Semantic color tokens crafted with a warm, organic farm-tech palette.
 ///
-/// Screens must read colors from `context.colors` instead of hardcoding hex
-/// values, so that Light and Dark mode stay consistent (Nielsen #4:
-/// Consistency & Standards).
+/// Designed to evoke natural sustainable agriculture:
+/// - Deep forest emeralds & fresh meadow greens
+/// - Warm linen & oatmeal parchment surfaces
+/// - Golden sunlit amber for solar & morning feed
+/// - Warm espresso & lichen typography with human warmth
 @immutable
 class AppColors extends ThemeExtension<AppColors> {
   final Color brand;
@@ -63,63 +65,79 @@ class AppColors extends ThemeExtension<AppColors> {
     required this.skeletonHighlight,
   });
 
+  /// Handcrafted warm organic light palette (Sunlit Farmhouse / Meadow)
   static const light = AppColors(
-    brand: Color(0xFF0F766E),
+    brand: Color(0xFF1E4D2B), // Deep artisan forest emerald
     onBrand: Colors.white,
-    brandSoft: Color(0xFFCCFBF1),
-    brandSurface: Color(0xFFF0FDFA),
-    brandBorder: Color(0xFF99F6E4),
-    textPrimary: Color(0xFF0F172A),
-    textSecondary: Color(0xFF475569),
-    textMuted: Color(0xFF64748B),
-    border: Color(0xFFE2E8F0),
+    brandSoft: Color(0xFFE5EFE7), // Soft botanical sage
+    brandSurface: Color(0xFFF2F7F3), // Gentle organic meadow wash
+    brandBorder: Color(0xFFBEDBC3), // Soft leaf border
+    textPrimary: Color(0xFF181C19), // Rich warm espresso obsidian
+    textSecondary: Color(0xFF454E46), // Warm cedar bark
+    textMuted: Color(0xFF6F7B72), // Soft lichen stone
+    border: Color(0xFFE3DED4), // Natural warm linen border
     surface: Colors.white,
-    surfaceMuted: Color(0xFFF8FAFC),
-    track: Color(0xFFF1F5F9),
-    success: Color(0xFF059669),
-    warning: Color(0xFFB45309),
-    danger: Color(0xFFB91C1C),
-    dangerSoft: Color(0xFFFEF2F2),
-    dangerBorder: Color(0xFFFECACA),
-    info: Color(0xFF2563EB),
-    infoStrong: Color(0xFF1E40AF),
+    surfaceMuted: Color(0xFFF3EFE7), // Warm toasted oat
+    track: Color(0xFFEAE5DC), // Gentle warm track
+    success: Color(0xFF15803D), // Fresh clover leaf
+    warning: Color(0xFFB45309), // Warm golden wheat
+    danger: Color(0xFFB91C1C), // Warm terracotta crimson
+    dangerSoft: Color(0xFFFDF2F0),
+    dangerBorder: Color(0xFFF8C8C1),
+    info: Color(0xFF2563EB), // Clear morning sky
+    infoStrong: Color(0xFF1D4ED8),
     infoSoft: Color(0xFFEFF6FF),
-    infoBorder: Color(0xFF93C5FD),
-    manual: Color(0xFFD97706),
-    manualSoft: Color(0xFFFEF3C7),
-    solar: Color(0xFFB45309),
-    skeletonBase: Color(0xFFE2E8F0),
-    skeletonHighlight: Color(0xFFF8FAFC),
+    infoBorder: Color(0xFFBFDBFE),
+    manual: Color(0xFFD97706), // Warm golden honey
+    manualSoft: Color(0xFFFEF3C7), // Buttermilk cream
+    solar: Color(0xFFD97706), // Sunlit amber
+    skeletonBase: Color(0xFFE7E2D7),
+    skeletonHighlight: Color(0xFFF5F2EB),
   );
 
+  /// Handcrafted warm nocturnal dark palette (Night Farm / Peat Obsidian)
   static const dark = AppColors(
-    brand: Color(0xFF2DD4BF),
-    onBrand: Color(0xFF042F2E),
-    brandSoft: Color(0xFF134E4A),
-    brandSurface: Color(0xFF0D2624),
-    brandBorder: Color(0xFF1F5F59),
-    textPrimary: Color(0xFFF1F5F9),
-    textSecondary: Color(0xFFCBD5E1),
-    textMuted: Color(0xFF94A3B8),
-    border: Color(0xFF2A3647),
-    surface: Color(0xFF151E2D),
-    surfaceMuted: Color(0xFF0F1724),
-    track: Color(0xFF243044),
-    success: Color(0xFF34D399),
+    brand: Color(0xFF4ADE80), // Luminous spring sprout green
+    onBrand: Color(0xFF04260F), // Deep forest text
+    brandSoft: Color(0xFF143820), // Deep moss container
+    brandSurface: Color(0xFF0F2B18), // Nocturnal foliage wash
+    brandBorder: Color(0xFF225732),
+    textPrimary: Color(0xFFF4F6F4), // Warm ivory parchment
+    textSecondary: Color(0xFFB8C2BA), // Pale warm sage
+    textMuted: Color(0xFF7E8A81), // Muted lichen
+    border: Color(0xFF2B332E), // Warm peat border
+    surface: Color(0xFF1A1F1D), // Warm peat stone
+    surfaceMuted: Color(0xFF212824), // Deeper peat stone
+    track: Color(0xFF2A332E),
+    success: Color(0xFF4ADE80),
     warning: Color(0xFFFBBF24),
     danger: Color(0xFFF87171),
-    dangerSoft: Color(0xFF3A1618),
-    dangerBorder: Color(0xFF7F1D1D),
+    dangerSoft: Color(0xFF381616),
+    dangerBorder: Color(0xFF6B2222),
     info: Color(0xFF60A5FA),
     infoStrong: Color(0xFFBFDBFE),
-    infoSoft: Color(0xFF13213D),
+    infoSoft: Color(0xFF14243B),
     infoBorder: Color(0xFF1E3A8A),
     manual: Color(0xFFFBBF24),
-    manualSoft: Color(0xFF3B2A0A),
+    manualSoft: Color(0xFF39290C),
     solar: Color(0xFFFBBF24),
-    skeletonBase: Color(0xFF1E293B),
-    skeletonHighlight: Color(0xFF2B3A52),
+    skeletonBase: Color(0xFF1F2622),
+    skeletonHighlight: Color(0xFF2A332E),
   );
+
+  /// Subtle layered shadow for tactile card depth
+  List<BoxShadow> get warmShadow => [
+        BoxShadow(
+          color: const Color(0x0C2B2010),
+          blurRadius: 14,
+          offset: const Offset(0, 4),
+        ),
+        const BoxShadow(
+          color: Color(0x05000000),
+          blurRadius: 3,
+          offset: Offset(0, 1),
+        ),
+      ];
 
   @override
   AppColors copyWith({Color? brand, Color? onBrand}) {
@@ -196,13 +214,21 @@ extension AppColorsContext on BuildContext {
 class AppTheme {
   AppTheme._();
 
-  static ThemeData light() => _build(Brightness.light, AppColors.light, const Color(0xFFF8FAFC));
+  static ThemeData light() => _build(
+        Brightness.light,
+        AppColors.light,
+        const Color(0xFFF7F5F0), // Warm unbleached organic linen
+      );
 
-  static ThemeData dark() => _build(Brightness.dark, AppColors.dark, const Color(0xFF0B1120));
+  static ThemeData dark() => _build(
+        Brightness.dark,
+        AppColors.dark,
+        const Color(0xFF111413), // Deep peat obsidian
+      );
 
   static ThemeData _build(Brightness brightness, AppColors c, Color scaffold) {
     final scheme = ColorScheme.fromSeed(
-      seedColor: const Color(0xFF0F766E), // Natural agricultural teal
+      seedColor: const Color(0xFF1E4D2B), // Forest emerald seed
       brightness: brightness,
     ).copyWith(
       primary: c.brand,
@@ -211,7 +237,9 @@ class AppTheme {
       error: c.danger,
     );
 
-    final radius10 = BorderRadius.circular(10);
+    final isLight = brightness == Brightness.light;
+    final cardRadius = BorderRadius.circular(18);
+    final buttonRadius = BorderRadius.circular(14);
 
     return ThemeData(
       useMaterial3: true,
@@ -220,58 +248,124 @@ class AppTheme {
       scaffoldBackgroundColor: scaffold,
       extensions: [c],
       appBarTheme: AppBarTheme(
-        backgroundColor: c.surface,
+        backgroundColor: scaffold, // Seamless header transition
         foregroundColor: c.textPrimary,
         surfaceTintColor: Colors.transparent,
-        elevation: 0.5,
+        elevation: 0,
+        scrolledUnderElevation: 0,
         centerTitle: false,
+        titleTextStyle: TextStyle(
+          fontSize: 18,
+          fontWeight: FontWeight.w800,
+          color: c.textPrimary,
+          letterSpacing: -0.3,
+        ),
       ),
       dialogTheme: DialogThemeData(
         backgroundColor: c.surface,
         surfaceTintColor: Colors.transparent,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        elevation: 3,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(22),
+          side: BorderSide(color: c.border.withValues(alpha: 0.6)),
+        ),
+        elevation: 6,
       ),
       snackBarTheme: SnackBarThemeData(
         behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: radius10),
+        backgroundColor: isLight ? const Color(0xFF1E2420) : const Color(0xFF262F2A),
+        contentTextStyle: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w500),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        elevation: 4,
       ),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
-        fillColor: c.surface,
-        border: OutlineInputBorder(borderRadius: radius10, borderSide: BorderSide(color: c.border)),
-        enabledBorder: OutlineInputBorder(borderRadius: radius10, borderSide: BorderSide(color: c.border)),
-        focusedBorder: OutlineInputBorder(borderRadius: radius10, borderSide: BorderSide(color: c.brand, width: 1.8)),
+        fillColor: isLight ? const Color(0xFFFAF8F5) : c.surfaceMuted,
+        border: OutlineInputBorder(borderRadius: buttonRadius, borderSide: BorderSide(color: c.border)),
+        enabledBorder: OutlineInputBorder(borderRadius: buttonRadius, borderSide: BorderSide(color: c.border)),
+        focusedBorder: OutlineInputBorder(borderRadius: buttonRadius, borderSide: BorderSide(color: c.brand, width: 1.8)),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       ),
       cardTheme: CardThemeData(
         color: c.surface,
         surfaceTintColor: Colors.transparent,
-        elevation: 0.5,
+        elevation: 1.0,
+        shadowColor: isLight ? const Color(0x0C352410) : Colors.black54,
         margin: EdgeInsets.zero,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
-          side: BorderSide(color: c.border),
+          borderRadius: cardRadius,
+          side: BorderSide(
+            color: c.border.withValues(alpha: isLight ? 0.75 : 0.4),
+            width: 1.0,
+          ),
         ),
       ),
-      dividerTheme: DividerThemeData(color: c.border),
+      dividerTheme: DividerThemeData(
+        color: c.border.withValues(alpha: 0.7),
+        thickness: 1,
+      ),
       navigationBarTheme: NavigationBarThemeData(
         backgroundColor: c.surface,
         surfaceTintColor: Colors.transparent,
+        elevation: 4,
+        shadowColor: isLight ? const Color(0x12000000) : Colors.black87,
+        height: 68,
         indicatorColor: c.brandSoft,
+        indicatorShape: const StadiumBorder(),
+        labelTextStyle: WidgetStateProperty.resolveWith((states) {
+          final isSelected = states.contains(WidgetState.selected);
+          return TextStyle(
+            fontSize: 12,
+            fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+            color: isSelected ? c.brand : c.textMuted,
+            letterSpacing: 0.1,
+          );
+        }),
       ),
       navigationRailTheme: NavigationRailThemeData(
         backgroundColor: c.surface,
         indicatorColor: c.brandSoft,
+        indicatorShape: const StadiumBorder(),
       ),
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
           backgroundColor: c.brand,
           foregroundColor: c.onBrand,
+          elevation: 1.5,
+          shadowColor: c.brand.withValues(alpha: 0.35),
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+          shape: RoundedRectangleBorder(borderRadius: buttonRadius),
+          textStyle: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14, letterSpacing: 0.2),
         ),
       ),
+      outlinedButtonTheme: OutlinedButtonThemeData(
+        style: OutlinedButton.styleFrom(
+          foregroundColor: c.brand,
+          side: BorderSide(color: c.border, width: 1.2),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          shape: RoundedRectangleBorder(borderRadius: buttonRadius),
+          textStyle: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+        ),
+      ),
+      chipTheme: ChipThemeData(
+        shape: const StadiumBorder(),
+        side: BorderSide(color: c.border),
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      ),
+      sliderTheme: SliderThemeData(
+        activeTrackColor: c.brand,
+        inactiveTrackColor: c.track,
+        thumbColor: c.brand,
+        trackHeight: 6,
+        thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 8),
+        overlayColor: c.brand.withValues(alpha: 0.15),
+      ),
       switchTheme: SwitchThemeData(
-        thumbColor: WidgetStateProperty.resolveWith((s) => s.contains(WidgetState.selected) ? c.onBrand : null),
-        trackColor: WidgetStateProperty.resolveWith((s) => s.contains(WidgetState.selected) ? c.brand : null),
+        thumbColor: WidgetStateProperty.resolveWith(
+          (s) => s.contains(WidgetState.selected) ? c.onBrand : null,
+        ),
+        trackColor: WidgetStateProperty.resolveWith(
+          (s) => s.contains(WidgetState.selected) ? c.brand : null,
+        ),
       ),
       pageTransitionsTheme: const PageTransitionsTheme(
         builders: {

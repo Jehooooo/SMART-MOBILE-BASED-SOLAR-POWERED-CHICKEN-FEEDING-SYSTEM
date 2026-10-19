@@ -179,17 +179,32 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
         // Mobile layout with bottom NavigationBar
         return Scaffold(
           body: currentScreenWidget,
-          bottomNavigationBar: NavigationBar(
-            selectedIndex: _currentIndex,
-            onDestinationSelected: (idx) => setState(() => _currentIndex = idx),
-            destinations: [
-              for (final d in _destinations)
-                NavigationDestination(
-                  icon: Icon(d.icon),
-                  selectedIcon: Icon(d.selected, color: c.brand),
-                  label: d.label,
+          bottomNavigationBar: Container(
+            decoration: BoxDecoration(
+              color: c.surface,
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.04),
+                  blurRadius: 16,
+                  offset: const Offset(0, -2),
                 ),
-            ],
+              ],
+              border: Border(
+                top: BorderSide(color: c.border.withValues(alpha: 0.6), width: 0.8),
+              ),
+            ),
+            child: NavigationBar(
+              selectedIndex: _currentIndex,
+              onDestinationSelected: (idx) => setState(() => _currentIndex = idx),
+              destinations: [
+                for (final d in _destinations)
+                  NavigationDestination(
+                    icon: Icon(d.icon),
+                    selectedIcon: Icon(d.selected, color: c.brand),
+                    label: d.label,
+                  ),
+              ],
+            ),
           ),
         );
       },

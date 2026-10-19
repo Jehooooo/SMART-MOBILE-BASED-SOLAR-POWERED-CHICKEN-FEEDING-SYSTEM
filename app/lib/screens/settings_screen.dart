@@ -633,11 +633,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
                               child: Icon(Icons.menu_book_outlined, color: c.brand, size: 20),
                             ),
                             title: Text(
-                              'System & Hardware Guide',
+                              'Machine Setup & Integration Guide',
                               style: TextStyle(fontWeight: FontWeight.w800, color: c.textPrimary),
                             ),
                             subtitle: Text(
-                              'Ultrasonic sensor, solar panel, load cell calibration details.',
+                              'Step-by-step physical bring-up, sensor calibration, pinout & backend cloud flow.',
                               style: TextStyle(fontSize: 12, color: c.textMuted),
                             ),
                             trailing: const Icon(Icons.chevron_right),

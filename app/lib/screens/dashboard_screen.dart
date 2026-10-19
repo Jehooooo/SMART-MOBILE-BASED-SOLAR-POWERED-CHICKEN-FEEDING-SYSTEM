@@ -6,6 +6,9 @@ import '../models/schedule.dart';
 import '../theme/app_theme.dart';
 import '../widgets/connection_banner.dart';
 import '../widgets/skeleton.dart';
+import '../widgets/hardware_guide_dialog.dart';
+
+export '../widgets/hardware_guide_dialog.dart' show showHardwareGuideDialog;
 
 class DashboardScreen extends StatefulWidget {
   final FeederService feederService;
@@ -1084,80 +1087,4 @@ class _DashboardScreenState extends State<DashboardScreen> {
       },
     );
   }
-}
-
-/// Shared "System & Hardware Guide" dialog, also reachable from Settings › Help.
-void showHardwareGuideDialog(BuildContext context) {
-  showDialog(
-    context: context,
-    builder: (ctx) {
-      final c = ctx.colors;
-      Widget guideItem({required String title, required String desc, required IconData icon}) {
-        return Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Icon(icon, size: 20, color: c.brand),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(title, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: c.textPrimary)),
-                  const SizedBox(height: 2),
-                  Text(desc, style: TextStyle(fontSize: 12, color: c.textSecondary, height: 1.3)),
-                ],
-              ),
-            ),
-          ],
-        );
-      }
-
-      return AlertDialog(
-        title: Row(
-          children: [
-            Icon(Icons.help_outline_rounded, color: c.brand),
-            const SizedBox(width: 8),
-            const Flexible(child: Text('System & Hardware Guide')),
-          ],
-        ),
-        content: SingleChildScrollView(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              guideItem(
-                title: 'Feed Level Sensor (HC-SR04)',
-                desc: 'Ultrasonic sensor mounted inside the hopper lid. Measures feed depth across the full hopper capacity in real time.',
-                icon: Icons.sensors,
-              ),
-              const Divider(height: 18),
-              guideItem(
-                title: 'Solar & Power Subsystem',
-                desc: '12V Monocrystalline solar panel charging a deep-cycle battery through a solar charge controller to ensure 24/7 off-grid operation.',
-                icon: Icons.solar_power,
-              ),
-              const Divider(height: 18),
-              guideItem(
-                title: 'Dispenser & Scale (HX711)',
-                desc: 'High-torque auger driven by a 12V motor paired with an HX711 load cell amplifier to deliver ±2g portion accuracy.',
-                icon: Icons.scale,
-              ),
-              const Divider(height: 18),
-              guideItem(
-                title: 'Automated Scheduling',
-                desc: 'Configurable feeding routines that execute automatically even during temporary mobile app disconnection.',
-                icon: Icons.schedule,
-              ),
-            ],
-          ),
-        ),
-        actions: [
-          ElevatedButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('Got it'),
-          ),
-        ],
-      );
-    },
-  );
 }

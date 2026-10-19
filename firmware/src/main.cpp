@@ -8,14 +8,30 @@
 //   - HC-SR04 Ultrasonic Depth Sensor (TRIG GPIO 5, ECHO GPIO 18)
 //   - DS3231 Real-Time Clock (I2C SDA GPIO 21, SCL GPIO 22)
 //   - 12V Battery Voltage Divider into ADC (GPIO 34)
+//   - Wi-Fi & Firebase Realtime Database REST Sync
 
 #include <Arduino.h>
 #include <Wire.h>
+#include <WiFi.h>
+#include <HTTPClient.h>
+#include <WiFiClientSecure.h>
 #include <ESP32Servo.h>
 #include <HX711.h>
 #include <RTClib.h>
 #include <ArduinoJson.h>
 #include "config.h"
+
+// Check if optional local secrets.h exists; otherwise default gracefully to offline mode
+#if __has_include("secrets.h")
+#include "secrets.h"
+#define HAS_SECRETS 1
+#else
+#define HAS_SECRETS 0
+#define WIFI_SSID ""
+#define WIFI_PASSWORD ""
+#define FIREBASE_API_KEY ""
+#define FIREBASE_DB_URL ""
+#endif
 
 Servo gate;
 HX711 scale;
@@ -26,6 +42,13 @@ static bool isDispensing = false;
 static bool emergencyStopRequested = false;
 static unsigned long lastFedTimestampMs = 0;
 static float lastFedGrams = 0.0f;
+static float currentCalFactor = LOADCELL_CAL_FACTOR;
+
+// Forward declarations
+void handleCommand(const String& cmdJson);
+void printTelemetryJson(const char* statusStr);
+void syncTelemetryToFirebase(const String& jsonPayload);
+void syncLogToFirebase(const String& jsonPayload);
 
 float readFeedLevelPercent() {
   digitalWrite(PIN_US_TRIG, LOW);
@@ -70,6 +93,9 @@ void printTelemetryJson(const char* statusStr) {
   serializeJson(doc, output);
   Serial.print("TELEMETRY:");
   Serial.println(output);
+
+  // Sync to Firebase RTDB if online
+  syncTelemetryToFirebase(output);
 }
 
 void emitFeedingLog(const char* triggerType, float targetGrams, float actualGrams, int durationSec, bool success) {
@@ -91,6 +117,9 @@ void emitFeedingLog(const char* triggerType, float targetGrams, float actualGram
   serializeJson(doc, output);
   Serial.print("FEEDING_LOG:");
   Serial.println(output);
+
+  // Sync to Firebase RTDB if online
+  syncLogToFirebase(output);
 }
 
 // Closed-loop dispensing: keep gate open until load cell reaches target
@@ -210,7 +239,13 @@ void handleCommand(const String& cmdJson) {
   float targetGrams = doc["targetGrams"] | 0.0f;
 
   if (strcmp(action, "DISPENSE") == 0) {
-    if (durationSec > 0) {
+    if (durationSec > 0 && targetGrams <= 90.0f && durationSec == 1) {
+      // Diagnostic position sweep from app (0°, 45°, 90°)
+      int deg = (int)round(targetGrams);
+      deg = constrain(deg, 0, 90);
+      gate.write(deg);
+      Serial.printf("[CMD] Dispenser gate positioned to %d degrees\n", deg);
+    } else if (durationSec > 0) {
       dispenseFeedDuration(durationSec, "Manual");
     } else if (targetGrams > 0.0f) {
       dispenseFeed(targetGrams, "Manual");
@@ -225,6 +260,22 @@ void handleCommand(const String& cmdJson) {
     scale.tare();
     Serial.println("[CMD] Load cell tared to 0.0g");
     printTelemetryJson("idle");
+  } else if (strcmp(action, "CALIBRATE_SCALE") == 0) {
+    float knownGrams = doc["targetGrams"] | 500.0f;
+    if (knownGrams > 10.0f) {
+      float rawUnits = scale.get_value(5);
+      if (abs(rawUnits) > 100.0f) {
+        currentCalFactor = rawUnits / knownGrams;
+        scale.set_scale(currentCalFactor);
+        Serial.printf("[CMD] Scale calibrated with %.1fg. New factor: %.2f\n", knownGrams, currentCalFactor);
+      }
+    }
+    printTelemetryJson("idle");
+  } else if (strcmp(action, "TEST_SERVO") == 0) {
+    int angle = doc["angle"] | doc["targetGrams"] | 0;
+    angle = constrain(angle, 0, 90);
+    gate.write(angle);
+    Serial.printf("[CMD] Servo test angle set to %d deg\n", angle);
   } else if (strcmp(action, "SYNC_CLOCK") == 0) {
     uint32_t epoch = doc["timestamp"] | 0;
     if (epoch > 0 && rtcOk) {
@@ -240,6 +291,108 @@ void handleCommand(const String& cmdJson) {
   }
 }
 
+// ---------- Wi-Fi & Firebase Realtime Database Sync ----------
+
+void initWiFi() {
+  if (strlen(WIFI_SSID) == 0) {
+    Serial.println("[WIFI] No SSID configured. Running in serial/offline tethered mode.");
+    return;
+  }
+  Serial.printf("[WIFI] Connecting to '%s'...\n", WIFI_SSID);
+  WiFi.mode(WIFI_STA);
+  WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
+}
+
+void checkWiFiReconnect() {
+  if (strlen(WIFI_SSID) == 0) return;
+  static unsigned long lastCheck = 0;
+  if (millis() - lastCheck >= WIFI_RECONNECT_INTERVAL_MS) {
+    lastCheck = millis();
+    if (WiFi.status() != WL_CONNECTED) {
+      Serial.println("[WIFI] Connection lost. Attempting non-blocking reconnect...");
+      WiFi.reconnect();
+    }
+  }
+}
+
+void syncTelemetryToFirebase(const String& jsonPayload) {
+  if (WiFi.status() != WL_CONNECTED || strlen(FIREBASE_DB_URL) == 0) return;
+
+  WiFiClientSecure client;
+  client.setInsecure();
+  HTTPClient https;
+
+  String url = String(FIREBASE_DB_URL);
+  if (!url.endsWith("/")) url += "/";
+  url += "telemetry.json";
+
+  if (https.begin(client, url)) {
+    https.addHeader("Content-Type", "application/json");
+    https.setTimeout(3000);
+    int httpCode = https.PUT(jsonPayload);
+    if (httpCode <= 0) {
+      Serial.printf("[CLOUD ERROR] Telemetry sync failed: %s\n", https.errorToString(httpCode).c_str());
+    }
+    https.end();
+  }
+}
+
+void syncLogToFirebase(const String& jsonPayload) {
+  if (WiFi.status() != WL_CONNECTED || strlen(FIREBASE_DB_URL) == 0) return;
+
+  WiFiClientSecure client;
+  client.setInsecure();
+  HTTPClient https;
+
+  String url = String(FIREBASE_DB_URL);
+  if (!url.endsWith("/")) url += "/";
+  url += "logs.json";
+
+  if (https.begin(client, url)) {
+    https.addHeader("Content-Type", "application/json");
+    https.setTimeout(4000);
+    int httpCode = https.POST(jsonPayload);
+    if (httpCode > 0) {
+      Serial.printf("[CLOUD] Feeding log stored: HTTP %d\n", httpCode);
+    }
+    https.end();
+  }
+}
+
+void pollFirebaseCommands() {
+  if (WiFi.status() != WL_CONNECTED || strlen(FIREBASE_DB_URL) == 0 || isDispensing) return;
+
+  WiFiClientSecure client;
+  client.setInsecure();
+  HTTPClient https;
+
+  String url = String(FIREBASE_DB_URL);
+  if (!url.endsWith("/")) url += "/";
+  url += "commands/dispense.json";
+
+  if (https.begin(client, url)) {
+    https.setTimeout(2500);
+    int httpCode = https.GET();
+    if (httpCode == 200) {
+      String payload = https.getString();
+      if (payload.length() > 0 && payload != "null") {
+        Serial.printf("[CLOUD] Received remote command: %s\n", payload.c_str());
+        handleCommand(payload);
+
+        // Clear command from Firebase to prevent duplicate execution
+        https.end();
+        if (https.begin(client, url)) {
+          https.setTimeout(2000);
+          https.sendRequest("DELETE");
+          https.end();
+        }
+        return;
+      }
+    }
+    https.end();
+  }
+}
+
 void setup() {
   Serial.begin(115200);
   pinMode(PIN_US_TRIG, OUTPUT);
@@ -249,7 +402,7 @@ void setup() {
   gate.write(SERVO_CLOSED_DEG);
 
   scale.begin(PIN_HX711_DOUT, PIN_HX711_SCK);
-  scale.set_scale(LOADCELL_CAL_FACTOR);
+  scale.set_scale(currentCalFactor);
   scale.tare();
 
   Wire.begin();
@@ -260,12 +413,16 @@ void setup() {
 
   Serial.println("=================================================");
   Serial.println(" Smart Chicken Feeder - Machine Integration Ready ");
-  Serial.println(" Commands accepted: JSON or 'f' for manual feed   ");
+  Serial.println(" Connected to: Local Sensors + Cloud Sync Loop   ");
   Serial.println("=================================================");
+
+  initWiFi();
   printTelemetryJson("idle");
 }
 
 void loop() {
+  checkWiFiReconnect();
+
   static unsigned long lastTelemetry = 0;
   if (millis() - lastTelemetry >= TELEMETRY_INTERVAL_MS && !isDispensing) {
     lastTelemetry = millis();
@@ -277,6 +434,12 @@ void loop() {
     else if (vbat < BATTERY_LOW_VOLTS) currentStatus = "lowBattery";
 
     printTelemetryJson(currentStatus);
+  }
+
+  static unsigned long lastCommandPoll = 0;
+  if (millis() - lastCommandPoll >= COMMAND_POLL_INTERVAL_MS) {
+    lastCommandPoll = millis();
+    pollFirebaseCommands();
   }
 
   // Process incoming serial command (JSON or single-char shortcut)
@@ -298,3 +461,4 @@ void loop() {
     }
   }
 }
+

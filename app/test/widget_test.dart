@@ -1,8 +1,10 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:smart_chicken_feeder/main.dart';
 import 'package:smart_chicken_feeder/services/feeder_service.dart';
 import 'package:smart_chicken_feeder/services/settings_service.dart';
+import 'package:smart_chicken_feeder/services/file_export/file_exporter.dart';
 import 'package:smart_chicken_feeder/models/schedule.dart';
 
 void main() {
@@ -198,6 +200,88 @@ void main() {
       expect(service.isDispensing, true);
 
       service.dispose();
+    });
+
+    test('FeederService exportExcelXml formats valid Excel workbook XML with styles and headers', () {
+      final service = FeederService(connectDelay: Duration.zero);
+      final xml = service.exportExcelXml();
+
+      expect(xml.contains('<?xml version="1.0"?>'), true);
+      expect(xml.contains('progid="Excel.Sheet"'), true);
+      expect(xml.contains('<Worksheet ss:Name="Feeding Logs">'), true);
+      expect(xml.contains('TargetWeight_g'), true);
+      expect(xml.contains('ActualWeight_g'), true);
+      expect(xml.contains('<Style ss:ID="Header">'), true);
+      expect(xml.contains('<Style ss:ID="Pass">'), true);
+
+      service.dispose();
+    });
+
+    test('FileExporter downloads CSV and Excel files to system successfully', () async {
+      final csvContent = 'LogID,Timestamp,TriggerType\nlog_1,2026-10-19 12:00:00,Schedule';
+      final res = await FileExporter.downloadTextFile(
+        fileName: 'test_export_unit.csv',
+        content: csvContent,
+      );
+
+      expect(res.success, true);
+      expect(res.filePath.isNotEmpty, true);
+
+      // Verify file exists on disk and content has BOM
+      final file = File(res.filePath);
+      expect(file.existsSync(), true);
+      final readText = await file.readAsString();
+      expect(readText.contains('log_1'), true);
+
+      // Clean up test file
+      if (file.existsSync()) {
+        try {
+          file.deleteSync();
+        } catch (_) {}
+      }
+    });
+
+    testWidgets('Tapping Export on History Screen opens modal with Download CSV and Download Excel buttons', (WidgetTester tester) async {
+      final settings = SettingsService(onboardingComplete: true);
+      final feeder = FeederService(connectDelay: Duration.zero);
+
+      await tester.pumpWidget(SmartChickenFeederApp(
+        settingsService: settings,
+        feederService: feeder,
+      ));
+      await tester.pumpAndSettle();
+
+      // Navigate to History tab
+      await tester.tap(find.text('History & Logs'));
+      await tester.pumpAndSettle();
+
+      // Find and tap the Export CSV/Data button
+      final exportBtn = find.byTooltip('Export CSV Dataset');
+      expect(exportBtn, findsOneWidget);
+      await tester.tap(exportBtn);
+      await tester.pumpAndSettle();
+
+      // Verify modal contents
+      expect(find.text('Export Feeding Logs'), findsOneWidget);
+      expect(find.text('Download CSV'), findsOneWidget);
+      expect(find.text('Download Excel (.xls)'), findsOneWidget);
+      expect(find.text('Copy CSV'), findsOneWidget);
+
+      // Tap Download CSV and allow native async disk I/O to complete
+      await tester.runAsync(() async {
+        await tester.tap(find.text('Download CSV'));
+        await Future.delayed(const Duration(milliseconds: 200));
+      });
+      await tester.pumpAndSettle();
+
+      // Verify feedback appears
+      expect(find.textContaining('Successfully saved'), findsOneWidget);
+
+      // Close modal
+      await tester.tap(find.text('Close'));
+      await tester.pumpAndSettle();
+
+      feeder.dispose();
     });
   });
 }

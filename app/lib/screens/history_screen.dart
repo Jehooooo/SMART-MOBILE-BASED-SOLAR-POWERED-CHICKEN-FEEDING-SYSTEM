@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import '../services/feeder_service.dart';
+import '../services/file_export/file_exporter.dart';
 import '../models/feeding_log.dart';
 import '../theme/app_theme.dart';
 import '../widgets/connection_banner.dart';
@@ -511,81 +512,262 @@ class _HistoryScreenState extends State<HistoryScreen> {
   void _showExportCsvModal(BuildContext context) {
     final c = context.colors;
     final csvData = widget.feederService.exportCsv();
+    final excelXmlData = widget.feederService.exportExcelXml();
+    final logCount = widget.feederService.history.length;
+
+    ExportResult? lastExportResult;
+    String? exportedFileType;
+    bool isExporting = false;
 
     showDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22)),
-        title: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: c.brandSoft,
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: Icon(Icons.table_chart_outlined, color: c.brand, size: 20),
-            ),
-            const SizedBox(width: 10),
-            const Expanded(
-              child: Text(
-                'Export Feeding Logs (CSV)',
-                style: TextStyle(fontWeight: FontWeight.w800, fontSize: 18),
-              ),
-            ),
-          ],
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'Research dataset formatted for Chapter IV empirical analysis (Excel, SPSS, Google Sheets):',
-              style: TextStyle(fontSize: 13, height: 1.3),
-            ),
-            const SizedBox(height: 12),
-            Container(
-              height: 160,
-              width: double.maxFinite,
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: c.surfaceMuted,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: c.border.withValues(alpha: 0.8)),
-              ),
-              child: SingleChildScrollView(
-                child: SelectableText(
-                  csvData,
-                  style: TextStyle(fontFamily: 'monospace', fontSize: 11, color: c.textSecondary),
-                ),
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('Close'),
-          ),
-          ElevatedButton.icon(
-            onPressed: () {
-              Clipboard.setData(ClipboardData(text: csvData));
-              Navigator.pop(ctx);
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) {
+          Future<void> handleExport({required bool isExcel}) async {
+            setDialogState(() {
+              isExporting = true;
+            });
+
+            final now = DateTime.now();
+            final timestampStr = DateFormat('yyyyMMdd_HHmmss').format(now);
+            final ext = isExcel ? 'xls' : 'csv';
+            final fileName = 'feeding_logs_$timestampStr.$ext';
+            final content = isExcel ? excelXmlData : csvData;
+            final mimeType = isExcel ? 'application/vnd.ms-excel' : 'text/csv;charset=utf-8';
+
+            final result = await FileExporter.downloadTextFile(
+              fileName: fileName,
+              content: content,
+              mimeType: mimeType,
+            );
+
+            setDialogState(() {
+              isExporting = false;
+              lastExportResult = result;
+              exportedFileType = isExcel ? 'Excel (.xls)' : 'CSV (.csv)';
+            });
+
+            if (!context.mounted) return;
+
+            if (result.success) {
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
-                  content: const Text('CSV copied to clipboard! Paste directly into Excel or Google Sheets.'),
+                  content: Text(
+                    result.isWeb
+                        ? 'Downloaded $fileName to your browser.'
+                        : 'Saved $fileName to Downloads!',
+                  ),
                   backgroundColor: c.brand,
+                  duration: const Duration(seconds: 6),
+                  action: (!result.isWeb && result.filePath.isNotEmpty)
+                      ? SnackBarAction(
+                          label: 'OPEN',
+                          textColor: Colors.white,
+                          onPressed: () {
+                            FileExporter.openFile(result.filePath);
+                          },
+                        )
+                      : null,
                 ),
               );
-            },
-            icon: const Icon(Icons.copy),
-            label: const Text('Copy CSV Data'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: c.brand,
-              foregroundColor: c.onBrand,
+            } else {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text('Export failed: ${result.message}'),
+                  backgroundColor: c.danger,
+                ),
+              );
+            }
+          }
+
+          return AlertDialog(
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22)),
+            title: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: c.brandSoft,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Icon(Icons.table_chart_outlined, color: c.brand, size: 22),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Export Feeding Logs',
+                        style: TextStyle(fontWeight: FontWeight.w800, fontSize: 18),
+                      ),
+                      Text(
+                        '$logCount records formatted for Excel, Sheets & SPSS',
+                        style: TextStyle(fontSize: 12, color: c.textSecondary, fontWeight: FontWeight.normal),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
             ),
-          ),
-        ],
+            content: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 540),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Empirical research dataset for Chapter IV statistical analysis and hardware testing:',
+                    style: TextStyle(fontSize: 13, height: 1.3),
+                  ),
+                  const SizedBox(height: 10),
+
+                  // Data Preview Box
+                  Container(
+                    height: 140,
+                    width: double.maxFinite,
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: c.surfaceMuted,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: c.border.withValues(alpha: 0.8)),
+                    ),
+                    child: SingleChildScrollView(
+                      child: SelectableText(
+                        csvData,
+                        style: TextStyle(fontFamily: 'monospace', fontSize: 11, color: c.textSecondary),
+                      ),
+                    ),
+                  ),
+
+                  // Download Status Feedback Card
+                  if (lastExportResult != null && lastExportResult!.success) ...[
+                    const SizedBox(height: 12),
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: c.brandSoft,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: c.brand.withValues(alpha: 0.4)),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Icon(Icons.check_circle_rounded, color: c.brand, size: 18),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  'Successfully saved $exportedFileType!',
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.w700,
+                                    fontSize: 13,
+                                    color: c.brand,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          if (lastExportResult!.filePath.isNotEmpty) ...[
+                            const SizedBox(height: 4),
+                            Text(
+                              lastExportResult!.filePath,
+                              style: TextStyle(fontSize: 11, color: c.textSecondary, fontFamily: 'monospace'),
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            const SizedBox(height: 8),
+                            Row(
+                              children: [
+                                ElevatedButton.icon(
+                                  onPressed: () {
+                                    FileExporter.openFile(lastExportResult!.filePath);
+                                  },
+                                  icon: const Icon(Icons.table_view_outlined, size: 15),
+                                  label: const Text('Open in Excel', style: TextStyle(fontSize: 12)),
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: c.brand,
+                                    foregroundColor: c.onBrand,
+                                    visualDensity: VisualDensity.compact,
+                                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                OutlinedButton.icon(
+                                  onPressed: () {
+                                    FileExporter.showInFolder(lastExportResult!.filePath);
+                                  },
+                                  icon: const Icon(Icons.folder_open_outlined, size: 15),
+                                  label: const Text('Show in Folder', style: TextStyle(fontSize: 12)),
+                                  style: OutlinedButton.styleFrom(
+                                    foregroundColor: c.textPrimary,
+                                    visualDensity: VisualDensity.compact,
+                                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+            actionsAlignment: MainAxisAlignment.spaceBetween,
+            actionsPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: Text('Close', style: TextStyle(color: c.textMuted)),
+              ),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                alignment: WrapAlignment.end,
+                children: [
+                  OutlinedButton.icon(
+                    onPressed: () {
+                      Clipboard.setData(ClipboardData(text: csvData));
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: const Text('CSV copied to clipboard! Paste directly into Excel or Google Sheets.'),
+                          backgroundColor: c.brand,
+                        ),
+                      );
+                    },
+                    icon: const Icon(Icons.copy_rounded, size: 16),
+                    label: const Text('Copy CSV'),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: c.textPrimary,
+                    ),
+                  ),
+                  ElevatedButton.icon(
+                    onPressed: isExporting ? null : () => handleExport(isExcel: false),
+                    icon: const Icon(Icons.download_rounded, size: 16),
+                    label: const Text('Download CSV'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: c.surface,
+                      foregroundColor: c.brand,
+                      side: BorderSide(color: c.brand, width: 1.5),
+                    ),
+                  ),
+                  ElevatedButton.icon(
+                    onPressed: isExporting ? null : () => handleExport(isExcel: true),
+                    icon: const Icon(Icons.table_chart_rounded, size: 16),
+                    label: const Text('Download Excel (.xls)'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: c.brand,
+                      foregroundColor: c.onBrand,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          );
+        },
       ),
     );
   }

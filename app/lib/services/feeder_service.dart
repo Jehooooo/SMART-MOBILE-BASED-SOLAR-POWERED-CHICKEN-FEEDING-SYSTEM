@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import '../models/telemetry.dart';
 import '../models/schedule.dart';
 import '../models/feeding_log.dart';
@@ -347,6 +348,74 @@ class FeederService extends ChangeNotifier {
     for (final log in _history) {
       buffer.writeln(log.toCsvRow());
     }
+    return buffer.toString();
+  }
+
+  /// Exports history logs as native Microsoft Excel SpreadsheetML (.xls),
+  /// with bold colored header formatting, typed numeric cells, and PASS/FAIL indicators.
+  String exportExcelXml() {
+    final buffer = StringBuffer();
+    buffer.writeln('<?xml version="1.0"?>');
+    buffer.writeln('<?mso-application progid="Excel.Sheet"?>');
+    buffer.writeln('<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet"');
+    buffer.writeln(' xmlns:o="urn:schemas-microsoft-com:office:office"');
+    buffer.writeln(' xmlns:x="urn:schemas-microsoft-com:office:excel"');
+    buffer.writeln(' xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet">');
+    buffer.writeln(' <Styles>');
+    buffer.writeln('  <Style ss:ID="Header">');
+    buffer.writeln('   <Font ss:Bold="1" ss:Color="#FFFFFF"/>');
+    buffer.writeln('   <Interior ss:Color="#1B5E20" ss:Pattern="Solid"/>');
+    buffer.writeln('   <Alignment ss:Horizontal="Center"/>');
+    buffer.writeln('  </Style>');
+    buffer.writeln('  <Style ss:ID="Pass">');
+    buffer.writeln('   <Font ss:Color="#2E7D32" ss:Bold="1"/>');
+    buffer.writeln('   <Alignment ss:Horizontal="Center"/>');
+    buffer.writeln('  </Style>');
+    buffer.writeln('  <Style ss:ID="Fail">');
+    buffer.writeln('   <Font ss:Color="#C62828" ss:Bold="1"/>');
+    buffer.writeln('   <Alignment ss:Horizontal="Center"/>');
+    buffer.writeln('  </Style>');
+    buffer.writeln(' </Styles>');
+    buffer.writeln(' <Worksheet ss:Name="Feeding Logs">');
+    buffer.writeln('  <Table>');
+    buffer.writeln('   <Row ss:StyleID="Header">');
+    for (final col in [
+      'LogID',
+      'Timestamp',
+      'TriggerType',
+      'TargetWeight_g',
+      'ActualWeight_g',
+      'Error_g',
+      'ErrorPercentage',
+      'Duration_sec',
+      'HopperLevel_pct',
+      'Battery_V',
+      'Status'
+    ]) {
+      buffer.writeln('    <Cell><Data ss:Type="String">$col</Data></Cell>');
+    }
+    buffer.writeln('   </Row>');
+    for (final log in _history) {
+      final dateStr = DateFormat('yyyy-MM-dd HH:mm:ss').format(log.timestamp);
+      final status = log.isSuccess ? 'PASS' : 'FAIL';
+      final statusStyle = log.isSuccess ? 'Pass' : 'Fail';
+      buffer.writeln('   <Row>');
+      buffer.writeln('    <Cell><Data ss:Type="String">${log.id}</Data></Cell>');
+      buffer.writeln('    <Cell><Data ss:Type="String">$dateStr</Data></Cell>');
+      buffer.writeln('    <Cell><Data ss:Type="String">${log.triggerType}</Data></Cell>');
+      buffer.writeln('    <Cell><Data ss:Type="Number">${log.targetGrams}</Data></Cell>');
+      buffer.writeln('    <Cell><Data ss:Type="Number">${log.actualGrams}</Data></Cell>');
+      buffer.writeln('    <Cell><Data ss:Type="Number">${log.errorGrams.toStringAsFixed(2)}</Data></Cell>');
+      buffer.writeln('    <Cell><Data ss:Type="String">${log.errorPercentage.toStringAsFixed(2)}%</Data></Cell>');
+      buffer.writeln('    <Cell><Data ss:Type="Number">${log.durationSeconds}</Data></Cell>');
+      buffer.writeln('    <Cell><Data ss:Type="Number">${log.feedLevelPercent}</Data></Cell>');
+      buffer.writeln('    <Cell><Data ss:Type="Number">${log.batteryVolts}</Data></Cell>');
+      buffer.writeln('    <Cell ss:StyleID="$statusStyle"><Data ss:Type="String">$status</Data></Cell>');
+      buffer.writeln('   </Row>');
+    }
+    buffer.writeln('  </Table>');
+    buffer.writeln(' </Worksheet>');
+    buffer.writeln('</Workbook>');
     return buffer.toString();
   }
 

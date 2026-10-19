@@ -86,11 +86,20 @@ class _BannerBody extends StatelessWidget {
       label: '$title. $detail',
       child: Container(
         width: double.infinity,
+        margin: const EdgeInsets.fromLTRB(16, 8, 16, 6),
         decoration: BoxDecoration(
           color: bg,
-          border: Border(bottom: BorderSide(color: borderColor)),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: borderColor, width: 1.2),
+          boxShadow: [
+            BoxShadow(
+              color: fg.withValues(alpha: 0.08),
+              blurRadius: 12,
+              offset: const Offset(0, 3),
+            ),
+          ],
         ),
-        padding: const EdgeInsets.fromLTRB(16, 10, 8, 10),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
@@ -101,7 +110,14 @@ class _BannerBody extends StatelessWidget {
                 child: CircularProgressIndicator(strokeWidth: 2.2, color: fg),
               )
             else
-              Icon(Icons.cloud_off_rounded, color: fg, size: 22),
+              Container(
+                padding: const EdgeInsets.all(6),
+                decoration: BoxDecoration(
+                  color: fg.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Icon(Icons.cloud_off_rounded, color: fg, size: 20),
+              ),
             const SizedBox(width: 12),
             Expanded(
               child: ExcludeSemantics(
@@ -122,7 +138,11 @@ class _BannerBody extends StatelessWidget {
                 onPressed: onRetry,
                 icon: Icon(Icons.refresh_rounded, size: 18, color: fg),
                 label: Text('Retry', style: TextStyle(color: fg, fontWeight: FontWeight.bold)),
-                style: TextButton.styleFrom(minimumSize: const Size(48, 40)),
+                style: TextButton.styleFrom(
+                  minimumSize: const Size(48, 38),
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                ),
               ),
             ],
           ],

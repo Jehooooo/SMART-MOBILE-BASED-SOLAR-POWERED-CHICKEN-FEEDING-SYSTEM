@@ -101,12 +101,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           ? 'Operating in simulated mock mode for pre-fabrication testing'
                           : 'Connected to physical ESP32 hardware',
                       child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
                         decoration: BoxDecoration(
                           color: widget.feederService.isMock ? c.manualSoft : c.brandSoft,
-                          borderRadius: BorderRadius.circular(4),
+                          borderRadius: BorderRadius.circular(20),
                           border: Border.all(
-                            color: widget.feederService.isMock ? c.manual : c.brandBorder,
+                            color: widget.feederService.isMock ? c.manual.withValues(alpha: 0.4) : c.brandBorder,
                             width: 0.8,
                           ),
                         ),
@@ -115,6 +115,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           style: TextStyle(
                             fontSize: 9,
                             fontWeight: FontWeight.bold,
+                            letterSpacing: 0.3,
                             color: widget.feederService.isMock ? c.manual : c.brand,
                           ),
                         ),
@@ -160,18 +161,53 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           ? 'Feeder is offline (Development Default). Tap to toggle online simulation.'
                           : 'Feeder is offline. Check solar battery and Wi-Fi signal.'),
                   child: InkWell(
-                    borderRadius: BorderRadius.circular(16),
+                    borderRadius: BorderRadius.circular(20),
                     onTap: widget.feederService.isMock
                         ? () => _showSimulatorConnectionSheet(context)
                         : null,
-                    child: Chip(
-                      avatar: CircleAvatar(backgroundColor: chipDot, radius: 5),
-                      label: Text(
-                        chipLabel,
-                        style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: c.textPrimary),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                      decoration: BoxDecoration(
+                        color: c.surface,
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(color: c.border.withValues(alpha: 0.8)),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.03),
+                            blurRadius: 4,
+                            offset: const Offset(0, 1),
+                          ),
+                        ],
                       ),
-                      backgroundColor: c.surfaceMuted,
-                      side: BorderSide(color: c.border),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Container(
+                            width: 7,
+                            height: 7,
+                            decoration: BoxDecoration(
+                              color: chipDot,
+                              shape: BoxShape.circle,
+                              boxShadow: [
+                                BoxShadow(
+                                  color: chipDot.withValues(alpha: 0.45),
+                                  blurRadius: 4,
+                                  spreadRadius: 1,
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(width: 6),
+                          Text(
+                            chipLabel,
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700,
+                              color: c.textPrimary,
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 ),
@@ -464,72 +500,99 @@ class _DashboardScreenState extends State<DashboardScreen> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: color.withValues(alpha: 0.12),
-                        borderRadius: BorderRadius.circular(8),
+                Expanded(
+                  child: Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: color.withValues(alpha: 0.12),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Icon(Icons.inventory_2_outlined, color: color, size: 22),
                       ),
-                      child: Icon(Icons.inventory_2_outlined, color: color, size: 20),
-                    ),
-                    const SizedBox(width: 10),
-                    Text(
-                      'Feed Hopper Level',
-                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: c.textPrimary),
-                    ),
-                  ],
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Feed Hopper Level',
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w800,
+                                letterSpacing: -0.2,
+                                color: c.textPrimary,
+                              ),
+                            ),
+                            Text(
+                              'Telemetry Source: HC-SR04 Ultrasonic Sensor',
+                              style: TextStyle(fontSize: 11, color: c.textMuted),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
+                const SizedBox(width: 8),
                 Text(
                   '${pct.toStringAsFixed(0)}%',
-                  style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: color),
+                  style: TextStyle(
+                    fontSize: 28,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: -0.5,
+                    color: color,
+                  ),
                 ),
               ],
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 18),
             ClipRRect(
-              borderRadius: BorderRadius.circular(8),
+              borderRadius: BorderRadius.circular(10),
               child: TweenAnimationBuilder<double>(
                 tween: Tween(begin: 0, end: (pct / 100.0).clamp(0.0, 1.0)),
                 duration: const Duration(milliseconds: 700),
                 curve: Curves.easeOutCubic,
                 builder: (context, value, _) => LinearProgressIndicator(
                   value: value,
-                  minHeight: 18,
+                  minHeight: 16,
                   backgroundColor: c.track,
                   valueColor: AlwaysStoppedAnimation<Color>(color),
                 ),
               ),
             ),
-            const SizedBox(height: 14),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            const SizedBox(height: 16),
+            Wrap(
+              spacing: 8,
+              runSpacing: 6,
+              alignment: WrapAlignment.spaceBetween,
               children: [
-                Flexible(
-                  flex: 6,
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: c.surfaceMuted,
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: c.border.withValues(alpha: 0.6)),
+                  ),
                   child: Text(
                     '~${remainingKg.toStringAsFixed(2)} kg remaining (of ${capacityKg.toStringAsFixed(1)} kg)',
-                    overflow: TextOverflow.ellipsis,
                     style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: c.textSecondary),
                   ),
                 ),
-                const SizedBox(width: 8),
-                Flexible(
-                  flex: 4,
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: c.brandSoft,
+                    borderRadius: BorderRadius.circular(20),
+                  ),
                   child: Text(
                     daysSupplyText,
-                    overflow: TextOverflow.ellipsis,
-                    textAlign: TextAlign.end,
-                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: c.brand),
+                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: c.brand),
                   ),
                 ),
               ],
-            ),
-            const SizedBox(height: 4),
-            Text(
-              'Telemetry Source: HC-SR04 Ultrasonic Sensor',
-              style: TextStyle(fontSize: 11, color: c.textMuted),
             ),
           ],
         ),
@@ -547,34 +610,41 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final c = context.colors;
     return Card(
       child: Padding(
-        padding: const EdgeInsets.all(14.0),
+        padding: const EdgeInsets.all(16.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
               children: [
                 Container(
-                  padding: const EdgeInsets.all(6),
+                  padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
                     color: iconColor.withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(6),
+                    borderRadius: BorderRadius.circular(10),
                   ),
-                  child: Icon(icon, color: iconColor, size: 18),
+                  child: Icon(icon, color: iconColor, size: 20),
                 ),
-                const SizedBox(width: 8),
+                const SizedBox(width: 10),
                 Flexible(
                   child: Text(
                     title,
                     overflow: TextOverflow.ellipsis,
-                    style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: c.textSecondary),
+                    style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: c.textSecondary),
                   ),
                 ),
               ],
             ),
-            const SizedBox(height: 10),
-            Text(value, style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: c.textPrimary)),
-            const SizedBox(height: 2),
-            Text(subtitle, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 11, color: c.textMuted)),
+            const SizedBox(height: 14),
+            Text(
+              value,
+              style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800, letterSpacing: -0.4, color: c.textPrimary),
+            ),
+            const SizedBox(height: 3),
+            Text(
+              subtitle,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: c.textMuted),
+            ),
           ],
         ),
       ),
@@ -587,12 +657,15 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
     return Card(
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 14.0),
+        padding: const EdgeInsets.all(16.0),
         child: Row(
           children: [
-            CircleAvatar(
-              backgroundColor: c.brandSoft,
-              radius: 22,
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: c.brandSoft,
+                borderRadius: BorderRadius.circular(14),
+              ),
               child: Icon(Icons.alarm_on_rounded, color: c.brand, size: 24),
             ),
             const SizedBox(width: 14),
@@ -606,26 +679,27 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         child: Text(
                           'Next Automated Feeding',
                           overflow: TextOverflow.ellipsis,
-                          style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: c.textMuted),
+                          style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: c.textMuted),
                         ),
                       ),
                       if (nextSch != null) ...[
-                        const SizedBox(width: 6),
+                        const SizedBox(width: 8),
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                           decoration: BoxDecoration(
-                            color: c.track,
-                            borderRadius: BorderRadius.circular(4),
+                            color: c.brandSurface,
+                            borderRadius: BorderRadius.circular(20),
+                            border: Border.all(color: c.brandBorder.withValues(alpha: 0.8)),
                           ),
                           child: Text(
                             countdown,
-                            style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: c.brand),
+                            style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: c.brand),
                           ),
                         ),
                       ],
                     ],
                   ),
-                  const SizedBox(height: 3),
+                  const SizedBox(height: 4),
                   Text(
                     nextSch != null ? '${nextSch.label} at ${nextSch.timeFormatted}' : 'No active automated schedules',
                     style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: c.textPrimary),
@@ -635,14 +709,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
             ),
             if (nextSch != null)
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                 decoration: BoxDecoration(
                   color: c.brandSoft,
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: BorderRadius.circular(20),
                 ),
                 child: Text(
                   '${nextSch.targetGrams.toInt()}g',
-                  style: TextStyle(color: c.brand, fontWeight: FontWeight.bold, fontSize: 13),
+                  style: TextStyle(color: c.brand, fontWeight: FontWeight.w800, fontSize: 13),
                 ),
               ),
           ],
@@ -665,13 +739,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
     ];
 
     return Card(
-      elevation: 1,
+      elevation: 1.5,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(14),
-        side: BorderSide(color: c.brandBorder, width: 1.2),
+        borderRadius: BorderRadius.circular(18),
+        side: BorderSide(color: c.brandBorder.withValues(alpha: 0.8), width: 1.2),
       ),
       child: Padding(
-        padding: const EdgeInsets.all(18.0),
+        padding: const EdgeInsets.all(20.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -682,16 +756,21 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   child: Text(
                     'Manual Feed Trigger',
                     overflow: TextOverflow.ellipsis,
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: c.textPrimary),
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: -0.2,
+                      color: c.textPrimary,
+                    ),
                   ),
                 ),
                 const SizedBox(width: 8),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                   decoration: BoxDecoration(
                     color: c.brandSurface,
-                    borderRadius: BorderRadius.circular(6),
-                    border: Border.all(color: c.brandBorder),
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: c.brandBorder.withValues(alpha: 0.8)),
                   ),
                   child: Text(
                     'Selected: ${_selectedDurationSeconds}s (~${_selectedDurationSeconds * 20}g)',
@@ -715,13 +794,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 final seconds = opt['seconds'] as int;
                 final isSelected = _selectedDurationSeconds == seconds;
                 return ChoiceChip(
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                   label: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Text(opt['name'] as String, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
                       Text(
                         opt['desc'] as String,
-                        style: TextStyle(fontSize: 10, color: isSelected ? c.onBrand.withValues(alpha: 0.8) : c.textMuted),
+                        style: TextStyle(fontSize: 10, color: isSelected ? c.onBrand.withValues(alpha: 0.85) : c.textMuted),
                       ),
                     ],
                   ),
@@ -731,12 +811,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     if (selected) setState(() => _selectedDurationSeconds = seconds);
                   },
                   selectedColor: c.brand,
-                  backgroundColor: c.surface,
-                  side: BorderSide(color: isSelected ? c.brand : c.border),
+                  backgroundColor: c.surfaceMuted,
+                  side: BorderSide(color: isSelected ? c.brand : c.border.withValues(alpha: 0.7)),
                   labelStyle: TextStyle(
                     color: isSelected ? c.onBrand : c.textPrimary,
                   ),
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                 );
               }).toList(),
             ),

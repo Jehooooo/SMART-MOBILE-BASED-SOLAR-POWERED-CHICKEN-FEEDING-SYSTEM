@@ -32,3 +32,7 @@
 
 // ---------- Telemetry ----------
 #define TELEMETRY_INTERVAL_MS  10000UL
+
+// ---------- Network / Firebase Sync ----------
+#define WIFI_RECONNECT_INTERVAL_MS 15000UL
+#define COMMAND_POLL_INTERVAL_MS   2000UL

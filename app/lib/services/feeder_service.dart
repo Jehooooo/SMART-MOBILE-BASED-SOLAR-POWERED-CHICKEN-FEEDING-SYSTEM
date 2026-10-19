@@ -73,6 +73,11 @@ class FeederService extends ChangeNotifier {
     Duration connectDelay = const Duration(milliseconds: 600),
     bool simulateOffline = true,
   }) : _adapter = adapter ?? MockHardwareAdapter(connectDelay: connectDelay, simulateOffline: simulateOffline) {
+    if (!simulateOffline) {
+      _connection = FeederConnection.online;
+      _isInitialLoading = false;
+      _lastSyncedAt = DateTime.now();
+    }
     _initSampleData();
     _bindAdapter(_adapter);
   }
@@ -167,6 +172,31 @@ class FeederService extends ChangeNotifier {
   /// Sends a zero/tare calibration command to the scale.
   Future<bool> tareScale() async {
     final cmd = FeederCommand.tareScale();
+    final res = await _adapter.sendCommand(cmd);
+    return res.status == CommandStatus.completed;
+  }
+
+  /// Sends a known weight calibration command to the scale.
+  Future<bool> calibrateScale(double knownGrams) async {
+    final cmd = FeederCommand(
+      id: 'cmd_cal_${DateTime.now().millisecondsSinceEpoch}',
+      action: FeederAction.calibrateScale,
+      targetGrams: knownGrams,
+      timestamp: DateTime.now(),
+    );
+    final res = await _adapter.sendCommand(cmd);
+    return res.status == CommandStatus.completed;
+  }
+
+  /// Tests the dispenser servo gate by commanding position [degrees] (0 closed, 90 open).
+  Future<bool> testServoGate(int degrees) async {
+    final cmd = FeederCommand(
+      id: 'cmd_servo_${DateTime.now().millisecondsSinceEpoch}',
+      action: FeederAction.dispense,
+      durationSeconds: 1,
+      targetGrams: degrees.toDouble(),
+      timestamp: DateTime.now(),
+    );
     final res = await _adapter.sendCommand(cmd);
     return res.status == CommandStatus.completed;
   }

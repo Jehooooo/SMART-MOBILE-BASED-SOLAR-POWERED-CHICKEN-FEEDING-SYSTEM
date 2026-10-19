@@ -50,3 +50,16 @@ Thumbs.db
 ~$*.docx
 *.tmp
 gantt_chart*.png
+
+# ---- Agent task and summary files ----
+AGENTS.md
+SUMMARY.md
+task-*.md
+TASK.md
+TASK-*.md
+TODO.md
+todos.md
+todos-*.md
+CLAUDE.md
+claude-*.md
+*.log

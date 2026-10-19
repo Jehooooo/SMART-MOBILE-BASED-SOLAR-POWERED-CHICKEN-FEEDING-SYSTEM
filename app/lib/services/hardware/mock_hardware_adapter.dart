@@ -33,7 +33,15 @@ class MockHardwareAdapter implements FeederHardwareAdapter {
 
   // Simulation fault flags for integration testing
   bool simulateMotorJam = false;
-  bool simulateOffline = true;
+  bool _simulateOffline = true;
+  bool get simulateOffline => _simulateOffline;
+  set simulateOffline(bool value) {
+    _simulateOffline = value;
+    _currentConnection = value ? FeederConnection.offline : FeederConnection.online;
+    if (!_disposed) {
+      _connectionController.add(_currentConnection);
+    }
+  }
   bool simulateSensorError = false;
 
   final Random _rng = Random();
@@ -41,8 +49,12 @@ class MockHardwareAdapter implements FeederHardwareAdapter {
   MockHardwareAdapter({
     this.connectDelay = const Duration(milliseconds: 600),
     this.dispenseTickInterval = const Duration(milliseconds: 400),
-    this.simulateOffline = true,
-  });
+    bool simulateOffline = true,
+  }) : _simulateOffline = simulateOffline {
+    if (!simulateOffline) {
+      _currentConnection = FeederConnection.online;
+    }
+  }
 
   @override
   Stream<FeederTelemetry> get telemetryStream => _telemetryController.stream;
@@ -64,11 +76,12 @@ class MockHardwareAdapter implements FeederHardwareAdapter {
 
   @override
   Future<void> initialize() async {
-    _currentConnection = FeederConnection.connecting;
-    _connectionController.add(_currentConnection);
-
-    await Future.delayed(connectDelay);
-    if (_disposed) return;
+    if (connectDelay > Duration.zero) {
+      _currentConnection = FeederConnection.connecting;
+      _connectionController.add(_currentConnection);
+      await Future.delayed(connectDelay);
+      if (_disposed) return;
+    }
 
     if (simulateOffline) {
       _currentConnection = FeederConnection.offline;

@@ -5,6 +5,8 @@ import 'package:smart_chicken_feeder/main.dart';
 import 'package:smart_chicken_feeder/services/feeder_service.dart';
 import 'package:smart_chicken_feeder/services/settings_service.dart';
 import 'package:smart_chicken_feeder/services/file_export/file_exporter.dart';
+import 'package:smart_chicken_feeder/screens/diagnostics_screen.dart';
+import 'package:smart_chicken_feeder/theme/app_theme.dart';
 import 'package:smart_chicken_feeder/models/schedule.dart';
 
 void main() {
@@ -75,17 +77,18 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('Settings & Preferences'), findsOneWidget);
       expect(find.text('App Theme'), findsOneWidget);
+
+      // Toggle Dark mode from settings
+      await tester.tap(find.text('Dark'));
+      await tester.pumpAndSettle();
+      expect(settings.themeMode, ThemeMode.dark);
+
+      // Scroll down to verify warning thresholds and diagnostics
       await tester.scrollUntilVisible(find.text('Low Feed Warning Level'), 100);
       expect(find.text('Low Feed Warning Level'), findsOneWidget);
 
       await tester.scrollUntilVisible(find.text('Simulate Offline Connection'), 100);
       expect(find.text('Simulate Offline Connection'), findsOneWidget);
-
-      // Scroll back up and toggle Dark mode from settings
-      await tester.scrollUntilVisible(find.text('Dark'), -100);
-      await tester.tap(find.text('Dark'));
-      await tester.pumpAndSettle();
-      expect(settings.themeMode, ThemeMode.dark);
 
       feeder.dispose();
     });
@@ -280,6 +283,40 @@ void main() {
       // Close modal
       await tester.tap(find.text('Close'));
       await tester.pumpAndSettle();
+
+      feeder.dispose();
+    });
+
+    testWidgets('Diagnostics screen renders live sensors and executes tare and servo test', (WidgetTester tester) async {
+      final feeder = FeederService(connectDelay: Duration.zero, simulateOffline: false);
+
+      await tester.pumpWidget(MaterialApp(
+        theme: AppTheme.light(),
+        home: DiagnosticsScreen(feederService: feeder, enableAutoRefresh: false),
+      ));
+      await tester.pump();
+
+      // Check key sections
+      expect(find.text('Hardware Diagnostics & Calibration'), findsOneWidget);
+      expect(find.text('Load Cell & Scale (HX711)'), findsOneWidget);
+
+      // Tap Tare button
+      await tester.tap(find.text('Tare (0.0g)'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 600));
+      expect(find.textContaining('Tare Scale completed'), findsWidgets);
+
+      // Scroll to Dispenser Gate Servo section
+      await tester.scrollUntilVisible(find.text('Close (0°)'), 50.0);
+      await tester.ensureVisible(find.text('Close (0°)'));
+      await tester.pumpAndSettle();
+      expect(find.text('Dispenser Gate Servo (MG996R)'), findsOneWidget);
+
+      // Tap Close Gate (0°)
+      await tester.tap(find.text('Close (0°)'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 1200));
+      expect(find.textContaining('Close Gate (0°) completed'), findsWidgets);
 
       feeder.dispose();
     });

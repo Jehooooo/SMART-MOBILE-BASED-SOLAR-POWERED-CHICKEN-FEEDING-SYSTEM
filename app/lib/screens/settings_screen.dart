@@ -7,6 +7,7 @@ import '../services/hardware/firebase_hardware_adapter.dart';
 import '../services/hardware/rest_hardware_adapter.dart';
 import '../theme/app_theme.dart';
 import 'dashboard_screen.dart';
+import 'diagnostics_screen.dart';
 
 class SettingsScreen extends StatefulWidget {
   final FeederService feederService;
@@ -416,7 +417,75 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   const SizedBox(height: 20),
 
                   // Diagnostics & Testing Section
-                  _buildSectionHeader('Diagnostics & Farm Simulation', Icons.biotech_outlined),
+                  _buildSectionHeader('Diagnostics & Hardware Calibration', Icons.biotech_outlined),
+                  Card(
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(18),
+                      side: BorderSide(color: c.brandBorder.withValues(alpha: 0.8)),
+                    ),
+                    color: c.brandSurface,
+                    child: Padding(
+                      padding: const EdgeInsets.all(18.0),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.all(10),
+                                decoration: BoxDecoration(
+                                  color: c.brandSoft,
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: Icon(Icons.tune_rounded, color: c.brand, size: 22),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      'Hardware Sensor Calibration Wizard',
+                                      style: TextStyle(fontWeight: FontWeight.w800, fontSize: 15, color: c.textPrimary),
+                                    ),
+                                    Text(
+                                      'Tare scale, 500g factor calibration, HC-SR04 depth & servo sweep testing.',
+                                      style: TextStyle(fontSize: 12, color: c.textSecondary),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 12),
+                          SizedBox(
+                            width: double.infinity,
+                            child: ElevatedButton.icon(
+                              onPressed: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) => DiagnosticsScreen(feederService: _feeder),
+                                  ),
+                                );
+                              },
+                              icon: const Icon(Icons.play_circle_outline_rounded, size: 18),
+                              label: const Text('Open Hardware Calibration Wizard'),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: c.brand,
+                                foregroundColor: c.onBrand,
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                padding: const EdgeInsets.symmetric(vertical: 12),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+
+                  const SizedBox(height: 16),
+
                   Card(
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(18),

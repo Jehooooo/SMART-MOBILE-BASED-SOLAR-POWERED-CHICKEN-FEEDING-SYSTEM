@@ -106,39 +106,40 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
                             Container(
-                              width: 140,
-                              height: 140,
+                              width: 130,
+                              height: 130,
                               decoration: BoxDecoration(
                                 color: c.brandSoft,
-                                shape: BoxShape.circle,
-                                border: Border.all(color: c.brandBorder, width: 2),
+                                borderRadius: BorderRadius.circular(38),
+                                border: Border.all(color: c.brandBorder.withValues(alpha: 0.6), width: 1.5),
                               ),
-                              child: Icon(item.icon, size: 68, color: c.brand),
+                              child: Icon(item.icon, size: 62, color: c.brand),
                             ),
-                            const SizedBox(height: 32),
+                            const SizedBox(height: 28),
                             Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 5),
                               decoration: BoxDecoration(
                                 color: c.brandSurface,
                                 borderRadius: BorderRadius.circular(20),
-                                border: Border.all(color: c.brandBorder),
+                                border: Border.all(color: c.brandBorder.withValues(alpha: 0.7)),
                               ),
                               child: Text(
                                 item.badge,
                                 style: TextStyle(
                                   fontSize: 12,
-                                  fontWeight: FontWeight.bold,
+                                  fontWeight: FontWeight.w800,
                                   color: c.brand,
                                 ),
                               ),
                             ),
-                            const SizedBox(height: 16),
+                            const SizedBox(height: 18),
                             Text(
                               item.title,
                               textAlign: TextAlign.center,
                               style: TextStyle(
-                                fontSize: 24,
-                                fontWeight: FontWeight.bold,
+                                fontSize: 26,
+                                fontWeight: FontWeight.w800,
+                                letterSpacing: -0.4,
                                 color: c.textPrimary,
                                 height: 1.25,
                               ),
@@ -150,7 +151,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                               style: TextStyle(
                                 fontSize: 14,
                                 color: c.textSecondary,
-                                height: 1.5,
+                                height: 1.55,
                               ),
                             ),
                           ],
@@ -169,34 +170,34 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                       duration: const Duration(milliseconds: 240),
                       margin: const EdgeInsets.symmetric(horizontal: 4),
                       height: 8,
-                      width: isCurrent ? 24 : 8,
+                      width: isCurrent ? 28 : 8,
                       decoration: BoxDecoration(
-                        color: isCurrent ? c.brand : c.border,
+                        color: isCurrent ? c.brand : c.border.withValues(alpha: 0.8),
                         borderRadius: BorderRadius.circular(4),
                       ),
                     );
                   }),
                 ),
 
-                const SizedBox(height: 28),
+                const SizedBox(height: 24),
 
                 // Bottom Action Button
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 16.0),
                   child: SizedBox(
                     width: double.infinity,
-                    height: 50,
+                    height: 52,
                     child: ElevatedButton(
                       onPressed: _nextPage,
                       style: ElevatedButton.styleFrom(
                         backgroundColor: c.brand,
                         foregroundColor: c.onBrand,
-                        elevation: 1,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        elevation: 1.5,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                       ),
                       child: Text(
                         isLastPage ? 'GET STARTED' : 'CONTINUE',
-                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15, letterSpacing: 0.5),
+                        style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15, letterSpacing: 0.5),
                       ),
                     ),
                   ),

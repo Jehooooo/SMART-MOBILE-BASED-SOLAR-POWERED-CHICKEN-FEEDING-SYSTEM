@@ -49,8 +49,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   // Appearance Section
                   _buildSectionHeader('Appearance', Icons.palette_outlined),
                   Card(
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(18),
+                      side: BorderSide(color: c.border.withValues(alpha: 0.7)),
+                    ),
                     child: Padding(
-                      padding: const EdgeInsets.all(16.0),
+                      padding: const EdgeInsets.all(18.0),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
@@ -60,17 +64,24 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                 'App Theme',
                                 style: TextStyle(
                                   fontSize: 15,
-                                  fontWeight: FontWeight.bold,
+                                  fontWeight: FontWeight.w800,
                                   color: c.textPrimary,
                                 ),
                               ),
                               const Spacer(),
-                              Text(
-                                _themeLabel(_settings.themeMode),
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w600,
-                                  color: c.brand,
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                decoration: BoxDecoration(
+                                  color: c.brandSoft,
+                                  borderRadius: BorderRadius.circular(20),
+                                ),
+                                child: Text(
+                                  _themeLabel(_settings.themeMode),
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w700,
+                                    color: c.brand,
+                                  ),
                                 ),
                               ),
                             ],
@@ -80,7 +91,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                             'Choose between light, dark, or follow your phone\'s system appearance.',
                             style: TextStyle(fontSize: 12, color: c.textMuted),
                           ),
-                          const SizedBox(height: 14),
+                          const SizedBox(height: 16),
                           SizedBox(
                             width: double.infinity,
                             child: SegmentedButton<ThemeMode>(
@@ -120,19 +131,27 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   // Feeder Identity Section
                   _buildSectionHeader('Feeder Device & Hardware', Icons.memory),
                   Card(
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(18),
+                      side: BorderSide(color: c.border.withValues(alpha: 0.7)),
+                    ),
                     child: Padding(
-                      padding: const EdgeInsets.all(16.0),
+                      padding: const EdgeInsets.all(18.0),
                       child: Column(
                         children: [
                           ListTile(
                             contentPadding: EdgeInsets.zero,
-                            leading: CircleAvatar(
-                              backgroundColor: c.brandSoft,
-                              child: Icon(Icons.drive_file_rename_outline, color: c.brand),
+                            leading: Container(
+                              padding: const EdgeInsets.all(10),
+                              decoration: BoxDecoration(
+                                color: c.brandSoft,
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Icon(Icons.drive_file_rename_outline, color: c.brand, size: 20),
                             ),
                             title: Text(
                               'Feeder Name',
-                              style: TextStyle(fontWeight: FontWeight.bold, color: c.textPrimary),
+                              style: TextStyle(fontWeight: FontWeight.w800, color: c.textPrimary),
                             ),
                             subtitle: Text(_settings.feederName, style: TextStyle(color: c.textMuted)),
                             trailing: OutlinedButton(
@@ -143,13 +162,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           const Divider(height: 20),
                           ListTile(
                             contentPadding: EdgeInsets.zero,
-                            leading: CircleAvatar(
-                              backgroundColor: c.brandSoft,
-                              child: Icon(Icons.inventory_2_outlined, color: c.brand),
+                            leading: Container(
+                              padding: const EdgeInsets.all(10),
+                              decoration: BoxDecoration(
+                                color: c.brandSoft,
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Icon(Icons.inventory_2_outlined, color: c.brand, size: 20),
                             ),
                             title: Text(
                               'Hopper Total Capacity',
-                              style: TextStyle(fontWeight: FontWeight.bold, color: c.textPrimary),
+                              style: TextStyle(fontWeight: FontWeight.w800, color: c.textPrimary),
                             ),
                             subtitle: Text(
                               '${_settings.hopperCapacityKg.toStringAsFixed(1)} kg (${(_settings.hopperCapacityKg * 1000).toInt()} grams)',
@@ -175,9 +198,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
                             children: [
                               Row(
                                 children: [
-                                  CircleAvatar(
-                                    radius: 16,
-                                    backgroundColor: _feeder.isMock ? c.manualSoft : c.brandSoft,
+                                  Container(
+                                    padding: const EdgeInsets.all(8),
+                                    decoration: BoxDecoration(
+                                      color: _feeder.isMock ? c.manualSoft : c.brandSoft,
+                                      borderRadius: BorderRadius.circular(10),
+                                    ),
                                     child: Icon(
                                       _feeder.isMock ? Icons.developer_mode : Icons.hub_outlined,
                                       size: 18,
@@ -187,22 +213,22 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                   const SizedBox(width: 10),
                                   Text(
                                     'Hardware Transport',
-                                    style: TextStyle(fontWeight: FontWeight.bold, color: c.textPrimary),
+                                    style: TextStyle(fontWeight: FontWeight.w800, color: c.textPrimary),
                                   ),
                                   const SizedBox(width: 8),
                                   Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                                     decoration: BoxDecoration(
                                       color: _feeder.isMock
                                           ? c.warning.withValues(alpha: 0.15)
                                           : c.brand.withValues(alpha: 0.15),
-                                      borderRadius: BorderRadius.circular(4),
+                                      borderRadius: BorderRadius.circular(6),
                                     ),
                                     child: Text(
                                       _feeder.isMock ? 'SIMULATOR' : 'LIVE HW',
                                       style: TextStyle(
                                         fontSize: 10,
-                                        fontWeight: FontWeight.bold,
+                                        fontWeight: FontWeight.w800,
                                         color: _feeder.isMock ? c.warning : c.brand,
                                       ),
                                     ),
@@ -214,12 +240,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                 _feeder.hardwareSourceLabel,
                                 style: TextStyle(fontSize: 12, color: c.textMuted),
                               ),
-                              const SizedBox(height: 10),
+                              const SizedBox(height: 12),
                               Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 12),
+                                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 2),
                                 decoration: BoxDecoration(
-                                  borderRadius: BorderRadius.circular(8),
-                                  border: Border.all(color: c.border),
+                                  color: c.surfaceMuted,
+                                  borderRadius: BorderRadius.circular(14),
+                                  border: Border.all(color: c.border.withValues(alpha: 0.8)),
                                 ),
                                 child: DropdownButtonHideUnderline(
                                   child: DropdownButton<HardwareTransportType>(
@@ -259,8 +286,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   // Alert Thresholds Section
                   _buildSectionHeader('Safety & Alert Thresholds', Icons.notifications_active_outlined),
                   Card(
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(18),
+                      side: BorderSide(color: c.border.withValues(alpha: 0.7)),
+                    ),
                     child: Padding(
-                      padding: const EdgeInsets.all(16.0),
+                      padding: const EdgeInsets.all(18.0),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
@@ -270,13 +301,20 @@ class _SettingsScreenState extends State<SettingsScreen> {
                               Expanded(
                                 child: Row(
                                   children: [
-                                    Icon(Icons.inventory_2, size: 18, color: c.warning),
-                                    const SizedBox(width: 8),
+                                    Container(
+                                      padding: const EdgeInsets.all(8),
+                                      decoration: BoxDecoration(
+                                        color: c.warning.withValues(alpha: 0.12),
+                                        borderRadius: BorderRadius.circular(10),
+                                      ),
+                                      child: Icon(Icons.inventory_2_outlined, size: 18, color: c.warning),
+                                    ),
+                                    const SizedBox(width: 10),
                                     Flexible(
                                       child: Text(
                                         'Low Feed Warning Level',
                                         overflow: TextOverflow.ellipsis,
-                                        style: TextStyle(fontWeight: FontWeight.bold, color: c.textPrimary),
+                                        style: TextStyle(fontWeight: FontWeight.w800, color: c.textPrimary),
                                       ),
                                     ),
                                   ],
@@ -284,18 +322,20 @@ class _SettingsScreenState extends State<SettingsScreen> {
                               ),
                               const SizedBox(width: 8),
                               Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                                 decoration: BoxDecoration(
                                   color: c.warning.withValues(alpha: 0.12),
-                                  borderRadius: BorderRadius.circular(6),
+                                  borderRadius: BorderRadius.circular(20),
+                                  border: Border.all(color: c.warning.withValues(alpha: 0.3)),
                                 ),
                                 child: Text(
                                   '< ${_settings.lowFeedThreshold.toInt()}%',
-                                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: c.warning),
+                                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: c.warning),
                                 ),
                               ),
                             ],
                           ),
+                          const SizedBox(height: 6),
                           Slider(
                             value: _settings.lowFeedThreshold,
                             min: 10.0,
@@ -311,7 +351,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                             style: TextStyle(fontSize: 11, color: c.textMuted),
                           ),
 
-                          const Divider(height: 24),
+                          const Divider(height: 28),
 
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -319,13 +359,20 @@ class _SettingsScreenState extends State<SettingsScreen> {
                               Expanded(
                                 child: Row(
                                   children: [
-                                    Icon(Icons.battery_alert, size: 18, color: c.danger),
-                                    const SizedBox(width: 8),
+                                    Container(
+                                      padding: const EdgeInsets.all(8),
+                                      decoration: BoxDecoration(
+                                        color: c.dangerSoft,
+                                        borderRadius: BorderRadius.circular(10),
+                                      ),
+                                      child: Icon(Icons.battery_alert_rounded, size: 18, color: c.danger),
+                                    ),
+                                    const SizedBox(width: 10),
                                     Flexible(
                                       child: Text(
                                         'Low Solar Battery Warning',
                                         overflow: TextOverflow.ellipsis,
-                                        style: TextStyle(fontWeight: FontWeight.bold, color: c.textPrimary),
+                                        style: TextStyle(fontWeight: FontWeight.w800, color: c.textPrimary),
                                       ),
                                     ),
                                   ],
@@ -333,18 +380,20 @@ class _SettingsScreenState extends State<SettingsScreen> {
                               ),
                               const SizedBox(width: 8),
                               Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                                 decoration: BoxDecoration(
-                                  color: c.danger.withValues(alpha: 0.12),
-                                  borderRadius: BorderRadius.circular(6),
+                                  color: c.dangerSoft,
+                                  borderRadius: BorderRadius.circular(20),
+                                  border: Border.all(color: c.dangerBorder),
                                 ),
                                 child: Text(
                                   '< ${_settings.lowBatteryThreshold.toInt()}%',
-                                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: c.danger),
+                                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: c.danger),
                                 ),
                               ),
                             ],
                           ),
+                          const SizedBox(height: 6),
                           Slider(
                             value: _settings.lowBatteryThreshold,
                             min: 10.0,
@@ -369,24 +418,33 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   // Diagnostics & Testing Section
                   _buildSectionHeader('Diagnostics & Farm Simulation', Icons.biotech_outlined),
                   Card(
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(18),
+                      side: BorderSide(color: c.border.withValues(alpha: 0.7)),
+                    ),
                     child: Padding(
-                      padding: const EdgeInsets.all(16.0),
+                      padding: const EdgeInsets.all(18.0),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           if (_feeder.isMock) ...[
                             SwitchListTile(
                               contentPadding: EdgeInsets.zero,
-                              secondary: CircleAvatar(
-                                backgroundColor: _feeder.isSimulatingOffline ? c.dangerSoft : c.brandSoft,
+                              secondary: Container(
+                                padding: const EdgeInsets.all(10),
+                                decoration: BoxDecoration(
+                                  color: _feeder.isSimulatingOffline ? c.dangerSoft : c.brandSoft,
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
                                 child: Icon(
-                                  _feeder.isSimulatingOffline ? Icons.cloud_off : Icons.cloud_done,
+                                  _feeder.isSimulatingOffline ? Icons.cloud_off_rounded : Icons.cloud_done_rounded,
                                   color: _feeder.isSimulatingOffline ? c.danger : c.brand,
+                                  size: 20,
                                 ),
                               ),
                               title: Text(
                                 'Simulate Offline Connection',
-                                style: TextStyle(fontWeight: FontWeight.bold, color: c.textPrimary),
+                                style: TextStyle(fontWeight: FontWeight.w800, color: c.textPrimary),
                               ),
                               subtitle: Text(
                                 _feeder.isSimulatingOffline
@@ -399,19 +457,24 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                 _feeder.setSimulatedOffline(val);
                               },
                             ),
-                            const Divider(height: 16),
+                            const Divider(height: 20),
                             SwitchListTile(
                               contentPadding: EdgeInsets.zero,
-                              secondary: CircleAvatar(
-                                backgroundColor: _feeder.isSimulatingMotorJam ? c.dangerSoft : c.manualSoft,
+                              secondary: Container(
+                                padding: const EdgeInsets.all(10),
+                                decoration: BoxDecoration(
+                                  color: _feeder.isSimulatingMotorJam ? c.dangerSoft : c.manualSoft,
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
                                 child: Icon(
-                                  Icons.lock_clock,
+                                  Icons.lock_clock_rounded,
                                   color: _feeder.isSimulatingMotorJam ? c.danger : c.warning,
+                                  size: 20,
                                 ),
                               ),
                               title: Text(
                                 'Simulate Motor Jam (Servo Stall)',
-                                style: TextStyle(fontWeight: FontWeight.bold, color: c.textPrimary),
+                                style: TextStyle(fontWeight: FontWeight.w800, color: c.textPrimary),
                               ),
                               subtitle: Text(
                                 'Simulates auger physical blockage during dispensing cycle.',
@@ -422,19 +485,24 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                 _feeder.setSimulatedMotorJam(val);
                               },
                             ),
-                            const Divider(height: 16),
+                            const Divider(height: 20),
                             SwitchListTile(
                               contentPadding: EdgeInsets.zero,
-                              secondary: CircleAvatar(
-                                backgroundColor: _feeder.isSimulatingSensorError ? c.dangerSoft : c.infoSoft,
+                              secondary: Container(
+                                padding: const EdgeInsets.all(10),
+                                decoration: BoxDecoration(
+                                  color: _feeder.isSimulatingSensorError ? c.dangerSoft : c.infoSoft,
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
                                 child: Icon(
-                                  Icons.error_outline,
+                                  Icons.error_outline_rounded,
                                   color: _feeder.isSimulatingSensorError ? c.danger : c.info,
+                                  size: 20,
                                 ),
                               ),
                               title: Text(
                                 'Simulate Sensor Failure',
-                                style: TextStyle(fontWeight: FontWeight.bold, color: c.textPrimary),
+                                style: TextStyle(fontWeight: FontWeight.w800, color: c.textPrimary),
                               ),
                               subtitle: Text(
                                 'Simulates HC-SR04 ultrasonic echo loss or HX711 disconnection.',
@@ -457,7 +525,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                       const SnackBar(content: Text('Simulated hopper refilled to 100%')),
                                     );
                                   },
-                                  icon: const Icon(Icons.refresh, size: 16),
+                                  icon: const Icon(Icons.refresh_rounded, size: 16),
                                   label: const Text('Refill Hopper'),
                                 ),
                                 OutlinedButton.icon(
@@ -469,7 +537,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                       );
                                     }
                                   },
-                                  icon: const Icon(Icons.scale, size: 16),
+                                  icon: const Icon(Icons.scale_rounded, size: 16),
                                   label: const Text('Tare Load Cell'),
                                 ),
                               ],
@@ -477,13 +545,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           ] else ...[
                             ListTile(
                               contentPadding: EdgeInsets.zero,
-                              leading: CircleAvatar(
-                                backgroundColor: c.brandSoft,
-                                child: Icon(Icons.scale, color: c.brand),
+                              leading: Container(
+                                padding: const EdgeInsets.all(10),
+                                decoration: BoxDecoration(
+                                  color: c.brandSoft,
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: Icon(Icons.scale_rounded, color: c.brand, size: 20),
                               ),
                               title: Text(
                                 'Zero / Tare Scale Sensor',
-                                style: TextStyle(fontWeight: FontWeight.bold, color: c.textPrimary),
+                                style: TextStyle(fontWeight: FontWeight.w800, color: c.textPrimary),
                               ),
                               subtitle: Text(
                                 'Sends hardware calibration command to HX711 load cell.',
@@ -509,13 +581,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           const Divider(height: 24),
                           ListTile(
                             contentPadding: EdgeInsets.zero,
-                            leading: CircleAvatar(
-                              backgroundColor: c.brandSoft,
-                              child: Icon(Icons.school_outlined, color: c.brand),
+                            leading: Container(
+                              padding: const EdgeInsets.all(10),
+                              decoration: BoxDecoration(
+                                color: c.brandSoft,
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Icon(Icons.school_outlined, color: c.brand, size: 20),
                             ),
                             title: Text(
                               'Replay First-Run Onboarding',
-                              style: TextStyle(fontWeight: FontWeight.bold, color: c.textPrimary),
+                              style: TextStyle(fontWeight: FontWeight.w800, color: c.textPrimary),
                             ),
                             subtitle: Text(
                               'Launch the walkthrough guide for farm staff training.',
@@ -538,19 +614,27 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   // Help & About Section
                   _buildSectionHeader('Help & Research Info', Icons.help_outline),
                   Card(
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(18),
+                      side: BorderSide(color: c.border.withValues(alpha: 0.7)),
+                    ),
                     child: Padding(
-                      padding: const EdgeInsets.all(16.0),
+                      padding: const EdgeInsets.all(18.0),
                       child: Column(
                         children: [
                           ListTile(
                             contentPadding: EdgeInsets.zero,
-                            leading: CircleAvatar(
-                              backgroundColor: c.brandSoft,
-                              child: Icon(Icons.menu_book_outlined, color: c.brand),
+                            leading: Container(
+                              padding: const EdgeInsets.all(10),
+                              decoration: BoxDecoration(
+                                color: c.brandSoft,
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Icon(Icons.menu_book_outlined, color: c.brand, size: 20),
                             ),
                             title: Text(
                               'System & Hardware Guide',
-                              style: TextStyle(fontWeight: FontWeight.bold, color: c.textPrimary),
+                              style: TextStyle(fontWeight: FontWeight.w800, color: c.textPrimary),
                             ),
                             subtitle: Text(
                               'Ultrasonic sensor, solar panel, load cell calibration details.',
@@ -562,13 +646,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           const Divider(height: 20),
                           ListTile(
                             contentPadding: EdgeInsets.zero,
-                            leading: CircleAvatar(
-                              backgroundColor: c.brandSoft,
-                              child: Icon(Icons.info_outline, color: c.brand),
+                            leading: Container(
+                              padding: const EdgeInsets.all(10),
+                              decoration: BoxDecoration(
+                                color: c.brandSoft,
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Icon(Icons.info_outline, color: c.brand, size: 20),
                             ),
                             title: Text(
                               'Smart Poultry Feeder System',
-                              style: TextStyle(fontWeight: FontWeight.bold, color: c.textPrimary),
+                              style: TextStyle(fontWeight: FontWeight.w800, color: c.textPrimary),
                             ),
                             subtitle: Text(
                               'Version $kAppVersion (Build $kAppBuild)\nResearch Project • Capstone Study',
@@ -605,18 +693,25 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Widget _buildSectionHeader(String title, IconData icon) {
     final c = context.colors;
     return Padding(
-      padding: const EdgeInsets.only(left: 4.0, bottom: 8.0),
+      padding: const EdgeInsets.only(left: 4.0, bottom: 10.0),
       child: Row(
         children: [
-          Icon(icon, size: 18, color: c.brand),
-          const SizedBox(width: 8),
+          Container(
+            padding: const EdgeInsets.all(6),
+            decoration: BoxDecoration(
+              color: c.brandSoft,
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Icon(icon, size: 16, color: c.brand),
+          ),
+          const SizedBox(width: 10),
           Text(
             title,
             style: TextStyle(
               fontSize: 14,
-              fontWeight: FontWeight.bold,
+              fontWeight: FontWeight.w800,
               color: c.textPrimary,
-              letterSpacing: 0.3,
+              letterSpacing: -0.2,
             ),
           ),
         ],
@@ -640,7 +735,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Edit Feeder Name'),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22)),
+        title: const Text('Edit Feeder Name', style: TextStyle(fontWeight: FontWeight.w800)),
         content: TextField(
           controller: ctrl,
           autofocus: true,
@@ -670,7 +766,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Reset Feeder Defaults?'),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22)),
+        title: const Text('Reset Feeder Defaults?', style: TextStyle(fontWeight: FontWeight.w800)),
         content: const Text(
           'This will restore default feeder naming, 5.0 kg hopper capacity, and 20% alert thresholds. Your custom feeding schedules and logs will remain untouched.',
         ),

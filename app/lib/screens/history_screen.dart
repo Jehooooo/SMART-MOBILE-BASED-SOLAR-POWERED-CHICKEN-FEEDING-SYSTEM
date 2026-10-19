@@ -92,12 +92,12 @@ class _HistoryScreenState extends State<HistoryScreen> {
                                       // Research Metrics Summary Card
                                       Card(
                                         shape: RoundedRectangleBorder(
-                                          borderRadius: BorderRadius.circular(12),
-                                          side: BorderSide(color: c.brandBorder),
+                                          borderRadius: BorderRadius.circular(18),
+                                          side: BorderSide(color: c.brandBorder.withValues(alpha: 0.8)),
                                         ),
                                         color: c.brandSurface,
                                         child: Padding(
-                                          padding: const EdgeInsets.all(16.0),
+                                          padding: const EdgeInsets.all(18.0),
                                           child: Column(
                                             crossAxisAlignment: CrossAxisAlignment.start,
                                             children: [
@@ -108,16 +108,24 @@ class _HistoryScreenState extends State<HistoryScreen> {
                                                     child: Row(
                                                       mainAxisSize: MainAxisSize.min,
                                                       children: [
-                                                        Icon(Icons.analytics_outlined, color: c.brand, size: 20),
-                                                        const SizedBox(width: 8),
+                                                        Container(
+                                                          padding: const EdgeInsets.all(8),
+                                                          decoration: BoxDecoration(
+                                                            color: c.brandSoft,
+                                                            borderRadius: BorderRadius.circular(10),
+                                                          ),
+                                                          child: Icon(Icons.analytics_outlined, color: c.brand, size: 20),
+                                                        ),
+                                                        const SizedBox(width: 10),
                                                         Flexible(
                                                           child: Text(
                                                             'Performance Metrics',
                                                             overflow: TextOverflow.ellipsis,
                                                             style: TextStyle(
-                                                              fontSize: 15,
-                                                              fontWeight: FontWeight.bold,
-                                                              color: c.brand,
+                                                              fontSize: 16,
+                                                              fontWeight: FontWeight.w800,
+                                                              letterSpacing: -0.2,
+                                                              color: c.textPrimary,
                                                             ),
                                                           ),
                                                         ),
@@ -126,10 +134,11 @@ class _HistoryScreenState extends State<HistoryScreen> {
                                                   ),
                                                   const SizedBox(width: 8),
                                                   Container(
-                                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                                                     decoration: BoxDecoration(
-                                                      color: c.brandSoft,
-                                                      borderRadius: BorderRadius.circular(6),
+                                                      color: c.surface,
+                                                      borderRadius: BorderRadius.circular(20),
+                                                      border: Border.all(color: c.brandBorder.withValues(alpha: 0.6)),
                                                     ),
                                                     child: Text(
                                                       'Chapter IV Data',
@@ -142,9 +151,8 @@ class _HistoryScreenState extends State<HistoryScreen> {
                                                   ),
                                                 ],
                                               ),
-                                              const SizedBox(height: 14),
+                                              const SizedBox(height: 16),
                                               Row(
-                                                mainAxisAlignment: MainAxisAlignment.spaceAround,
                                                 children: [
                                                   _buildSummaryItem('Total Feeds', '$totalFeedings'),
                                                   _buildSummaryItem('Avg Accuracy', '${avgAccuracy.toStringAsFixed(1)}%'),
@@ -161,7 +169,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
                                         ),
                                       ),
 
-                                      const SizedBox(height: 16),
+                                      const SizedBox(height: 18),
 
                                       // Filter Chips Row
                                       Row(
@@ -170,7 +178,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
                                             'Filter Logs:',
                                             style: TextStyle(
                                               fontSize: 13,
-                                              fontWeight: FontWeight.w600,
+                                              fontWeight: FontWeight.w700,
                                               color: c.textSecondary,
                                             ),
                                           ),
@@ -181,9 +189,9 @@ class _HistoryScreenState extends State<HistoryScreen> {
                                               child: Row(
                                                 children: [
                                                   _buildFilterChip('All', 'All (${allLogs.length})'),
-                                                  const SizedBox(width: 6),
+                                                  const SizedBox(width: 8),
                                                   _buildFilterChip('Schedule', 'Scheduled ($scheduleCount)'),
-                                                  const SizedBox(width: 6),
+                                                  const SizedBox(width: 8),
                                                   _buildFilterChip('Manual', 'Manual ($manualCount)'),
                                                 ],
                                               ),
@@ -192,7 +200,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
                                         ],
                                       ),
 
-                                      const SizedBox(height: 12),
+                                      const SizedBox(height: 14),
 
                                       Row(
                                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -201,7 +209,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
                                             'Dispensing Records (${filteredLogs.length})',
                                             style: TextStyle(
                                               fontSize: 15,
-                                              fontWeight: FontWeight.bold,
+                                              fontWeight: FontWeight.w800,
                                               color: c.textPrimary,
                                             ),
                                           ),
@@ -248,15 +256,19 @@ class _HistoryScreenState extends State<HistoryScreen> {
       onSelected: (selected) {
         if (selected) setState(() => _selectedFilter = filterKey);
       },
+      shape: StadiumBorder(
+        side: BorderSide(
+          color: isSelected ? c.brand : c.border.withValues(alpha: 0.8),
+        ),
+      ),
       selectedColor: c.brand,
       backgroundColor: c.surface,
-      side: BorderSide(color: isSelected ? c.brand : c.border),
       labelStyle: TextStyle(
         fontSize: 12,
-        fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-        color: isSelected ? c.onBrand : c.textPrimary,
+        fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
+        color: isSelected ? c.onBrand : c.textSecondary,
       ),
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
     );
   }
 
@@ -269,17 +281,17 @@ class _HistoryScreenState extends State<HistoryScreen> {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Container(
-              padding: const EdgeInsets.all(20),
+              padding: const EdgeInsets.all(22),
               decoration: BoxDecoration(
                 color: c.surfaceMuted,
-                shape: BoxShape.circle,
+                borderRadius: BorderRadius.circular(24),
               ),
-              child: Icon(Icons.history_toggle_off, size: 56, color: c.textMuted),
+              child: Icon(Icons.history_toggle_off, size: 52, color: c.textMuted),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 18),
             Text(
               'No Feeding Logs Yet',
-              style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: c.textPrimary),
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: c.textPrimary),
             ),
             const SizedBox(height: 8),
             Text(
@@ -295,12 +307,35 @@ class _HistoryScreenState extends State<HistoryScreen> {
 
   Widget _buildSummaryItem(String label, String value) {
     final c = context.colors;
-    return Column(
-      children: [
-        Text(value, style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: c.textPrimary)),
-        const SizedBox(height: 2),
-        Text(label, style: TextStyle(fontSize: 12, color: c.textMuted, fontWeight: FontWeight.w500)),
-      ],
+    return Expanded(
+      child: Container(
+        margin: const EdgeInsets.symmetric(horizontal: 4),
+        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+        decoration: BoxDecoration(
+          color: c.surface,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: c.border.withValues(alpha: 0.5)),
+        ),
+        child: Column(
+          children: [
+            Text(
+              value,
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w800,
+                letterSpacing: -0.3,
+                color: c.textPrimary,
+              ),
+            ),
+            const SizedBox(height: 3),
+            Text(
+              label,
+              style: TextStyle(fontSize: 11, color: c.textMuted, fontWeight: FontWeight.w600),
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -315,31 +350,38 @@ class _HistoryScreenState extends State<HistoryScreen> {
     final isSuccess = log.isSuccess;
 
     return Card(
-      margin: const EdgeInsets.only(bottom: 10),
+      margin: const EdgeInsets.only(bottom: 12),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(18),
+        side: BorderSide(color: c.border.withValues(alpha: 0.7)),
+      ),
       child: Padding(
-        padding: const EdgeInsets.all(14.0),
+        padding: const EdgeInsets.all(16.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
               children: [
-                CircleAvatar(
-                  radius: 12,
-                  backgroundColor: isScheduled ? c.brandSoft : c.manualSoft,
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: isScheduled ? c.brandSoft : c.manualSoft,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
                   child: Icon(
-                    isScheduled ? Icons.alarm : Icons.touch_app,
-                    size: 14,
+                    isScheduled ? Icons.alarm_rounded : Icons.touch_app_rounded,
+                    size: 16,
                     color: isScheduled ? c.brand : c.manual,
                   ),
                 ),
-                const SizedBox(width: 8),
+                const SizedBox(width: 10),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
                         formattedDate,
-                        style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: c.textPrimary),
+                        style: TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: c.textPrimary),
                       ),
                       Text(
                         relativeTime,
@@ -349,24 +391,24 @@ class _HistoryScreenState extends State<HistoryScreen> {
                   ),
                 ),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                   decoration: BoxDecoration(
                     color: isSuccess ? c.surfaceMuted : c.dangerSoft,
-                    borderRadius: BorderRadius.circular(6),
+                    borderRadius: BorderRadius.circular(20),
                     border: Border.all(color: isSuccess ? c.border : c.dangerBorder),
                   ),
                   child: Text(
                     log.triggerType,
                     style: TextStyle(
                       fontSize: 11,
-                      fontWeight: FontWeight.w600,
+                      fontWeight: FontWeight.w700,
                       color: isSuccess ? c.textSecondary : c.danger,
                     ),
                   ),
                 ),
               ],
             ),
-            const Divider(height: 18),
+            const Divider(height: 22),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
@@ -375,11 +417,11 @@ class _HistoryScreenState extends State<HistoryScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('Target', style: TextStyle(fontSize: 11, color: c.textMuted)),
+                      Text('Target', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: c.textMuted)),
                       const SizedBox(height: 2),
                       Text(
                         '${log.targetGrams.toStringAsFixed(1)} g',
-                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: c.textPrimary),
+                        style: TextStyle(fontWeight: FontWeight.w800, fontSize: 14, color: c.textPrimary),
                       ),
                     ],
                   ),
@@ -389,11 +431,11 @@ class _HistoryScreenState extends State<HistoryScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('Dispensed', style: TextStyle(fontSize: 11, color: c.textMuted)),
+                      Text('Dispensed', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: c.textMuted)),
                       const SizedBox(height: 2),
                       Text(
                         '${log.actualGrams.toStringAsFixed(1)} g',
-                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: c.brand),
+                        style: TextStyle(fontWeight: FontWeight.w800, fontSize: 14, color: c.brand),
                       ),
                     ],
                   ),
@@ -403,15 +445,22 @@ class _HistoryScreenState extends State<HistoryScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.end,
                     children: [
-                      Text('Variance', style: TextStyle(fontSize: 11, color: c.textMuted)),
+                      Text('Variance', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: c.textMuted)),
                       const SizedBox(height: 2),
-                      Text(
-                        '${isOver ? '+' : ''}${errorDiff.toStringAsFixed(1)} g (${log.accuracyPercent.toStringAsFixed(1)}%)',
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 12,
-                          color: errorDiff.abs() <= 3.0 ? c.success : c.warning,
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: (errorDiff.abs() <= 3.0 ? c.success : c.warning).withValues(alpha: 0.12),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Text(
+                          '${isOver ? '+' : ''}${errorDiff.toStringAsFixed(1)} g (${log.accuracyPercent.toStringAsFixed(1)}%)',
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontWeight: FontWeight.w800,
+                            fontSize: 11,
+                            color: errorDiff.abs() <= 3.0 ? c.success : c.warning,
+                          ),
                         ),
                       ),
                     ],
@@ -419,28 +468,29 @@ class _HistoryScreenState extends State<HistoryScreen> {
                 ),
               ],
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 12),
             // Hardware snapshot footer
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
               decoration: BoxDecoration(
                 color: c.surfaceMuted,
-                borderRadius: BorderRadius.circular(6),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: c.border.withValues(alpha: 0.4)),
               ),
               child: Row(
                 children: [
-                  Icon(Icons.bolt, size: 14, color: c.solar),
+                  Icon(Icons.bolt_rounded, size: 14, color: c.solar),
                   const SizedBox(width: 4),
                   Text(
                     '${log.batteryVolts.toStringAsFixed(1)}V',
-                    style: TextStyle(fontSize: 11, color: c.textMuted, fontWeight: FontWeight.w500),
+                    style: TextStyle(fontSize: 11, color: c.textSecondary, fontWeight: FontWeight.w600),
                   ),
-                  const SizedBox(width: 12),
+                  const SizedBox(width: 14),
                   Icon(Icons.inventory_2_outlined, size: 14, color: c.brand),
                   const SizedBox(width: 4),
                   Text(
                     '${log.feedLevelPercent.toStringAsFixed(0)}% hopper',
-                    style: TextStyle(fontSize: 11, color: c.textMuted, fontWeight: FontWeight.w500),
+                    style: TextStyle(fontSize: 11, color: c.textSecondary, fontWeight: FontWeight.w600),
                   ),
                   const Spacer(),
                   Icon(Icons.timer_outlined, size: 14, color: c.textMuted),
@@ -465,11 +515,24 @@ class _HistoryScreenState extends State<HistoryScreen> {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22)),
         title: Row(
           children: [
-            Icon(Icons.table_chart_outlined, color: c.brand),
-            const SizedBox(width: 8),
-            const Text('Export Feeding Logs (CSV)'),
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: c.brandSoft,
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Icon(Icons.table_chart_outlined, color: c.brand, size: 20),
+            ),
+            const SizedBox(width: 10),
+            const Expanded(
+              child: Text(
+                'Export Feeding Logs (CSV)',
+                style: TextStyle(fontWeight: FontWeight.w800, fontSize: 18),
+              ),
+            ),
           ],
         ),
         content: Column(
@@ -484,11 +547,11 @@ class _HistoryScreenState extends State<HistoryScreen> {
             Container(
               height: 160,
               width: double.maxFinite,
-              padding: const EdgeInsets.all(10),
+              padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
                 color: c.surfaceMuted,
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: c.border),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: c.border.withValues(alpha: 0.8)),
               ),
               child: SingleChildScrollView(
                 child: SelectableText(

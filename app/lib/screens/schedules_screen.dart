@@ -107,19 +107,19 @@ class _SchedulesScreenState extends State<SchedulesScreen> {
     final c = context.colors;
     return Card(
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-        side: BorderSide(color: c.brandBorder),
+        borderRadius: BorderRadius.circular(18),
+        side: BorderSide(color: c.brandBorder.withValues(alpha: 0.8)),
       ),
       color: c.brandSurface,
       child: Padding(
-        padding: const EdgeInsets.all(16.0),
+        padding: const EdgeInsets.all(18.0),
         child: Row(
           children: [
             Container(
-              padding: const EdgeInsets.all(10),
+              padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
                 color: c.brandSoft,
-                borderRadius: BorderRadius.circular(10),
+                borderRadius: BorderRadius.circular(14),
               ),
               child: Icon(Icons.calendar_month_rounded, color: c.brand, size: 24),
             ),
@@ -130,30 +130,44 @@ class _SchedulesScreenState extends State<SchedulesScreen> {
                 children: [
                   Text(
                     '$activeCount Active Daily ${activeCount == 1 ? 'Routine' : 'Routines'}',
-                    style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: c.textPrimary),
+                    style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: c.textPrimary),
                   ),
-                  const SizedBox(height: 2),
+                  const SizedBox(height: 3),
                   Text(
                     'Total daily flock runtime: ${totalDailySeconds}s (~${totalDailyGrams.toInt()}g)',
-                    style: TextStyle(fontSize: 13, color: c.brand, fontWeight: FontWeight.w500),
+                    style: TextStyle(fontSize: 13, color: c.brand, fontWeight: FontWeight.w600),
                   ),
                 ],
               ),
             ),
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
               decoration: BoxDecoration(
                 color: c.surface,
                 borderRadius: BorderRadius.circular(20),
-                border: Border.all(color: c.brandBorder),
+                border: Border.all(color: c.brandBorder.withValues(alpha: 0.6)),
               ),
-              child: Text(
-                activeCount > 0 ? 'Active' : 'Paused',
-                style: TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.bold,
-                  color: activeCount > 0 ? c.brand : c.textMuted,
-                ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    width: 7,
+                    height: 7,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: activeCount > 0 ? c.brand : c.textMuted,
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  Text(
+                    activeCount > 0 ? 'Active' : 'Paused',
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.bold,
+                      color: activeCount > 0 ? c.brand : c.textMuted,
+                    ),
+                  ),
+                ],
               ),
             ),
           ],
@@ -171,17 +185,17 @@ class _SchedulesScreenState extends State<SchedulesScreen> {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Container(
-              padding: const EdgeInsets.all(20),
+              padding: const EdgeInsets.all(22),
               decoration: BoxDecoration(
                 color: c.surfaceMuted,
-                shape: BoxShape.circle,
+                borderRadius: BorderRadius.circular(24),
               ),
-              child: Icon(Icons.alarm_off, size: 56, color: c.textMuted),
+              child: Icon(Icons.alarm_off, size: 52, color: c.textMuted),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 18),
             Text(
               'No Feeding Schedules Set',
-              style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: c.textPrimary),
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: c.textPrimary),
             ),
             const SizedBox(height: 8),
             Text(
@@ -198,21 +212,32 @@ class _SchedulesScreenState extends State<SchedulesScreen> {
   Widget _buildScheduleCard(FeedingSchedule schedule, int index) {
     final c = context.colors;
     return InkWell(
-      borderRadius: BorderRadius.circular(12),
+      borderRadius: BorderRadius.circular(18),
       onTap: () => _showScheduleDialog(context, existing: schedule),
       child: Card(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(18),
+          side: BorderSide(
+            color: schedule.isEnabled ? c.border : c.border.withValues(alpha: 0.5),
+          ),
+        ),
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 12.0),
+          padding: const EdgeInsets.all(14.0),
           child: Row(
             children: [
-              CircleAvatar(
-                backgroundColor: schedule.isEnabled ? c.brandSoft : c.track,
+              Container(
+                padding: const EdgeInsets.all(11),
+                decoration: BoxDecoration(
+                  color: schedule.isEnabled ? c.brandSoft : c.surfaceMuted,
+                  borderRadius: BorderRadius.circular(14),
+                ),
                 child: Icon(
-                  Icons.access_time_filled,
+                  Icons.access_time_filled_rounded,
                   color: schedule.isEnabled ? c.brand : c.textMuted,
+                  size: 22,
                 ),
               ),
-              const SizedBox(width: 12),
+              const SizedBox(width: 14),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -220,12 +245,13 @@ class _SchedulesScreenState extends State<SchedulesScreen> {
                     Text(
                       schedule.timeFormatted,
                       style: TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
+                        fontSize: 22,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: -0.4,
                         color: schedule.isEnabled ? c.textPrimary : c.textMuted,
                       ),
                     ),
-                    const SizedBox(height: 2),
+                    const SizedBox(height: 3),
                     Row(
                       children: [
                         Flexible(
@@ -242,16 +268,16 @@ class _SchedulesScreenState extends State<SchedulesScreen> {
                         ),
                         const SizedBox(width: 8),
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                           decoration: BoxDecoration(
                             color: schedule.isEnabled ? c.brandSoft : c.track,
-                            borderRadius: BorderRadius.circular(4),
+                            borderRadius: BorderRadius.circular(12),
                           ),
                           child: Text(
                             '${schedule.durationSeconds}s (~${schedule.targetGrams.toInt()}g)',
                             style: TextStyle(
                               fontSize: 11,
-                              fontWeight: FontWeight.bold,
+                              fontWeight: FontWeight.w700,
                               color: schedule.isEnabled ? c.brand : c.textMuted,
                             ),
                           ),
@@ -261,7 +287,7 @@ class _SchedulesScreenState extends State<SchedulesScreen> {
                   ],
                 ),
               ),
-              const SizedBox(width: 4),
+              const SizedBox(width: 6),
               Tooltip(
                 message: schedule.isEnabled ? 'Pause schedule' : 'Enable schedule',
                 child: Switch(
@@ -272,6 +298,7 @@ class _SchedulesScreenState extends State<SchedulesScreen> {
                   },
                 ),
               ),
+              const SizedBox(width: 4),
               IconButton(
                 icon: Icon(Icons.delete_outline, color: c.textMuted, size: 22),
                 tooltip: 'Delete schedule',
@@ -351,11 +378,24 @@ class _SchedulesScreenState extends State<SchedulesScreen> {
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (context, setDialogState) => AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22)),
           title: Row(
             children: [
-              Icon(isEditing ? Icons.edit_calendar : Icons.alarm_add, color: c.brand),
-              const SizedBox(width: 8),
-              Text(isEditing ? 'Edit Feeding Schedule' : 'New Feeding Schedule'),
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: c.brandSoft,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Icon(isEditing ? Icons.edit_calendar_rounded : Icons.alarm_add_rounded, color: c.brand, size: 20),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  isEditing ? 'Edit Feeding Schedule' : 'New Feeding Schedule',
+                  style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 18),
+                ),
+              ),
             ],
           ),
           content: SingleChildScrollView(
@@ -366,15 +406,15 @@ class _SchedulesScreenState extends State<SchedulesScreen> {
                 if (validationError != null)
                   Container(
                     margin: const EdgeInsets.only(bottom: 12),
-                    padding: const EdgeInsets.all(10),
+                    padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
                       color: c.dangerSoft,
-                      borderRadius: BorderRadius.circular(8),
+                      borderRadius: BorderRadius.circular(12),
                       border: Border.all(color: c.dangerBorder),
                     ),
                     child: Row(
                       children: [
-                        Icon(Icons.error_outline, color: c.danger, size: 18),
+                        Icon(Icons.error_outline_rounded, color: c.danger, size: 18),
                         const SizedBox(width: 8),
                         Expanded(
                           child: Text(
@@ -393,15 +433,18 @@ class _SchedulesScreenState extends State<SchedulesScreen> {
                     hintText: 'e.g. Morning Feeding',
                   ),
                 ),
-                const SizedBox(height: 8),
+                const SizedBox(height: 10),
 
                 // Quick label presets
                 Wrap(
                   spacing: 6,
+                  runSpacing: 6,
                   children: presetLabels.map((preset) {
                     return ActionChip(
-                      label: Text(preset, style: const TextStyle(fontSize: 11)),
-                      padding: EdgeInsets.zero,
+                      label: Text(preset, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600)),
+                      shape: StadiumBorder(side: BorderSide(color: c.border.withValues(alpha: 0.6))),
+                      backgroundColor: c.surfaceMuted,
+                      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
                       onPressed: () {
                         setDialogState(() {
                           labelCtrl.text = preset;
@@ -411,38 +454,63 @@ class _SchedulesScreenState extends State<SchedulesScreen> {
                   }).toList(),
                 ),
 
-                const SizedBox(height: 14),
+                const SizedBox(height: 16),
 
-                ListTile(
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(10),
-                    side: BorderSide(color: c.border),
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: c.surfaceMuted,
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: c.border.withValues(alpha: 0.8)),
                   ),
-                  leading: Icon(Icons.schedule, color: c.brand),
-                  title: const Text('Dispensing Time', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
-                  trailing: OutlinedButton(
-                    onPressed: () async {
-                      final picked = await showTimePicker(
-                        context: context,
-                        initialTime: selectedTime,
-                      );
-                      if (picked != null) {
-                        setDialogState(() {
-                          selectedTime = picked;
-                          validationError = null;
-                        });
-                      }
-                    },
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: c.brand,
-                      side: BorderSide(color: c.brand),
-                    ),
-                    child: Text(selectedTime.format(context), style: const TextStyle(fontWeight: FontWeight.bold)),
+                  child: Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: c.brandSoft,
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Icon(Icons.schedule_rounded, color: c.brand, size: 20),
+                      ),
+                      const SizedBox(width: 12),
+                      const Expanded(
+                        child: Text(
+                          'Dispensing Time',
+                          style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
+                        ),
+                      ),
+                      FilledButton.tonal(
+                        onPressed: () async {
+                          final picked = await showTimePicker(
+                            context: context,
+                            initialTime: selectedTime,
+                          );
+                          if (picked != null) {
+                            setDialogState(() {
+                              selectedTime = picked;
+                              validationError = null;
+                            });
+                          }
+                        },
+                        style: FilledButton.styleFrom(
+                          backgroundColor: c.surface,
+                          foregroundColor: c.brand,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10),
+                            side: BorderSide(color: c.brandBorder),
+                          ),
+                        ),
+                        child: Text(
+                          selectedTime.format(context),
+                          style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
 
-                const SizedBox(height: 14),
+                const SizedBox(height: 16),
 
                 TextField(
                   controller: durationCtrl,
@@ -459,13 +527,16 @@ class _SchedulesScreenState extends State<SchedulesScreen> {
                     }
                   },
                 ),
-                const SizedBox(height: 6),
+                const SizedBox(height: 8),
                 Wrap(
                   spacing: 6,
+                  runSpacing: 6,
                   children: presetDurations.map((sec) {
                     return ActionChip(
-                      label: Text('${sec}s (~${sec * 20}g)', style: const TextStyle(fontSize: 11)),
-                      padding: EdgeInsets.zero,
+                      label: Text('${sec}s (~${sec * 20}g)', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600)),
+                      shape: StadiumBorder(side: BorderSide(color: c.border.withValues(alpha: 0.6))),
+                      backgroundColor: c.surfaceMuted,
+                      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
                       onPressed: () {
                         setDialogState(() {
                           durationCtrl.text = sec.toString();

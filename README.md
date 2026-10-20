@@ -134,7 +134,6 @@ AutomaticDispensing/
 │   ├── FIREBASE_SETUP_GUIDE.md     # Firebase Realtime Database setup & security rules
 │   ├── HARDWARE_INTEGRATION_SPECIFICATION.md # Complete electrical & pinout matrix
 │   ├── SYSTEM_FLOWCHART.md         # Comprehensive system architecture & dataflow flowchart
-│   ├── QnA_System_and_Research.txt # Research design, sampling, and system questions
 │   └── methodology_analysis.md     # Theoretical framework & research methodology
 │
 ├── data.json                       # Seed schema template for Firebase Realtime Database
@@ -345,7 +344,6 @@ flutter test --no-pub
 | [docs/FIREBASE_SETUP_GUIDE.md](docs/FIREBASE_SETUP_GUIDE.md) | Firebase Realtime Database setup, indexing, and security rules |
 | [docs/HARDWARE_INTEGRATION_SPECIFICATION.md](docs/HARDWARE_INTEGRATION_SPECIFICATION.md) | Electrical schematics, pinout tables, and voltage regulation specs |
 | [docs/SYSTEM_FLOWCHART.md](docs/SYSTEM_FLOWCHART.md) | Comprehensive system architecture and operational dataflow diagram |
-| [docs/QnA_System_and_Research.txt](docs/QnA_System_and_Research.txt) | Research questions, sampling criteria, and technical consultation checklist |
 | [docs/methodology_analysis.md](docs/methodology_analysis.md) | Research methodology, theoretical equations, and empirical analysis |
 
 ---

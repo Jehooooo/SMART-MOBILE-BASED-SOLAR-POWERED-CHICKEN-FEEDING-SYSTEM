@@ -150,6 +150,36 @@ class RestHardwareAdapter implements FeederHardwareAdapter {
     }
   }
 
+  Future<bool> tareScale() async {
+    if (kIsWeb) return false;
+    try {
+      final client = HttpClient();
+      client.connectionTimeout = const Duration(seconds: 2);
+      final request = await client.postUrl(Uri.parse('$_baseUrl/api/tare'));
+      final response = await request.close();
+      return response.statusCode == 200;
+    } catch (e) {
+      debugPrint('RestHardwareAdapter tare error: $e');
+      return false;
+    }
+  }
+
+  Future<bool> calibrateScale(double knownGrams) async {
+    if (kIsWeb) return false;
+    try {
+      final client = HttpClient();
+      client.connectionTimeout = const Duration(seconds: 2);
+      final request = await client.postUrl(Uri.parse('$_baseUrl/api/calibrate'));
+      request.headers.contentType = ContentType.json;
+      request.write(jsonEncode({'targetGrams': knownGrams}));
+      final response = await request.close();
+      return response.statusCode == 200;
+    } catch (e) {
+      debugPrint('RestHardwareAdapter calibrate error: $e');
+      return false;
+    }
+  }
+
   @override
   Future<FeederCommand> sendCommand(FeederCommand command) async {
     if (command.action == FeederAction.dispense) {
@@ -161,6 +191,12 @@ class RestHardwareAdapter implements FeederHardwareAdapter {
     } else if (command.action == FeederAction.emergencyStop) {
       await cancelDispense();
       return command.copyWith(status: CommandStatus.completed);
+    } else if (command.action == FeederAction.tareScale) {
+      final ok = await tareScale();
+      return command.copyWith(status: ok ? CommandStatus.completed : CommandStatus.failed);
+    } else if (command.action == FeederAction.calibrateScale) {
+      final ok = await calibrateScale(command.targetGrams);
+      return command.copyWith(status: ok ? CommandStatus.completed : CommandStatus.failed);
     }
     return command.copyWith(status: CommandStatus.completed);
   }

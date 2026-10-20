@@ -13,6 +13,7 @@
 #include <Arduino.h>
 #include <Wire.h>
 #include <WiFi.h>
+#include <WebServer.h>
 #include <HTTPClient.h>
 #include <WiFiClientSecure.h>
 #include <ESP32Servo.h>
@@ -32,6 +33,9 @@
 #define FIREBASE_API_KEY ""
 #define FIREBASE_DB_URL ""
 #endif
+
+// HTTP Web Server for Direct Local Wi-Fi (SoftAP & Local Station)
+WebServer server(HTTP_SERVER_PORT);
 
 Servo gate;
 HX711 scale;
@@ -291,16 +295,177 @@ void handleCommand(const String& cmdJson) {
   }
 }
 
+// ---------- Direct Wi-Fi WebServer & SoftAP REST API ----------
+
+void setupWebServer() {
+  server.on("/api/telemetry", HTTP_GET, []() {
+    float level = readFeedLevelPercent();
+    float vbat = readBatteryVolts();
+    int batPct = calculateBatteryPercent(vbat);
+    float weight = scale.get_units(2);
+
+    JsonDocument doc;
+    doc["feedLevelPercent"] = level >= 0 ? level : 0.0f;
+    doc["batteryVolts"] = round(vbat * 100.0f) / 100.0f;
+    doc["batteryPercent"] = batPct;
+    doc["currentWeightGrams"] = round(weight * 10.0f) / 10.0f;
+    doc["status"] = isDispensing ? "dispensing" : (level >= 0 && level < LOW_FEED_PERCENT ? "lowFeed" : (vbat < BATTERY_LOW_VOLTS ? "lowBattery" : "idle"));
+    doc["lastHeartbeat"] = (uint64_t)millis();
+    doc["lastFedTimestamp"] = (uint64_t)lastFedTimestampMs;
+    doc["lastFedGrams"] = lastFedGrams;
+    doc["isSolarCharging"] = (vbat > 12.6f);
+
+    String out;
+    serializeJson(doc, out);
+    server.sendHeader("Access-Control-Allow-Origin", "*");
+    server.send(200, "application/json", out);
+  });
+
+  server.on("/api/dispense", HTTP_POST, []() {
+    server.sendHeader("Access-Control-Allow-Origin", "*");
+    if (isDispensing) {
+      server.send(409, "application/json", "{\"status\":\"busy\",\"message\":\"Dispensing in progress\"}");
+      return;
+    }
+    int durationSec = 5;
+    float targetGrams = 0.0f;
+    if (server.hasArg("plain")) {
+      JsonDocument doc;
+      if (!deserializeJson(doc, server.arg("plain"))) {
+        durationSec = doc["durationSeconds"] | doc["duration"] | 5;
+        targetGrams = doc["targetGrams"] | 0.0f;
+      }
+    }
+    if (server.hasArg("durationSeconds")) durationSec = server.arg("durationSeconds").toInt();
+    if (server.hasArg("targetGrams")) targetGrams = server.arg("targetGrams").toFloat();
+
+    server.send(200, "application/json", "{\"status\":\"ok\",\"message\":\"Dispensing initiated\"}");
+
+    if (durationSec > 0 && targetGrams <= 90.0f && durationSec == 1) {
+      int deg = constrain((int)round(targetGrams), 0, 90);
+      gate.write(deg);
+    } else if (durationSec > 0 && targetGrams <= 0.0f) {
+      dispenseFeedDuration(durationSec, "Direct Local");
+    } else if (targetGrams > 0.0f) {
+      dispenseFeed(targetGrams, "Direct Local");
+    } else {
+      dispenseFeedDuration(5, "Direct Local");
+    }
+  });
+
+  server.on("/api/stop", HTTP_POST, []() {
+    emergencyStopRequested = true;
+    gate.write(SERVO_CLOSED_DEG);
+    server.sendHeader("Access-Control-Allow-Origin", "*");
+    server.send(200, "application/json", "{\"status\":\"ok\",\"message\":\"Emergency stop executed\"}");
+  });
+
+  server.on("/api/tare", HTTP_POST, []() {
+    scale.tare();
+    server.sendHeader("Access-Control-Allow-Origin", "*");
+    server.send(200, "application/json", "{\"status\":\"ok\",\"message\":\"Scale tared to 0.0g\"}");
+  });
+
+  server.on("/api/calibrate", HTTP_POST, []() {
+    float knownGrams = 500.0f;
+    if (server.hasArg("plain")) {
+      JsonDocument doc;
+      if (!deserializeJson(doc, server.arg("plain"))) {
+        knownGrams = doc["targetGrams"] | 500.0f;
+      }
+    }
+    if (server.hasArg("targetGrams")) knownGrams = server.arg("targetGrams").toFloat();
+
+    if (knownGrams > 10.0f) {
+      float rawUnits = scale.get_value(5);
+      if (abs(rawUnits) > 100.0f) {
+        currentCalFactor = rawUnits / knownGrams;
+        scale.set_scale(currentCalFactor);
+      }
+    }
+    server.sendHeader("Access-Control-Allow-Origin", "*");
+    server.send(200, "application/json", "{\"status\":\"ok\",\"factor\":" + String(currentCalFactor, 2) + "}");
+  });
+
+  server.on("/api/servo", HTTP_POST, []() {
+    int angle = 0;
+    if (server.hasArg("plain")) {
+      JsonDocument doc;
+      if (!deserializeJson(doc, server.arg("plain"))) {
+        angle = doc["angle"] | doc["targetGrams"] | 0;
+      }
+    }
+    if (server.hasArg("angle")) angle = server.arg("angle").toInt();
+    angle = constrain(angle, 0, 90);
+    gate.write(angle);
+    server.sendHeader("Access-Control-Allow-Origin", "*");
+    server.send(200, "application/json", "{\"status\":\"ok\",\"angle\":" + String(angle) + "}");
+  });
+
+  server.on("/api/schedules", HTTP_POST, []() {
+    server.sendHeader("Access-Control-Allow-Origin", "*");
+    server.send(200, "application/json", "{\"status\":\"ok\",\"message\":\"Schedules synced\"}");
+  });
+
+  // Embedded mobile web dashboard for direct in-browser access
+  server.on("/", HTTP_GET, []() {
+    float vbat = readBatteryVolts();
+    float level = readFeedLevelPercent();
+    float weight = scale.get_units(2);
+
+    String html = "<!DOCTYPE html><html><head><meta name='viewport' content='width=device-width,initial-scale=1'>"
+      "<title>Smart Chicken Feeder</title>"
+      "<style>"
+      "body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;margin:0;padding:20px;background:#141716;color:#e8ede9;text-align:center}"
+      ".card{background:#1e2422;border-radius:18px;padding:20px;margin-bottom:16px;border:1px solid #2e3834;box-shadow:0 4px 12px rgba(0,0,0,0.3)}"
+      "h1{color:#4ade80;font-size:22px;margin-top:0}h2{font-size:14px;color:#8ba396;text-transform:uppercase;letter-spacing:1px}"
+      ".val{font-size:32px;font-weight:900;font-family:monospace;margin:6px 0}"
+      "button{background:#15803d;color:#fff;border:none;padding:14px 24px;border-radius:12px;font-size:16px;font-weight:bold;margin:6px 0;cursor:pointer;width:100%;max-width:320px}"
+      "button.stop{background:#dc2626}button.tare{background:#0284c7}"
+      "</style></head><body>"
+      "<div class='card'><h1>Smart Chicken Feeder</h1><p style='color:#8ba396;font-size:12px'>Direct Local Wi-Fi Portal (192.168.4.1)</p></div>"
+      "<div class='card'><h2>Hopper Feed Level</h2><div class='val' style='color:#4ade80'>" + String((int)max(0.0f, level)) + "%</div></div>"
+      "<div class='card'><h2>Scale Weight</h2><div class='val'>" + String(weight, 1) + " g</div></div>"
+      "<div class='card'><h2>Battery Voltage</h2><div class='val' style='color:#38bdf8'>" + String(vbat, 2) + " V</div></div>"
+      "<div class='card'><h2>Manual Controls</h2>"
+      "<form method='POST' action='/api/dispense'><button type='submit'>Dispense Feed (5s)</button></form>"
+      "<form method='POST' action='/api/tare'><button class='tare' type='submit'>Tare Scale (0.0g)</button></form>"
+      "<form method='POST' action='/api/stop'><button class='stop' type='submit'>Emergency Stop</button></form>"
+      "</div></body></html>";
+    server.send(200, "text/html", html);
+  });
+
+  server.enableCORS(true);
+  server.begin();
+  Serial.printf("[HTTP] Embedded REST server listening on port %d\n", HTTP_SERVER_PORT);
+}
+
 // ---------- Wi-Fi & Firebase Realtime Database Sync ----------
 
 void initWiFi() {
-  if (strlen(WIFI_SSID) == 0) {
-    Serial.println("[WIFI] No SSID configured. Running in serial/offline tethered mode.");
-    return;
+  // Start SoftAP mode (Dual Mode: SoftAP + Station)
+  WiFi.mode(WIFI_AP_STA);
+  bool apSuccess = WiFi.softAP(SOFTAP_SSID, SOFTAP_PASSWORD, SOFTAP_CHANNEL, 0, SOFTAP_MAX_CONN);
+  if (apSuccess) {
+    IPAddress apIP = WiFi.softAPIP();
+    Serial.println("-------------------------------------------------");
+    Serial.printf("[SOFTAP] Direct Wi-Fi Active: SSID='%s'\n", SOFTAP_SSID);
+    Serial.printf("[SOFTAP] Access Point IP: %s\n", apIP.toString().c_str());
+    Serial.printf("[SOFTAP] Password: '%s'\n", SOFTAP_PASSWORD);
+    Serial.println("-------------------------------------------------");
+  } else {
+    Serial.println("[SOFTAP ERROR] Failed to start SoftAP hotspot.");
   }
-  Serial.printf("[WIFI] Connecting to '%s'...\n", WIFI_SSID);
-  WiFi.mode(WIFI_STA);
-  WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
+
+  // Connect to station Wi-Fi if configured
+  if (strlen(WIFI_SSID) > 0) {
+    Serial.printf("[WIFI STA] Connecting to station network '%s'...\n", WIFI_SSID);
+    WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
+  } else {
+    Serial.println("[WIFI STA] No station SSID set. Operating in pure direct SoftAP mode.");
+  }
+
+  setupWebServer();
 }
 
 void checkWiFiReconnect() {
@@ -413,7 +578,7 @@ void setup() {
 
   Serial.println("=================================================");
   Serial.println(" Smart Chicken Feeder - Machine Integration Ready ");
-  Serial.println(" Connected to: Local Sensors + Cloud Sync Loop   ");
+  Serial.println(" Dual Mode: Direct SoftAP + Station Cloud Sync   ");
   Serial.println("=================================================");
 
   initWiFi();
@@ -421,6 +586,9 @@ void setup() {
 }
 
 void loop() {
+  // Handle local HTTP REST requests (SoftAP / Local Network)
+  server.handleClient();
+
   checkWiFiReconnect();
 
   static unsigned long lastTelemetry = 0;

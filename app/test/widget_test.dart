@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -5,6 +6,8 @@ import 'package:smart_chicken_feeder/main.dart';
 import 'package:smart_chicken_feeder/services/feeder_service.dart';
 import 'package:smart_chicken_feeder/services/settings_service.dart';
 import 'package:smart_chicken_feeder/services/file_export/file_exporter.dart';
+import 'package:smart_chicken_feeder/services/hardware/rest_hardware_adapter.dart';
+import 'package:smart_chicken_feeder/services/hardware/firebase_hardware_adapter.dart';
 import 'package:smart_chicken_feeder/screens/diagnostics_screen.dart';
 import 'package:smart_chicken_feeder/theme/app_theme.dart';
 import 'package:smart_chicken_feeder/models/schedule.dart';
@@ -320,5 +323,140 @@ void main() {
 
       feeder.dispose();
     });
+
+    test('RestHardwareAdapter loopback HTTP server communication and endpoints test', () async {
+      HttpOverrides.global = null;
+      final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+      final receivedRequests = <String>[];
+
+      server.listen((HttpRequest request) async {
+        receivedRequests.add('${request.method} ${request.uri.path}');
+        request.response.headers.contentType = ContentType.json;
+        request.response.headers.add('Access-Control-Allow-Origin', '*');
+
+        if (request.uri.path == '/api/telemetry') {
+          request.response.write(jsonEncode({
+            'feedLevelPercent': 82.5,
+            'batteryVolts': 12.6,
+            'batteryPercent': 90,
+            'currentWeightGrams': 12.0,
+            'status': 'idle',
+            'lastHeartbeat': 12345,
+            'lastFedTimestamp': 0,
+            'lastFedGrams': 180.0,
+            'isSolarCharging': true,
+          }));
+        } else if (request.uri.path == '/api/dispense' ||
+                   request.uri.path == '/api/stop' ||
+                   request.uri.path == '/api/tare' ||
+                   request.uri.path == '/api/calibrate' ||
+                   request.uri.path == '/api/schedules') {
+          request.response.write(jsonEncode({'status': 'ok'}));
+        } else {
+          request.response.statusCode = 404;
+        }
+        await request.response.close();
+      });
+
+      final adapter = RestHardwareAdapter(host: '127.0.0.1', port: server.port);
+      await adapter.initialize();
+
+      // Test refresh telemetry
+      final telemetryFuture = adapter.telemetryStream.first;
+      final refreshed = await adapter.refreshTelemetry();
+      expect(refreshed, isTrue);
+
+      final telemetry = await telemetryFuture;
+      expect(telemetry.feedLevelPercent, 82.5);
+      expect(telemetry.batteryVolts, 12.6);
+      expect(telemetry.isSolarCharging, isTrue);
+
+      // Test dispense, stop, tare, calibrate, and schedules
+      final dispenseOk = await adapter.triggerManualDispense(durationSeconds: 5, targetGrams: 100.0);
+      expect(dispenseOk, isTrue);
+
+      await adapter.cancelDispense();
+
+      final tareOk = await adapter.tareScale();
+      expect(tareOk, isTrue);
+
+      final calOk = await adapter.calibrateScale(500.0);
+      expect(calOk, isTrue);
+
+      final syncOk = await adapter.syncSchedules([
+        const FeedingSchedule(id: 'sch_t', label: 'Test', hour: 8, minute: 0, targetGrams: 150),
+      ]);
+      expect(syncOk, isTrue);
+
+      adapter.dispose();
+      await server.close(force: true);
+
+      expect(receivedRequests, contains('GET /api/telemetry'));
+      expect(receivedRequests, contains('POST /api/dispense'));
+      expect(receivedRequests, contains('POST /api/stop'));
+      expect(receivedRequests, contains('POST /api/tare'));
+      expect(receivedRequests, contains('POST /api/calibrate'));
+      expect(receivedRequests, contains('POST /api/schedules'));
+    });
+
+    test('FirebaseHardwareAdapter loopback RTDB REST synchronization tests', () async {
+      final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+      final receivedRequests = <String>[];
+
+      server.listen((HttpRequest request) async {
+        receivedRequests.add('${request.method} ${request.uri.path}');
+        request.response.headers.contentType = ContentType.json;
+
+        if (request.uri.path == '/telemetry.json') {
+          request.response.write(jsonEncode({
+            'feedLevelPercent': 88.0,
+            'batteryVolts': 12.7,
+            'batteryPercent': 95,
+            'currentWeightGrams': 0.0,
+            'status': 'idle',
+            'lastHeartbeat': 99999,
+            'lastFedTimestamp': 0,
+            'lastFedGrams': 150.0,
+            'isSolarCharging': true,
+          }));
+        } else if (request.uri.path == '/commands/dispense.json') {
+          final body = await utf8.decodeStream(request);
+          request.response.write(body.isNotEmpty ? body : jsonEncode({'status': 'ok'}));
+        } else if (request.uri.path == '/schedules.json' || request.uri.path == '/logs.json') {
+          request.response.write(jsonEncode({}));
+        } else {
+          request.response.write(jsonEncode({'status': 'ok'}));
+        }
+        await request.response.close();
+      });
+
+
+      final adapter = FirebaseHardwareAdapter(
+        databaseUrl: 'http://127.0.0.1:${server.port}',
+      );
+      await adapter.initialize();
+
+      // Test telemetry reception
+      final refreshed = await adapter.refreshTelemetry();
+      expect(refreshed, isTrue);
+
+      // Test dispense command
+      final dispenseOk = await adapter.triggerManualDispense(durationSeconds: 5, targetGrams: 180.0);
+      expect(dispenseOk, isTrue);
+
+      // Test tare and calibrate scale
+      final tareOk = await adapter.tareScale();
+      expect(tareOk, isTrue);
+
+      final calOk = await adapter.calibrateScale(500.0);
+      expect(calOk, isTrue);
+
+      adapter.dispose();
+      await server.close(force: true);
+
+      expect(receivedRequests, contains('GET /telemetry.json'));
+      expect(receivedRequests, contains('PUT /commands/dispense.json'));
+    });
   });
 }
+

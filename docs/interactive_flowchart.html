@@ -301,7 +301,9 @@
     <span class="pill" onclick="highlightPipeline('telemetry')">1. Telemetry Monitoring</span>
     <span class="pill" onclick="highlightPipeline('manual')">2. Manual Dispensing & Stop</span>
     <span class="pill" onclick="highlightPipeline('schedules')">3. Automated Schedules</span>
-    <span class="pill" onclick="highlightPipeline('history')">4. Research Analytics & CSV</span>
+    <span class="pill" onclick="highlightPipeline('history')">4. Research Analytics & Export</span>
+    <span class="pill" onclick="highlightPipeline('softap')">5. Direct Local Wi-Fi (SoftAP)</span>
+    <span class="pill" onclick="highlightPipeline('diagnostics')">6. Scale Calibration & Diagnostics</span>
   </div>
 
   <!-- Workspace: Canvas + Inspector -->
@@ -318,10 +320,11 @@ flowchart LR
   %% ========================================================
   %% COLUMN 1: HARDWARE FINAL OUTPUTS & ACTUATION
   %% ========================================================
-  subgraph HW ["1. Hardware Output Interface"]
+  subgraph HW ["1. Hardware Output Interface (ESP32)"]
     direction TB
-    HW_OUT["Sensor Telemetry Stream<br>• Hopper Level (% & kg)<br>• Battery Level (% & Volts)<br>• Scale Grams (live)<br>• Heartbeat & State"]
-    HW_ACT["Dispenser Actuation Unit<br>• Receives target grams<br>• Closed-loop scale cutoff<br>• Instant emergency halt"]
+    HW_OUT["Sensor Telemetry Stream<br>• Hopper Level (% & kg)<br>• Battery Level (% & Volts)<br>• Scale Grams (live HX711)<br>• Heartbeat & Solar State"]
+    HW_ACT["Dispenser Actuation Unit<br>• MG996R Servo Gate (0°-90°)<br>• Closed-loop scale cutoff<br>• Instant emergency halt"]
+    HW_AP["Direct Local Wi-Fi (SoftAP)<br>• SSID: SmartFeeder-AP<br>• IP: 192.168.4.1 (Port 80)<br>• Embedded REST & Web Portal"]
   end
 
   %% ========================================================
@@ -330,18 +333,19 @@ flowchart LR
   subgraph DB ["2. Cloud Database (Firebase RTDB)"]
     direction TB
     DB_TEL[("Node: /telemetry<br>• feedLevelPercent<br>• batteryVolts & %<br>• currentWeightGrams<br>• status: idle|dispensing")]
-    DB_CMD[("Node: /commands<br>• triggerManual: bool<br>• targetGrams: 150g<br>• emergencyStop: bool")]
+    DB_CMD[("Node: /commands/dispense<br>• action: DISPENSE|STOP<br>• durationSeconds & targetGrams<br>• tareScale & calibrateScale")]
     DB_SCH[("Node: /schedules<br>• hour & minute<br>• targetGrams<br>• isEnabled flag")]
-    DB_HIS[("Node: /history<br>• logId & timestamp<br>• target vs actual grams<br>• accuracyPercent")]
+    DB_HIS[("Node: /logs<br>• logId & timestamp<br>• target vs actual grams<br>• batteryVolts & feedLevel")]
   end
 
   %% ========================================================
-  %% COLUMN 3: STATE & SYNC ENGINE (FeederService)
+  %% COLUMN 3: STATE & ADAPTER LAYER
   %% ========================================================
-  subgraph SVC ["3. App State & Logic Layer"]
+  subgraph SVC ["3. App State & Adapter Layer"]
     direction TB
-    SYNC["Real-Time Sync Engine<br>• Firebase stream listeners<br>• Pull-to-refresh handler<br>• Optimistic state updates"]
-    RULES["Usability Rules Engine<br>• Next feed countdown<br>• Hopper supply days left<br>• Daily flock intake totals<br>• Form & duplicate checks<br>• 4s Undo deletion stack"]
+    ADAPT["Dual-Mode Hardware Adapter<br>• Firebase RTDB (Native & REST)<br>• Local REST HTTP (192.168.4.1)<br>• Mock Simulator"]
+    SYNC["Real-Time Sync Engine<br>• Database stream listeners<br>• Pull-to-refresh handler<br>• 3s REST fallback polling"]
+    RULES["Usability Rules Engine<br>• Next feed countdown<br>• Hopper supply days left<br>• Daily flock intake totals<br>• 4s Undo deletion stack"]
   end
 
   %% ========================================================
@@ -349,28 +353,32 @@ flowchart LR
   %% ========================================================
   subgraph APP ["4. Flutter Mobile App Screens"]
     direction TB
-    DASH["Dashboard Screen<br>• Live hopper gauge & days<br>• Battery & solar indicators<br>• Countdown to next feed<br>• Presets (50-200g) + Slider<br>• Active dispensing progress<br>• Emergency stop button"]
+    DASH["Dashboard Screen<br>• Live hopper gauge & days<br>• Battery & solar indicators<br>• Countdown to next feed<br>• Presets (50-200g) + Slider<br>• Emergency stop button"]
     SCHED["Schedules Screen<br>• Daily intake summary card<br>• Tap-to-edit time dialog<br>• Time & portion validation<br>• 4-second Undo SnackBar"]
-    HIST["History & Analytics Screen<br>• Performance metrics card<br>• Filter chips (All/Sch/Man)<br>• Accuracy variance badges<br>• One-tap CSV export"]
+    HIST["History & Analytics Screen<br>• Performance metrics card<br>• Filter chips (All/Sch/Man)<br>• Excel (.xls) & CSV export"]
+    DIAG["Diagnostics Screen<br>• Live sensors readout<br>• 2-point scale calibration<br>• Servo angle sweep test"]
   end
 
   %% ========================================================
-  %% LOGICAL LEFT-TO-RIGHT PIPELINE CONNECTIONS
+  %% LOGICAL PIPELINE CONNECTIONS
   %% ========================================================
-  HW_OUT -->|Pushes telemetry every 10s| DB_TEL
+  HW_OUT -->|Pushes telemetry every 2-5s| DB_TEL
   HW_ACT -->|Saves completed feed log| DB_HIS
-  DB_CMD -->|Hardware executes dispense/stop| HW_ACT
+  DB_CMD -->|Hardware polls & executes| HW_ACT
+  HW_AP <-->|Direct Local REST on 192.168.4.1| ADAPT
 
-  DB_TEL <==> SYNC
-  DB_CMD <== SYNC
-  DB_SCH <==> SYNC
-  DB_HIS <==> SYNC
+  DB_TEL <==> ADAPT
+  DB_CMD <== ADAPT
+  DB_SCH <==> ADAPT
+  DB_HIS <==> ADAPT
 
+  ADAPT <--> SYNC
   SYNC <--> RULES
 
   RULES <==> DASH
   RULES <==> SCHED
   RULES <==> HIST
+  RULES <==> DIAG
 
   %% STYLING
   classDef hwStyle fill:#FEF3C7,stroke:#D97706,stroke-width:1.5px,color:#92400E;
@@ -378,10 +386,10 @@ flowchart LR
   classDef svcStyle fill:#EFF6FF,stroke:#2563EB,stroke-width:1.5px,color:#1E40AF;
   classDef appStyle fill:#CCFBF1,stroke:#0F766E,stroke-width:1.5px,color:#115E59;
 
-  class HW_OUT,HW_ACT hwStyle;
+  class HW_OUT,HW_ACT,HW_AP hwStyle;
   class DB_TEL,DB_CMD,DB_SCH,DB_HIS dbStyle;
-  class SYNC,RULES svcStyle;
-  class DASH,SCHED,HIST appStyle;
+  class ADAPT,SYNC,RULES svcStyle;
+  class DASH,SCHED,HIST,DIAG appStyle;
       </div>
     </div>
 
@@ -492,58 +500,72 @@ flowchart LR
 
     const nodeMetadata = {
       'HW_OUT': {
-        badge: 'Hardware Final Output',
-        title: 'Sensor Telemetry Stream',
-        desc: 'The physical controller computes final processed sensor values and streams them to the cloud every 10 seconds.',
-        payload: '{\n  "feedLevelPercent": 78.0,\n  "batteryVolts": 12.6,\n  "batteryPercent": 92,\n  "currentWeightGrams": 0.0,\n  "status": "idle"\n}',
+        badge: 'Hardware Telemetry',
+        title: 'Sensor Telemetry Stream (ESP32)',
+        desc: 'The physical ESP32 controller reads the HC-SR04 ultrasonic sensor, HX711 scale, and 12V battery voltage divider, then streams updates every 2–5 seconds.',
+        payload: '{\n  "feedLevelPercent": 85.0,\n  "batteryVolts": 12.65,\n  "batteryPercent": 92,\n  "currentWeightGrams": 0.0,\n  "status": "idle",\n  "isSolarCharging": true\n}',
         heuristic: 'Heuristic 1: Visibility of System Status'
       },
       'HW_ACT': {
         badge: 'Hardware Actuator',
-        title: 'Dispenser Actuation Unit',
-        desc: 'Listens to the cloud for dispense or stop commands. Opens the servo gate, monitors the digital load cell scale in real time, and shuts off at target grams.',
-        payload: '// Triggers when /commands/triggerManual == true\n// Closes gate when scale weight >= targetGrams\n// Emergency stops if /commands/emergencyStop == true',
+        title: 'Dispenser Actuation Unit (MG996R)',
+        desc: 'Listens to commands from cloud RTDB or local REST server. Commands the metal gear MG996R servo to open (90°) and performs closed-loop load cell cutoff when target grams are reached.',
+        payload: '// ESP32 main.cpp dispenseFeed():\n// 1. scale.tare(); gate.write(90);\n// 2. while (weight < targetGrams) { delay(100); }\n// 3. gate.write(0); emitFeedingLog();',
         heuristic: 'Heuristic 3: User Control & Emergency Freedom'
+      },
+      'HW_AP': {
+        badge: 'Local Edge Server',
+        title: 'Direct Local Wi-Fi (SoftAP & REST)',
+        desc: 'ESP32 broadcasts "SmartFeeder-AP" (192.168.4.1) on port 80. Operates simultaneously with cloud Station Wi-Fi (WIFI_AP_STA), enabling off-grid local calibration without internet.',
+        payload: 'GET  /api/telemetry   -> Live sensors\nPOST /api/dispense    -> {"durationSeconds": 5, "targetGrams": 150}\nPOST /api/stop        -> Emergency gate closure\nPOST /api/tare        -> Zero load cell\nPOST /api/calibrate   -> {"targetGrams": 500}\nGET  /                 -> Mobile HTML control dashboard',
+        heuristic: 'Zero-Internet Off-Grid Farm Autonomy'
       },
       'DB_TEL': {
         badge: 'Firebase RTDB',
         title: 'Node: /telemetry',
-        desc: 'Streams live feeder telemetry to all connected mobile clients with sub-second synchronization.',
-        payload: '{\n  "feedLevelPercent": 78.0,\n  "batteryVolts": 12.6,\n  "batteryPercent": 92,\n  "currentWeightGrams": 0.0,\n  "status": "idle",\n  "lastHeartbeat": 1728400000\n}',
+        desc: 'Live telemetry node in smart-chicken-feeder-33bec. Streamed to connected clients with sub-second synchronization.',
+        payload: '{\n  "feedLevelPercent": 85.0,\n  "batteryVolts": 12.65,\n  "batteryPercent": 92,\n  "currentWeightGrams": 0.0,\n  "status": "idle",\n  "lastHeartbeat": 1729440000000,\n  "isSolarCharging": true\n}',
         heuristic: 'Heuristic 1: Continuous Live Telemetry'
       },
       'DB_CMD': {
         badge: 'Firebase RTDB',
-        title: 'Node: /commands',
-        desc: 'Acts as the bidirectional command pipe. Writing a flag here directs the physical feeder to dispense or abort.',
-        payload: '{\n  "triggerManual": true,\n  "targetGrams": 150.0,\n  "emergencyStop": false,\n  "timestamp": 1728400120\n}',
+        title: 'Node: /commands/dispense',
+        desc: 'Bidirectional command queue polled by the ESP32 every 1 second. Once executed, the ESP32 sets the node back to null.',
+        payload: '{\n  "id": "cmd_1729425600000",\n  "action": "DISPENSE", // or "STOP" | "TARE_SCALE" | "CALIBRATE_SCALE"\n  "durationSeconds": 5,\n  "targetGrams": 180.0,\n  "status": "pending"\n}',
         heuristic: 'Heuristic 3: Immediate Remote Command & Abort'
       },
       'DB_SCH': {
         badge: 'Firebase RTDB',
         title: 'Node: /schedules',
-        desc: 'Stores active daily feeding routines configured by the farmer. Kept in sync with the hardware DS3231 RTC.',
+        desc: 'Stores active poultry feeding routines. Synchronized directly with the DS3231 real-time clock for off-grid scheduled feedings.',
         payload: '[\n  {\n    "id": "sch_1",\n    "label": "Morning Feeding",\n    "hour": 6,\n    "minute": 30,\n    "targetGrams": 180.0,\n    "isEnabled": true\n  }\n]',
         heuristic: 'Heuristic 6: Recognition Over Recall'
       },
       'DB_HIS': {
         badge: 'Firebase RTDB',
-        title: 'Node: /history',
-        desc: 'Permanent record of all automated and manual feeding sessions. Used for Chapter IV empirical analysis.',
-        payload: '{\n  "logId": "log_101",\n  "targetGrams": 180.0,\n  "actualGrams": 181.4,\n  "accuracyPercent": 99.2,\n  "isSuccess": true,\n  "batteryVolts": 12.6,\n  "feedLevelPercent": 78.0\n}',
+        title: 'Node: /logs',
+        desc: 'Permanent record of all automated and manual feeding sessions stored for Chapter IV empirical evaluation.',
+        payload: '{\n  "log_sample_01": {\n    "timestamp": 1729425600000,\n    "targetGrams": 180.0,\n    "actualGrams": 181.2,\n    "durationSeconds": 11,\n    "triggerType": "Schedule",\n    "isSuccess": true,\n    "batteryVolts": 12.65,\n    "feedLevelPercent": 85.0\n  }\n}',
         heuristic: 'Chapter IV Research Evaluation'
+      },
+      'ADAPT': {
+        badge: 'Hardware Layer',
+        title: 'Dual-Mode Hardware Adapter',
+        desc: 'Decoupled transport layer. Seamlessly switches between Firebase Realtime Cloud, Direct Local REST HTTP (192.168.4.1), and Mock Simulator without changing any UI code.',
+        payload: '// FeederHardwareAdapter interface:\nStream<FeederTelemetry> get telemetryStream;\nFuture<bool> triggerManualDispense({durationSeconds, targetGrams});\nFuture<void> cancelDispense();\nFuture<bool> syncSchedules(List<FeedingSchedule> schedules);',
+        heuristic: 'Clean Architecture & Transports'
       },
       'SYNC': {
         badge: 'Flutter Service',
         title: 'Real-Time Sync Engine (FeederService)',
-        desc: 'Manages asynchronous streams, optimistic local caching, and manual pull-to-refresh actions.',
-        payload: '// feeder_service.dart\nStreamSubscription _telemetrySub;\nvoid refreshTelemetry() { ... }\nvoid cancelDispensing() { ... }',
+        desc: 'Manages asynchronous streams, optimistic local caching, automatic REST HTTP fallback (every 3s), and pull-to-refresh actions.',
+        payload: '// feeder_service.dart\nStreamSubscription _telemetrySub;\nvoid refreshTelemetry() { ... }\nvoid cancelDispense() { ... }',
         heuristic: 'Heuristic 1 & 7: Responsive Synchronization'
       },
       'RULES': {
         badge: 'Business Logic',
         title: 'Usability Rules Engine',
-        desc: 'Calculates countdowns to next feeding, estimates hopper supply days, and validates schedule times to prevent duplicates.',
+        desc: 'Calculates countdowns to next feeding, estimates hopper supply days, validates schedule times, and manages a 4s Undo SnackBar stack.',
         payload: '// Computes countdown: "in 2h 15m"\n// Computes days left: "~7.2 days left"\n// Blocks duplicates: hour & minute check',
         heuristic: 'Heuristic 5: Error Prevention & Heuristic 6'
       },
@@ -564,9 +586,16 @@ flowchart LR
       'HIST': {
         badge: 'Mobile UI',
         title: 'History & Analytics Screen',
-        desc: 'Displays Chapter IV research metrics, filter chips (All, Scheduled, Manual), empirical variance data, and one-tap CSV export.',
-        payload: '// history_screen.dart\n- Total Feeds, Avg Accuracy %, Total kg\n- Interactive Filter Chips\n- One-Tap CSV Data Copy',
+        desc: 'Displays Chapter IV research metrics, filter chips (All, Scheduled, Manual), empirical variance data, and Excel XML (.xls) / CSV export.',
+        payload: '// history_screen.dart\n- Total Feeds, Avg Accuracy %, Total kg\n- Interactive Filter Chips\n- Export as Excel Workbook or CSV',
         heuristic: 'Heuristics 1, 7, 9 & Research Dataset'
+      },
+      'DIAG': {
+        badge: 'Mobile UI',
+        title: 'Hardware Diagnostics & Calibration Screen',
+        desc: 'Bench-testing and calibration tool. Provides live sensor telemetry, 2-point load cell calibration (tare 0.0g and reference factor calculation), and servo angle test sweeps.',
+        payload: '// diagnostics_screen.dart\n- Step 1: Zero Tare empty tray\n- Step 2: 500g Reference weight factor save\n- Direct Servo Gate Sweep (0°, 45°, 90°)',
+        heuristic: 'Hardware Bring-Up & Calibration'
       }
     };
 
@@ -613,10 +642,12 @@ flowchart LR
       }
 
       const activeIds = {
-        'telemetry': ['HW_OUT', 'DB_TEL', 'SYNC', 'RULES', 'DASH'],
-        'manual': ['DASH', 'RULES', 'SYNC', 'DB_CMD', 'HW_ACT'],
-        'schedules': ['SCHED', 'RULES', 'SYNC', 'DB_SCH', 'HW_ACT'],
-        'history': ['HW_ACT', 'DB_HIS', 'SYNC', 'RULES', 'HIST']
+        'telemetry': ['HW_OUT', 'DB_TEL', 'ADAPT', 'SYNC', 'RULES', 'DASH'],
+        'manual': ['DASH', 'RULES', 'SYNC', 'ADAPT', 'DB_CMD', 'HW_ACT'],
+        'schedules': ['SCHED', 'RULES', 'SYNC', 'ADAPT', 'DB_SCH', 'HW_ACT'],
+        'history': ['HW_ACT', 'DB_HIS', 'ADAPT', 'SYNC', 'RULES', 'HIST'],
+        'softap': ['HW_AP', 'ADAPT', 'SYNC', 'RULES', 'DASH', 'DIAG'],
+        'diagnostics': ['DIAG', 'ADAPT', 'HW_AP', 'DB_CMD', 'HW_ACT']
       }[type] || [];
 
       allNodes.forEach(node => {
@@ -634,6 +665,7 @@ flowchart LR
     function escapeHtml(text) {
       return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
     }
+
   </script>
 </body>
 </html>

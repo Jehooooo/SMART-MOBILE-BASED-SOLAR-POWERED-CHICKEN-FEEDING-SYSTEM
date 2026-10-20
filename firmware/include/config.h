@@ -36,3 +36,11 @@
 // ---------- Network / Firebase Sync ----------
 #define WIFI_RECONNECT_INTERVAL_MS 15000UL
 #define COMMAND_POLL_INTERVAL_MS   2000UL
+
+// ---------- Direct Wi-Fi / SoftAP Mode (Off-Grid Direct Connect) ----------
+#define SOFTAP_SSID            "SmartFeeder-AP"
+#define SOFTAP_PASSWORD        "chickens123"   // Minimum 8 chars for WPA2
+#define SOFTAP_CHANNEL         1
+#define SOFTAP_MAX_CONN        4
+#define HTTP_SERVER_PORT       80
+

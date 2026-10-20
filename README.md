@@ -133,7 +133,8 @@ AutomaticDispensing/
 │   ├── BENCH_TESTING_GUIDE.md      # Bench testing, LM2596 tuning & wiring checklist
 │   ├── FIREBASE_SETUP_GUIDE.md     # Firebase Realtime Database setup & security rules
 │   ├── HARDWARE_INTEGRATION_SPECIFICATION.md # Complete electrical & pinout matrix
-│   ├── interactive_flowchart.html  # Interactive Mermaid system architecture diagram
+│   ├── SYSTEM_FLOWCHART.md         # Comprehensive system architecture & dataflow flowchart
+│   ├── QnA_System_and_Research.txt # Research design, sampling, and system questions
 │   └── methodology_analysis.md     # Theoretical framework & research methodology
 │
 ├── data.json                       # Seed schema template for Firebase Realtime Database
@@ -343,7 +344,8 @@ flutter test --no-pub
 | [docs/BENCH_TESTING_GUIDE.md](docs/BENCH_TESTING_GUIDE.md) | Step-by-step bench testing, LM2596 buck tuning & wiring checklist |
 | [docs/FIREBASE_SETUP_GUIDE.md](docs/FIREBASE_SETUP_GUIDE.md) | Firebase Realtime Database setup, indexing, and security rules |
 | [docs/HARDWARE_INTEGRATION_SPECIFICATION.md](docs/HARDWARE_INTEGRATION_SPECIFICATION.md) | Electrical schematics, pinout tables, and voltage regulation specs |
-| [docs/interactive_flowchart.html](docs/interactive_flowchart.html) | Interactive HTML architecture diagram with live data flow filters |
+| [docs/SYSTEM_FLOWCHART.md](docs/SYSTEM_FLOWCHART.md) | Comprehensive system architecture and operational dataflow diagram |
+| [docs/QnA_System_and_Research.txt](docs/QnA_System_and_Research.txt) | Research questions, sampling criteria, and technical consultation checklist |
 | [docs/methodology_analysis.md](docs/methodology_analysis.md) | Research methodology, theoretical equations, and empirical analysis |
 
 ---

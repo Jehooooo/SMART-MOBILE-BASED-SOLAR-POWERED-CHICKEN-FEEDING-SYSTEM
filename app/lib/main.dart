@@ -11,6 +11,7 @@ import 'screens/schedules_screen.dart';
 import 'screens/history_screen.dart';
 import 'screens/settings_screen.dart';
 import 'screens/onboarding_screen.dart';
+import 'widgets/app_logo.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -152,13 +153,9 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
                   selectedIndex: _currentIndex,
                   onDestinationSelected: (idx) => setState(() => _currentIndex = idx),
                   labelType: NavigationRailLabelType.all,
-                  leading: Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 16.0),
-                    child: CircleAvatar(
-                      backgroundColor: c.brand,
-                      radius: 20,
-                      child: Icon(Icons.egg_alt_outlined, color: c.onBrand, size: 22),
-                    ),
+                  leading: const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 16.0),
+                    child: AppLogo(size: 42, borderWidth: 2.2),
                   ),
                   destinations: [
                     for (final d in _destinations)

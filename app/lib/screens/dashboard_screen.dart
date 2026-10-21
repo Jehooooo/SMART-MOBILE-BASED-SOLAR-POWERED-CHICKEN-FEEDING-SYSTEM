@@ -7,6 +7,7 @@ import '../theme/app_theme.dart';
 import '../widgets/connection_banner.dart';
 import '../widgets/skeleton.dart';
 import '../widgets/hardware_guide_dialog.dart';
+import '../widgets/app_logo.dart';
 
 export '../widgets/hardware_guide_dialog.dart' show showHardwareGuideDialog;
 
@@ -81,6 +82,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
         return Scaffold(
           appBar: AppBar(
+            leadingWidth: 54,
+            leading: const Padding(
+              padding: EdgeInsets.only(left: 14.0),
+              child: Center(
+                child: AppLogo(size: 34, borderWidth: 1.8),
+              ),
+            ),
             title: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [

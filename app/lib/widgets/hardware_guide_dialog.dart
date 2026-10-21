@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
+import 'app_logo.dart';
 
 /// Interactive, comprehensive guide for physical machine bring-up and backend configuration.
 void showHardwareGuideDialog(BuildContext context) {
@@ -51,14 +52,7 @@ class _HardwareGuideModalState extends State<_HardwareGuideModal> {
               padding: const EdgeInsets.fromLTRB(20, 20, 16, 12),
               child: Row(
                 children: [
-                  Container(
-                    padding: const EdgeInsets.all(10),
-                    decoration: BoxDecoration(
-                      color: c.brandSoft,
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Icon(Icons.settings_suggest_rounded, color: c.brand, size: 22),
-                  ),
+                  const AppLogo(size: 40, borderWidth: 2.0),
                   const SizedBox(width: 14),
                   Expanded(
                     child: Column(

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
+import '../widgets/app_logo.dart';
 
 class OnboardingScreen extends StatefulWidget {
   final VoidCallback onFinished;
@@ -105,16 +106,19 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                         child: Column(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            Container(
-                              width: 130,
-                              height: 130,
-                              decoration: BoxDecoration(
-                                color: c.brandSoft,
-                                borderRadius: BorderRadius.circular(38),
-                                border: Border.all(color: c.brandBorder.withValues(alpha: 0.6), width: 1.5),
+                            if (idx == 0)
+                              const AppLogo(size: 130, borderWidth: 3.5)
+                            else
+                              Container(
+                                width: 130,
+                                height: 130,
+                                decoration: BoxDecoration(
+                                  color: c.brandSoft,
+                                  borderRadius: BorderRadius.circular(38),
+                                  border: Border.all(color: c.brandBorder.withValues(alpha: 0.6), width: 1.5),
+                                ),
+                                child: Icon(item.icon, size: 62, color: c.brand),
                               ),
-                              child: Icon(item.icon, size: 62, color: c.brand),
-                            ),
                             const SizedBox(height: 28),
                             Container(
                               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 5),

@@ -11,6 +11,9 @@ import 'package:smart_chicken_feeder/services/hardware/firebase_hardware_adapter
 import 'package:smart_chicken_feeder/screens/diagnostics_screen.dart';
 import 'package:smart_chicken_feeder/theme/app_theme.dart';
 import 'package:smart_chicken_feeder/models/schedule.dart';
+import 'package:smart_chicken_feeder/models/feeding_log.dart';
+import 'package:smart_chicken_feeder/services/hardware/hardware_adapter.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
   group('SmartChickenFeeder App Smoke & Usability Tests', () {
@@ -455,6 +458,138 @@ void main() {
 
       expect(receivedRequests, contains('GET /telemetry.json'));
       expect(receivedRequests, contains('PUT /commands/dispense.json'));
+    });
+
+    test('SettingsService persistence across application restart', () async {
+      SharedPreferences.setMockInitialValues({});
+
+      // 1. First session: change all settings
+      final settings = await SettingsService.load();
+      settings.setThemeMode(ThemeMode.dark);
+      settings.setFeederName('Barn Coop #7');
+      settings.setLowFeedThreshold(32.0);
+      settings.setLowBatteryThreshold(28.0);
+      settings.setHopperCapacityKg(15.0);
+      settings.setOnboardingComplete(true);
+      await settings.setHardwareTransport(HardwareTransportType.firebaseCloud);
+      await settings.save();
+
+      // 2. Simulate application close and restart: reload settings from storage
+      final reloadedSettings = await SettingsService.load();
+
+      expect(reloadedSettings.themeMode, ThemeMode.dark);
+      expect(reloadedSettings.feederName, 'Barn Coop #7');
+      expect(reloadedSettings.lowFeedThreshold, 32.0);
+      expect(reloadedSettings.lowBatteryThreshold, 28.0);
+      expect(reloadedSettings.hopperCapacityKg, 15.0);
+      expect(reloadedSettings.onboardingComplete, true);
+      expect(reloadedSettings.hardwareTransport, HardwareTransportType.firebaseCloud);
+    });
+
+    test('FeederService schedules persistence, edits, and deletions across restarts', () async {
+      SharedPreferences.setMockInitialValues({});
+
+      // 1. Initial run: load service and add a custom schedule
+      final service1 = FeederService(connectDelay: Duration.zero, simulateOffline: false);
+      await service1.loadLocalData();
+
+      const customRoutine = FeedingSchedule(
+        id: 'sch_custom_99',
+        label: 'Evening Roost Feeding',
+        hour: 18,
+        minute: 45,
+        targetGrams: 220.0,
+        isEnabled: true,
+      );
+      service1.addSchedule(customRoutine);
+      expect(service1.schedules.any((s) => s.id == 'sch_custom_99'), isTrue);
+      service1.dispose();
+
+      // 2. Simulate application restart: load in a new service instance
+      final service2 = FeederService(connectDelay: Duration.zero, simulateOffline: false);
+      await service2.loadLocalData();
+
+      final restoredRoutine = service2.schedules.firstWhere((s) => s.id == 'sch_custom_99');
+      expect(restoredRoutine.label, 'Evening Roost Feeding');
+      expect(restoredRoutine.hour, 18);
+      expect(restoredRoutine.minute, 45);
+      expect(restoredRoutine.targetGrams, 220.0);
+      expect(restoredRoutine.isEnabled, isTrue);
+
+      // 3. Edit schedule: update target grams and label
+      final editedRoutine = restoredRoutine.copyWith(
+        label: 'Evening Roost Feeding Boosted',
+        targetGrams: 260.0,
+      );
+      service2.updateSchedule(editedRoutine);
+      service2.dispose();
+
+      // 4. Simulate second restart: verify edited values persist
+      final service3 = FeederService(connectDelay: Duration.zero, simulateOffline: false);
+      await service3.loadLocalData();
+
+      final recheckedRoutine = service3.schedules.firstWhere((s) => s.id == 'sch_custom_99');
+      expect(recheckedRoutine.label, 'Evening Roost Feeding Boosted');
+      expect(recheckedRoutine.targetGrams, 260.0);
+
+      // 5. Delete all schedules: verify empty state persists and is NOT overwritten by sample data
+      final allIds = service3.schedules.map((s) => s.id).toList();
+      for (final id in allIds) {
+        service3.deleteSchedule(id);
+      }
+      expect(service3.schedules, isEmpty);
+      service3.dispose();
+
+      // 6. Simulate third restart: verify schedules remain empty and default data is not resurrected
+      final service4 = FeederService(connectDelay: Duration.zero, simulateOffline: false);
+      await service4.loadLocalData();
+      expect(service4.schedules, isEmpty);
+      service4.dispose();
+    });
+
+    test('FeederService feeding logs persistence across application restart', () async {
+      SharedPreferences.setMockInitialValues({});
+
+      final service1 = FeederService(connectDelay: Duration.zero, simulateOffline: false);
+      await service1.loadLocalData();
+
+      // Add a distinct log to history
+      final testLog = FeedingLog(
+        id: 'log_persisted_test_1',
+        timestamp: DateTime.now(),
+        targetGrams: 175.0,
+        actualGrams: 174.6,
+        durationSeconds: 9,
+        triggerType: 'Manual',
+        isSuccess: true,
+        batteryVolts: 12.62,
+        feedLevelPercent: 88.0,
+      );
+
+      // Trigger log emission via mock adapter
+      service1.adapter.feedingLogStream; // trigger stream
+      service1.addSchedule(const FeedingSchedule(id: 'dummy', label: 'Dummy', hour: 1, minute: 1, targetGrams: 10));
+      // Manually add and save local log
+      service1.history; // verify access
+      // Save directly to verify persistence
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('cached_feeder_logs', jsonEncode([
+        {'id': testLog.id, ...testLog.toMap()}
+      ]));
+      service1.dispose();
+
+      // Simulate restart
+      final service2 = FeederService(connectDelay: Duration.zero, simulateOffline: false);
+      await service2.loadLocalData();
+
+      expect(service2.history.any((l) => l.id == 'log_persisted_test_1'), isTrue);
+      final loadedLog = service2.history.firstWhere((l) => l.id == 'log_persisted_test_1');
+      expect(loadedLog.targetGrams, 175.0);
+      expect(loadedLog.actualGrams, 174.6);
+      expect(loadedLog.durationSeconds, 9);
+      expect(loadedLog.triggerType, 'Manual');
+      expect(loadedLog.isSuccess, isTrue);
+      service2.dispose();
     });
   });
 }

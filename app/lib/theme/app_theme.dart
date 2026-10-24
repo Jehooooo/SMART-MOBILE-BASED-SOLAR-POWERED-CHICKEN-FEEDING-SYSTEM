@@ -238,8 +238,8 @@ class AppTheme {
     );
 
     final isLight = brightness == Brightness.light;
-    final cardRadius = BorderRadius.circular(18);
-    final buttonRadius = BorderRadius.circular(14);
+    final cardRadius = BorderRadius.circular(22);
+    final buttonRadius = BorderRadius.circular(16);
 
     return ThemeData(
       useMaterial3: true,
@@ -247,82 +247,87 @@ class AppTheme {
       colorScheme: scheme,
       scaffoldBackgroundColor: scaffold,
       extensions: [c],
-      appBarTheme: AppBarTheme(
-        backgroundColor: scaffold, // Seamless header transition
-        foregroundColor: c.textPrimary,
+      appBarTheme: const AppBarTheme(
+        backgroundColor: Colors.transparent, // Translucent glass backdrop compatibility
         surfaceTintColor: Colors.transparent,
         elevation: 0,
         scrolledUnderElevation: 0,
         centerTitle: false,
-        titleTextStyle: TextStyle(
-          fontSize: 18,
-          fontWeight: FontWeight.w800,
-          color: c.textPrimary,
-          letterSpacing: -0.3,
-        ),
       ),
       dialogTheme: DialogThemeData(
-        backgroundColor: c.surface,
+        backgroundColor: Colors.transparent,
         surfaceTintColor: Colors.transparent,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(22),
-          side: BorderSide(color: c.border.withValues(alpha: 0.6)),
+          borderRadius: BorderRadius.circular(28),
         ),
-        elevation: 6,
+        elevation: 0,
       ),
       snackBarTheme: SnackBarThemeData(
         behavior: SnackBarBehavior.floating,
-        backgroundColor: isLight ? const Color(0xFF1E2420) : const Color(0xFF262F2A),
-        contentTextStyle: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w500),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        elevation: 4,
+        backgroundColor: isLight ? const Color(0xE61E2420) : const Color(0xE6262F2A),
+        contentTextStyle: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w600),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+          side: BorderSide(
+            color: Colors.white.withValues(alpha: isLight ? 0.25 : 0.15),
+            width: 1.0,
+          ),
+        ),
+        elevation: 8,
       ),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
-        fillColor: isLight ? const Color(0xFFFAF8F5) : c.surfaceMuted,
-        border: OutlineInputBorder(borderRadius: buttonRadius, borderSide: BorderSide(color: c.border)),
-        enabledBorder: OutlineInputBorder(borderRadius: buttonRadius, borderSide: BorderSide(color: c.border)),
-        focusedBorder: OutlineInputBorder(borderRadius: buttonRadius, borderSide: BorderSide(color: c.brand, width: 1.8)),
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        fillColor: isLight ? Colors.white.withValues(alpha: 0.70) : c.surfaceMuted.withValues(alpha: 0.65),
+        border: OutlineInputBorder(
+          borderRadius: buttonRadius,
+          borderSide: BorderSide(color: c.border.withValues(alpha: 0.8)),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: buttonRadius,
+          borderSide: BorderSide(color: c.border.withValues(alpha: 0.8)),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: buttonRadius,
+          borderSide: BorderSide(color: c.brand, width: 1.8),
+        ),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 15),
       ),
       cardTheme: CardThemeData(
-        color: c.surface,
+        color: isLight ? Colors.white.withValues(alpha: 0.76) : const Color(0xFF1B231E).withValues(alpha: 0.65),
         surfaceTintColor: Colors.transparent,
-        elevation: 1.0,
-        shadowColor: isLight ? const Color(0x0C352410) : Colors.black54,
+        elevation: 0,
         margin: EdgeInsets.zero,
         shape: RoundedRectangleBorder(
           borderRadius: cardRadius,
           side: BorderSide(
-            color: c.border.withValues(alpha: isLight ? 0.75 : 0.4),
-            width: 1.0,
+            color: isLight ? Colors.white.withValues(alpha: 0.85) : Colors.white.withValues(alpha: 0.14),
+            width: 1.2,
           ),
         ),
       ),
       dividerTheme: DividerThemeData(
-        color: c.border.withValues(alpha: 0.7),
-        thickness: 1,
+        color: c.border.withValues(alpha: 0.5),
+        thickness: 0.8,
       ),
       navigationBarTheme: NavigationBarThemeData(
-        backgroundColor: c.surface,
+        backgroundColor: isLight ? Colors.white.withValues(alpha: 0.82) : const Color(0xFF161C19).withValues(alpha: 0.78),
         surfaceTintColor: Colors.transparent,
-        elevation: 4,
-        shadowColor: isLight ? const Color(0x12000000) : Colors.black87,
-        height: 68,
+        elevation: 0,
+        height: 70,
         indicatorColor: c.brandSoft,
         indicatorShape: const StadiumBorder(),
         labelTextStyle: WidgetStateProperty.resolveWith((states) {
           final isSelected = states.contains(WidgetState.selected);
           return TextStyle(
             fontSize: 12,
-            fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+            fontWeight: isSelected ? FontWeight.w800 : FontWeight.w500,
             color: isSelected ? c.brand : c.textMuted,
             letterSpacing: 0.1,
           );
         }),
       ),
       navigationRailTheme: NavigationRailThemeData(
-        backgroundColor: c.surface,
+        backgroundColor: Colors.transparent,
         indicatorColor: c.brandSoft,
         indicatorShape: const StadiumBorder(),
       ),
@@ -330,34 +335,38 @@ class AppTheme {
         style: ElevatedButton.styleFrom(
           backgroundColor: c.brand,
           foregroundColor: c.onBrand,
-          elevation: 1.5,
+          elevation: 2.0,
           shadowColor: c.brand.withValues(alpha: 0.35),
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+          padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 15),
           shape: RoundedRectangleBorder(borderRadius: buttonRadius),
-          textStyle: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14, letterSpacing: 0.2),
+          textStyle: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14, letterSpacing: 0.2),
         ),
       ),
       outlinedButtonTheme: OutlinedButtonThemeData(
         style: OutlinedButton.styleFrom(
           foregroundColor: c.brand,
-          side: BorderSide(color: c.border, width: 1.2),
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          backgroundColor: isLight ? Colors.white.withValues(alpha: 0.50) : c.surfaceMuted.withValues(alpha: 0.40),
+          side: BorderSide(
+            color: isLight ? Colors.white.withValues(alpha: 0.85) : Colors.white.withValues(alpha: 0.16),
+            width: 1.2,
+          ),
+          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 13),
           shape: RoundedRectangleBorder(borderRadius: buttonRadius),
-          textStyle: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+          textStyle: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
         ),
       ),
       chipTheme: ChipThemeData(
         shape: const StadiumBorder(),
-        side: BorderSide(color: c.border),
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        side: BorderSide(color: c.border.withValues(alpha: 0.6)),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
       ),
       sliderTheme: SliderThemeData(
         activeTrackColor: c.brand,
-        inactiveTrackColor: c.track,
+        inactiveTrackColor: c.track.withValues(alpha: 0.6),
         thumbColor: c.brand,
         trackHeight: 6,
-        thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 8),
-        overlayColor: c.brand.withValues(alpha: 0.15),
+        thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 9),
+        overlayColor: c.brand.withValues(alpha: 0.18),
       ),
       switchTheme: SwitchThemeData(
         thumbColor: WidgetStateProperty.resolveWith(

@@ -69,9 +69,9 @@ def http_delete(path):
     except Exception:
         return False
 
-def simulate_dispense(target_grams, duration_seconds=5):
+def simulate_dispense(target_grams, duration_seconds=5, trigger_type="Manual"):
     global state
-    print(f"\n>> [SERVO ACTUATION] Opening Dispenser Gate! Target: {target_grams}g over {duration_seconds}s")
+    print(f"\n>> [SERVO ACTUATION] Opening Dispenser Gate! Target: {target_grams}g over {duration_seconds}s (Trigger: {trigger_type})")
     state["status"] = "dispensing"
     steps = 10
     sleep_interval = max(0.2, duration_seconds / steps)
@@ -101,22 +101,23 @@ def simulate_dispense(target_grams, duration_seconds=5):
     state["lastHeartbeat"] = int(time.time() * 1000)
     http_put("telemetry", state)
 
-    print(f">> [DISPENSE COMPLETE] Gate closed at {final_actual}g! Writing research log to Firebase...")
+    print(f">> [DISPENSE COMPLETE] Gate closed at {final_actual}g! Writing feeding log to Firebase...")
 
     # Log to /logs
-    log_id = f"log_{int(time.time())}"
+    log_id = f"log_{int(time.time() * 1000)}"
     log_entry = {
+        "id": log_id,
         "timestamp": int(time.time() * 1000),
         "targetGrams": float(target_grams),
         "actualGrams": float(final_actual),
         "durationSeconds": int(duration_seconds),
-        "triggerType": "Manual",
+        "triggerType": trigger_type,
         "isSuccess": True,
         "batteryVolts": state["batteryVolts"],
         "feedLevelPercent": state["feedLevelPercent"]
     }
     http_put(f"logs/{log_id}", log_entry)
-    print(f">> [LOG SAVED] Log ID: {log_id} recorded in Firebase.\n")
+    print(f">> [LOG SAVED] Log ID: {log_id} recorded in Firebase (Type: {trigger_type}).\n")
 
 def command_listener_loop():
     global state, running
@@ -130,9 +131,10 @@ def command_listener_loop():
                 if action in ["DISPENSE", "TRIGGER_MANUAL"]:
                     target = float(cmd.get("targetGrams", 150.0))
                     duration = int(cmd.get("durationSeconds", 5))
+                    trigger = str(cmd.get("triggerType", "Manual"))
                     # Clear command from queue
                     http_delete("commands/dispense")
-                    simulate_dispense(target, duration)
+                    simulate_dispense(target, duration, trigger_type=trigger)
 
                 elif action in ["STOP", "EMERGENCY_STOP"]:
                     print(">> [STOP COMMAND] Immediate servo gate closure!")
@@ -159,6 +161,64 @@ def command_listener_loop():
             pass
 
         time.sleep(1.0)
+
+def schedule_watcher_loop():
+    global state, running
+    executed_slots = set()
+    print("  Scheduler: Active - Monitoring Firebase /schedules.json for routine execution")
+
+    while running:
+        try:
+            now = time.localtime()
+            weekday_1_based = now.tm_wday + 1  # 1 = Mon ... 7 = Sun
+
+            schedules_data = http_get("schedules")
+            if schedules_data:
+                items = []
+                if isinstance(schedules_data, dict):
+                    for k, v in schedules_data.items():
+                        if isinstance(v, dict):
+                            item = dict(v)
+                            item["id"] = k
+                            items.append(item)
+                elif isinstance(schedules_data, list):
+                    for i, v in enumerate(schedules_data):
+                        if isinstance(v, dict):
+                            item = dict(v)
+                            item["id"] = item.get("id", f"sch_{i}")
+                            items.append(item)
+
+                for s in items:
+                    if not s.get("isEnabled", False):
+                        continue
+
+                    s_hour = int(s.get("hour", -1))
+                    s_minute = int(s.get("minute", -1))
+                    s_id = str(s.get("id", ""))
+                    s_label = str(s.get("label", "Routine Feeding"))
+                    s_target = float(s.get("targetGrams", 150.0))
+                    s_duration = int(s.get("durationSeconds", 5))
+                    days_of_week = s.get("daysOfWeek", [1, 2, 3, 4, 5, 6, 7])
+
+                    if isinstance(days_of_week, list) and len(days_of_week) > 0:
+                        if weekday_1_based not in days_of_week:
+                            continue
+
+                    if s_hour == now.tm_hour and s_minute == now.tm_min:
+                        slot_key = (s_id, now.tm_year, now.tm_mon, now.tm_mday, s_hour, s_minute)
+                        if slot_key not in executed_slots and state["status"] != "dispensing":
+                            executed_slots.add(slot_key)
+                            print(f"\n========================================================")
+                            print(f">> [SCHEDULE TRIGGERED] Time: {now.tm_hour:02d}:{now.tm_min:02d}")
+                            print(f"   Executing Routine: '{s_label}' (ID: {s_id})")
+                            print(f"   Target: {s_target}g | Duration: {s_duration}s")
+                            print(f"========================================================")
+                            simulate_dispense(s_target, s_duration, trigger_type=f"Schedule ({s_label})")
+
+        except Exception as e:
+            pass
+
+        time.sleep(3.0)
 
 def telemetry_heartbeat_loop():
     global state, running
@@ -194,9 +254,11 @@ def main():
 
     t_cmd = threading.Thread(target=command_listener_loop, daemon=True)
     t_tel = threading.Thread(target=telemetry_heartbeat_loop, daemon=True)
+    t_sch = threading.Thread(target=schedule_watcher_loop, daemon=True)
 
     t_cmd.start()
     t_tel.start()
+    t_sch.start()
 
     try:
         while running:

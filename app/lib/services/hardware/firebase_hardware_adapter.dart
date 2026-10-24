@@ -1,9 +1,9 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:io';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:flutter/foundation.dart';
+import 'package:http/http.dart' as http;
 import '../../models/telemetry.dart';
 import '../../models/schedule.dart';
 import '../../models/feeding_log.dart';
@@ -13,12 +13,12 @@ import 'hardware_adapter.dart';
 
 /// Production Firebase Realtime Database Hardware Adapter.
 ///
-/// Communicates with the physical ESP32 controller over Wi-Fi via Firebase:
+/// Communicates with the physical ESP32 controller or cloud simulator over Wi-Fi via Firebase:
 /// - Listens to `/telemetry` (or `/feeders/{feederId}/telemetry`) for live sensor telemetry.
 /// - Pushes feeding and diagnostic instructions to `/commands/dispense`.
 /// - Syncs automated feeding routines to `/schedules`.
 /// - Listens to `/logs` for completed closed-loop dispensing records.
-/// - Features automatic REST HTTP fallback engine if native Firebase is not initialized.
+/// - Features universal cross-platform REST HTTP sync engine (Web, Windows, Android, iOS).
 class FirebaseHardwareAdapter implements FeederHardwareAdapter {
   final String feederId;
   final String databaseUrl;
@@ -113,7 +113,7 @@ class FirebaseHardwareAdapter implements FeederHardwareAdapter {
       }
     }
 
-    // 2. Direct REST HTTP Synchronization Engine (cross-platform & zero GMS requirement)
+    // 2. Direct REST HTTP Synchronization Engine (universal cross-platform)
     _startRestSyncEngine();
   }
 
@@ -122,6 +122,7 @@ class FirebaseHardwareAdapter implements FeederHardwareAdapter {
     _fetchRestLogs();
     _restPollTimer = Timer.periodic(const Duration(seconds: 3), (_) {
       _refreshRestTelemetry();
+      _fetchRestLogs();
     });
   }
 
@@ -136,15 +137,12 @@ class FirebaseHardwareAdapter implements FeederHardwareAdapter {
   }
 
   Future<void> _refreshRestTelemetry() async {
-    if (kIsWeb) return;
     try {
-      final client = HttpClient();
-      client.connectionTimeout = const Duration(seconds: 4);
-      final uri = Uri.parse('$_restBasePath/telemetry.json');
-      final request = await client.getUrl(uri);
-      final response = await request.close();
+      final response = await http
+          .get(Uri.parse('$_restBasePath/telemetry.json'))
+          .timeout(const Duration(seconds: 4));
       if (response.statusCode == 200) {
-        final body = await response.transform(utf8.decoder).join();
+        final body = response.body;
         if (body.isNotEmpty && body != 'null') {
           final map = jsonDecode(body);
           if (map is Map) {
@@ -155,13 +153,13 @@ class FirebaseHardwareAdapter implements FeederHardwareAdapter {
               _currentConnection = FeederConnection.online;
               _connectionController.add(FeederConnection.online);
             }
+            return;
           }
         }
-      } else {
-        if (_currentConnection != FeederConnection.offline) {
-          _currentConnection = FeederConnection.offline;
-          _connectionController.add(FeederConnection.offline);
-        }
+      }
+      if (_currentConnection != FeederConnection.offline) {
+        _currentConnection = FeederConnection.offline;
+        _connectionController.add(FeederConnection.offline);
       }
     } catch (e) {
       if (_currentConnection != FeederConnection.offline) {
@@ -172,15 +170,12 @@ class FirebaseHardwareAdapter implements FeederHardwareAdapter {
   }
 
   Future<void> _fetchRestLogs() async {
-    if (kIsWeb) return;
     try {
-      final client = HttpClient();
-      client.connectionTimeout = const Duration(seconds: 4);
-      final uri = Uri.parse('$_restBasePath/logs.json?orderBy="\$key"&limitToLast=10');
-      final request = await client.getUrl(uri);
-      final response = await request.close();
+      final response = await http
+          .get(Uri.parse('$_restBasePath/logs.json'))
+          .timeout(const Duration(seconds: 4));
       if (response.statusCode == 200) {
-        final body = await response.transform(utf8.decoder).join();
+        final body = response.body;
         if (body.isNotEmpty && body != 'null') {
           final map = jsonDecode(body);
           if (map is Map) {
@@ -198,6 +193,66 @@ class FirebaseHardwareAdapter implements FeederHardwareAdapter {
     }
   }
 
+  /// Fetches schedules configured in Firebase RTDB.
+  Future<List<FeedingSchedule>> fetchSchedules() async {
+    try {
+      final response = await http
+          .get(Uri.parse('$_restBasePath/schedules.json'))
+          .timeout(const Duration(seconds: 4));
+      if (response.statusCode == 200) {
+        final body = response.body;
+        if (body.isNotEmpty && body != 'null') {
+          final data = jsonDecode(body);
+          final list = <FeedingSchedule>[];
+          if (data is Map) {
+            for (final entry in data.entries) {
+              if (entry.value is Map) {
+                list.add(FeedingSchedule.fromMap(entry.key.toString(), entry.value as Map));
+              }
+            }
+          } else if (data is List) {
+            for (int i = 0; i < data.length; i++) {
+              if (data[i] is Map) {
+                final id = data[i]['id']?.toString() ?? 'sch_$i';
+                list.add(FeedingSchedule.fromMap(id, data[i] as Map));
+              }
+            }
+          }
+          return list;
+        }
+      }
+    } catch (e) {
+      debugPrint('FirebaseHardwareAdapter fetchSchedules error: $e');
+    }
+    return [];
+  }
+
+  /// Writes a feeding log entry directly to Firebase RTDB `/logs/{id}`.
+  Future<bool> saveFeedingLog(FeedingLog log) async {
+    if (_rootRef != null) {
+      try {
+        await _rootRef!.child('logs/${log.id}').set(log.toMap());
+        return true;
+      } catch (e) {
+        debugPrint('saveFeedingLog native error: $e');
+      }
+    }
+    try {
+      final response = await http.put(
+        Uri.parse('$_restBasePath/logs/${log.id}.json'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'id': log.id,
+          ...log.toMap(),
+        }),
+      ).timeout(const Duration(seconds: 4));
+      return response.statusCode == 200;
+    } catch (e) {
+      debugPrint('saveFeedingLog REST error: $e');
+      return false;
+    }
+  }
+
   @override
   Future<bool> refreshTelemetry() async {
     if (_rootRef != null) {
@@ -212,6 +267,7 @@ class FirebaseHardwareAdapter implements FeederHardwareAdapter {
       }
     }
     await _refreshRestTelemetry();
+    await _fetchRestLogs();
     return _currentConnection == FeederConnection.online;
   }
 
@@ -238,21 +294,18 @@ class FirebaseHardwareAdapter implements FeederHardwareAdapter {
       }
     }
 
-    // 2. REST HTTP fallback
-    if (!kIsWeb) {
-      try {
-        final client = HttpClient();
-        client.connectionTimeout = const Duration(seconds: 4);
-        final request = await client.putUrl(Uri.parse('$_restBasePath/commands/dispense.json'));
-        request.headers.contentType = ContentType.json;
-        request.write(jsonEncode(cmd.toJson()));
-        final response = await request.close();
-        return response.statusCode == 200;
-      } catch (e) {
-        debugPrint('triggerManualDispense REST error: $e');
-      }
+    // 2. Universal REST HTTP fallback
+    try {
+      final response = await http.put(
+        Uri.parse('$_restBasePath/commands/dispense.json'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode(cmd.toJson()),
+      ).timeout(const Duration(seconds: 4));
+      return response.statusCode == 200;
+    } catch (e) {
+      debugPrint('triggerManualDispense REST error: $e');
+      return false;
     }
-    return false;
   }
 
   @override
@@ -275,24 +328,25 @@ class FirebaseHardwareAdapter implements FeederHardwareAdapter {
       }
     }
 
-    if (!kIsWeb) {
-      try {
-        final client = HttpClient();
-        client.connectionTimeout = const Duration(seconds: 3);
-        final request = await client.putUrl(Uri.parse('$_restBasePath/commands/dispense.json'));
-        request.headers.contentType = ContentType.json;
-        request.write(jsonEncode(payload));
-        await request.close();
-      } catch (e) {
-        debugPrint('cancelDispense REST error: $e');
-      }
+    try {
+      await http.put(
+        Uri.parse('$_restBasePath/commands/dispense.json'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode(payload),
+      ).timeout(const Duration(seconds: 3));
+    } catch (e) {
+      debugPrint('cancelDispense REST error: $e');
     }
   }
 
   @override
   Future<bool> syncSchedules(List<FeedingSchedule> schedules) async {
     final map = {
-      for (final s in schedules) s.id: s.toMap(),
+      for (final s in schedules)
+        s.id: {
+          'id': s.id,
+          ...s.toMap(),
+        },
     };
 
     if (_rootRef != null) {
@@ -304,20 +358,17 @@ class FirebaseHardwareAdapter implements FeederHardwareAdapter {
       }
     }
 
-    if (!kIsWeb) {
-      try {
-        final client = HttpClient();
-        client.connectionTimeout = const Duration(seconds: 4);
-        final request = await client.putUrl(Uri.parse('$_restBasePath/schedules.json'));
-        request.headers.contentType = ContentType.json;
-        request.write(jsonEncode(schedules.map((s) => s.toMap()).toList()));
-        final response = await request.close();
-        return response.statusCode == 200;
-      } catch (e) {
-        debugPrint('syncSchedules REST error: $e');
-      }
+    try {
+      final response = await http.put(
+        Uri.parse('$_restBasePath/schedules.json'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode(map),
+      ).timeout(const Duration(seconds: 4));
+      return response.statusCode == 200;
+    } catch (e) {
+      debugPrint('syncSchedules REST error: $e');
+      return false;
     }
-    return false;
   }
 
   @override
@@ -334,23 +385,20 @@ class FirebaseHardwareAdapter implements FeederHardwareAdapter {
       }
     }
 
-    if (!kIsWeb) {
-      try {
-        final client = HttpClient();
-        client.connectionTimeout = const Duration(seconds: 4);
-        final request = await client.putUrl(Uri.parse('$_restBasePath/commands/dispense.json'));
-        request.headers.contentType = ContentType.json;
-        request.write(jsonEncode(jsonPayload));
-        final response = await request.close();
-        if (response.statusCode == 200) {
-          return command.copyWith(status: CommandStatus.completed);
-        }
-      } catch (e) {
-        return command.copyWith(
-          status: CommandStatus.failed,
-          errorMessage: e.toString(),
-        );
+    try {
+      final response = await http.put(
+        Uri.parse('$_restBasePath/commands/dispense.json'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode(jsonPayload),
+      ).timeout(const Duration(seconds: 4));
+      if (response.statusCode == 200) {
+        return command.copyWith(status: CommandStatus.completed);
       }
+    } catch (e) {
+      return command.copyWith(
+        status: CommandStatus.failed,
+        errorMessage: e.toString(),
+      );
     }
 
     return command.copyWith(
@@ -396,4 +444,3 @@ class FirebaseHardwareAdapter implements FeederHardwareAdapter {
     _logController.close();
   }
 }
-

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
 import '../widgets/app_logo.dart';
+import '../widgets/glass_components.dart';
 
 class OnboardingScreen extends StatefulWidget {
   final VoidCallback onFinished;
@@ -69,135 +70,164 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     final isLastPage = _currentPage == _slides.length - 1;
 
     return Scaffold(
-      backgroundColor: c.surface,
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        actions: [
-          TextButton(
-            onPressed: widget.onFinished,
-            child: Text(
-              'Skip',
-              style: TextStyle(
-                color: c.textMuted,
-                fontWeight: FontWeight.bold,
-                fontSize: 14,
-              ),
-            ),
-          ),
-          const SizedBox(width: 8),
-        ],
-      ),
-      body: SafeArea(
-        child: Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 600),
-            child: Column(
-              children: [
-                Expanded(
-                  child: PageView.builder(
-                    controller: _pageController,
-                    itemCount: _slides.length,
-                    onPageChanged: (idx) => setState(() => _currentPage = idx),
-                    itemBuilder: (context, idx) {
-                      final item = _slides[idx];
-                      return Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 28.0),
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            if (idx == 0)
-                              const AppLogo(size: 130, borderWidth: 3.5)
-                            else
-                              Container(
-                                width: 130,
-                                height: 130,
-                                decoration: BoxDecoration(
-                                  color: c.brandSoft,
-                                  borderRadius: BorderRadius.circular(38),
-                                  border: Border.all(color: c.brandBorder.withValues(alpha: 0.6), width: 1.5),
-                                ),
-                                child: Icon(item.icon, size: 62, color: c.brand),
-                              ),
-                            const SizedBox(height: 28),
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 5),
-                              decoration: BoxDecoration(
-                                color: c.brandSurface,
-                                borderRadius: BorderRadius.circular(20),
-                                border: Border.all(color: c.brandBorder.withValues(alpha: 0.7)),
-                              ),
-                              child: Text(
-                                item.badge,
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w800,
-                                  color: c.brand,
-                                ),
-                              ),
-                            ),
-                            const SizedBox(height: 18),
-                            Text(
-                              item.title,
-                              textAlign: TextAlign.center,
-                              style: TextStyle(
-                                fontSize: 26,
-                                fontWeight: FontWeight.w800,
-                                letterSpacing: -0.4,
-                                color: c.textPrimary,
-                                height: 1.25,
-                              ),
-                            ),
-                            const SizedBox(height: 14),
-                            Text(
-                              item.description,
-                              textAlign: TextAlign.center,
-                              style: TextStyle(
-                                fontSize: 14,
-                                color: c.textSecondary,
-                                height: 1.55,
-                              ),
-                            ),
-                          ],
+      backgroundColor: Colors.transparent,
+      body: LiquidBackground(
+        child: SafeArea(
+          child: Column(
+            children: [
+              // Top Bar with Skip Button
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    LiquidGlassContainer(
+                      borderRadius: BorderRadius.circular(20),
+                      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                      child: TextButton(
+                        onPressed: widget.onFinished,
+                        child: Text(
+                          'Skip',
+                          style: TextStyle(
+                            color: c.textPrimary,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 14,
+                          ),
                         ),
-                      );
-                    },
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+              // Main Slide Content
+              Expanded(
+                child: Center(
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 580),
+                    child: PageView.builder(
+                      controller: _pageController,
+                      itemCount: _slides.length,
+                      onPageChanged: (idx) => setState(() => _currentPage = idx),
+                      itemBuilder: (context, idx) {
+                        final item = _slides[idx];
+                        return Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 4.0),
+                          child: LiquidGlassCard(
+                            padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 16.0),
+                            child: SingleChildScrollView(
+                              physics: const BouncingScrollPhysics(),
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  if (idx == 0)
+                                    const AppLogo(size: 100, borderWidth: 3.0)
+                                  else
+                                    LiquidGlassContainer(
+                                      width: 90,
+                                      height: 90,
+                                      borderRadius: BorderRadius.circular(28),
+                                      child: Center(
+                                        child: Icon(item.icon, size: 48, color: c.brand),
+                                      ),
+                                    ),
+                                  const SizedBox(height: 18),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 5),
+                                    decoration: BoxDecoration(
+                                      color: c.brandSoft,
+                                      borderRadius: BorderRadius.circular(20),
+                                      border: Border.all(color: c.brand.withValues(alpha: 0.3)),
+                                    ),
+                                    child: Text(
+                                      item.badge,
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.w800,
+                                        color: c.brand,
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(height: 14),
+                                  Text(
+                                    item.title,
+                                    textAlign: TextAlign.center,
+                                    style: TextStyle(
+                                      fontSize: 22,
+                                      fontWeight: FontWeight.w800,
+                                      letterSpacing: -0.4,
+                                      color: c.textPrimary,
+                                      height: 1.25,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 10),
+                                  Text(
+                                    item.description,
+                                    textAlign: TextAlign.center,
+                                    style: TextStyle(
+                                      fontSize: 13,
+                                      color: c.textSecondary,
+                                      height: 1.5,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        );
+                      },
+                    ),
                   ),
                 ),
+              ),
 
-                // Dot Page Indicators
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: List.generate(_slides.length, (idx) {
-                    final isCurrent = idx == _currentPage;
-                    return AnimatedContainer(
-                      duration: const Duration(milliseconds: 240),
-                      margin: const EdgeInsets.symmetric(horizontal: 4),
-                      height: 8,
-                      width: isCurrent ? 28 : 8,
-                      decoration: BoxDecoration(
-                        color: isCurrent ? c.brand : c.border.withValues(alpha: 0.8),
-                        borderRadius: BorderRadius.circular(4),
-                      ),
-                    );
-                  }),
-                ),
+              const SizedBox(height: 16),
 
-                const SizedBox(height: 24),
+              // Dot Page Indicators
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: List.generate(_slides.length, (idx) {
+                  final isCurrent = idx == _currentPage;
+                  return AnimatedContainer(
+                    duration: const Duration(milliseconds: 240),
+                    margin: const EdgeInsets.symmetric(horizontal: 4),
+                    height: 8,
+                    width: isCurrent ? 28 : 8,
+                    decoration: BoxDecoration(
+                      color: isCurrent ? c.brand : c.border.withValues(alpha: 0.6),
+                      borderRadius: BorderRadius.circular(4),
+                      boxShadow: isCurrent
+                          ? [
+                              BoxShadow(
+                                color: c.brand.withValues(alpha: 0.4),
+                                blurRadius: 6,
+                                offset: const Offset(0, 1),
+                              ),
+                            ]
+                          : null,
+                    ),
+                  );
+                }),
+              ),
 
-                // Bottom Action Button
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 16.0),
+              const SizedBox(height: 20),
+
+              // Bottom Action Button
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 16.0),
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 580),
                   child: SizedBox(
                     width: double.infinity,
-                    height: 52,
+                    height: 54,
                     child: ElevatedButton(
                       onPressed: _nextPage,
                       style: ElevatedButton.styleFrom(
                         backgroundColor: c.brand,
                         foregroundColor: c.onBrand,
-                        elevation: 1.5,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                        elevation: 4,
+                        shadowColor: c.brand.withValues(alpha: 0.4),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
                       ),
                       child: Text(
                         isLastPage ? 'GET STARTED' : 'CONTINUE',
@@ -206,8 +236,8 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                     ),
                   ),
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
         ),
       ),

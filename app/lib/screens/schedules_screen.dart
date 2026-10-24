@@ -314,6 +314,34 @@ class _SchedulesScreenState extends State<SchedulesScreen> {
               ),
               const SizedBox(width: 6),
               Tooltip(
+                message: 'Test run routine now',
+                child: IconButton(
+                  icon: Icon(
+                    Icons.play_circle_outline_rounded,
+                    color: schedule.isEnabled ? c.brand : c.textMuted,
+                    size: 22,
+                  ),
+                  visualDensity: VisualDensity.compact,
+                  padding: const EdgeInsets.all(4),
+                  constraints: const BoxConstraints(),
+                  onPressed: () async {
+                    final ok = await widget.feederService.triggerSchedule(schedule);
+                    if (mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text(ok
+                              ? 'Executing "${schedule.label}" (${schedule.targetGrams.toInt()}g)...'
+                              : 'Could not trigger feeding. Feeder is busy or offline.'),
+                          backgroundColor: ok ? c.brand : c.danger,
+                          duration: const Duration(seconds: 3),
+                        ),
+                      );
+                    }
+                  },
+                ),
+              ),
+              const SizedBox(width: 4),
+              Tooltip(
                 message: schedule.isEnabled ? 'Pause schedule' : 'Enable schedule',
                 child: Switch(
                   value: schedule.isEnabled,

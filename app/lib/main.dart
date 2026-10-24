@@ -16,7 +16,14 @@ import 'widgets/app_logo.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   final settings = await SettingsService.load();
-  runApp(SmartChickenFeederApp(settingsService: settings));
+  final feederService = FeederService(
+    adapter: SmartChickenFeederApp.resolveAdapter(settings.hardwareTransport),
+  );
+  await feederService.loadLocalData();
+  runApp(SmartChickenFeederApp(
+    settingsService: settings,
+    feederService: feederService,
+  ));
 }
 
 class SmartChickenFeederApp extends StatefulWidget {
@@ -27,23 +34,7 @@ class SmartChickenFeederApp extends StatefulWidget {
 
   const SmartChickenFeederApp({super.key, required this.settingsService, this.feederService});
 
-  @override
-  State<SmartChickenFeederApp> createState() => _SmartChickenFeederAppState();
-}
-
-class _SmartChickenFeederAppState extends State<SmartChickenFeederApp> {
-  late final FeederService _feederService;
-
-  @override
-  void initState() {
-    super.initState();
-    _feederService = widget.feederService ??
-        FeederService(
-          adapter: _resolveAdapter(widget.settingsService.hardwareTransport),
-        );
-  }
-
-  static FeederHardwareAdapter _resolveAdapter(HardwareTransportType type) {
+  static FeederHardwareAdapter resolveAdapter(HardwareTransportType type) {
     switch (type) {
       case HardwareTransportType.mockSimulator:
         return MockHardwareAdapter(simulateOffline: false);
@@ -58,6 +49,22 @@ class _SmartChickenFeederAppState extends State<SmartChickenFeederApp> {
           transportType: HardwareTransportType.bluetoothLowEnergy,
         );
     }
+  }
+
+  @override
+  State<SmartChickenFeederApp> createState() => _SmartChickenFeederAppState();
+}
+
+class _SmartChickenFeederAppState extends State<SmartChickenFeederApp> {
+  late final FeederService _feederService;
+
+  @override
+  void initState() {
+    super.initState();
+    _feederService = widget.feederService ??
+        FeederService(
+          adapter: SmartChickenFeederApp.resolveAdapter(widget.settingsService.hardwareTransport),
+        );
   }
 
   @override

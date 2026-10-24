@@ -33,6 +33,21 @@ class _SchedulesScreenState extends State<SchedulesScreen> {
               'Feeding Schedules',
               style: TextStyle(fontWeight: FontWeight.bold),
             ),
+            actions: [
+              IconButton(
+                icon: const Icon(Icons.sync_rounded),
+                tooltip: 'Sync with Firebase',
+                onPressed: () async {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Syncing schedules with Firebase...'),
+                      duration: Duration(seconds: 1),
+                    ),
+                  );
+                  await widget.feederService.refreshSchedulesFromCloud();
+                },
+              ),
+            ],
           ),
           body: Column(
             children: [
@@ -47,43 +62,53 @@ class _SchedulesScreenState extends State<SchedulesScreen> {
                           child: ConstrainedBox(
                             constraints: const BoxConstraints(maxWidth: 850),
                             child: schedules.isEmpty
-                                ? _buildEmptyState()
-                                : ListView(
-                                    padding: const EdgeInsets.all(16.0),
-                                    children: [
-                                      // Summary Banner
-                                      _buildSummaryBanner(activeCount, totalSeconds, totalGrams),
-                                      const SizedBox(height: 16),
+                                ? RefreshIndicator(
+                                    onRefresh: () => widget.feederService.refreshSchedulesFromCloud(),
+                                    child: SingleChildScrollView(
+                                      physics: const AlwaysScrollableScrollPhysics(),
+                                      child: _buildEmptyState(),
+                                    ),
+                                  )
+                                : RefreshIndicator(
+                                    onRefresh: () => widget.feederService.refreshSchedulesFromCloud(),
+                                    child: ListView(
+                                      physics: const AlwaysScrollableScrollPhysics(),
+                                      padding: const EdgeInsets.all(16.0),
+                                      children: [
+                                        // Summary Banner
+                                        _buildSummaryBanner(activeCount, totalSeconds, totalGrams),
+                                        const SizedBox(height: 16),
 
-                                      Row(
-                                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                        children: [
-                                          Text(
-                                            'Configured Routines (${schedules.length})',
-                                            style: TextStyle(
-                                              fontSize: 15,
-                                              fontWeight: FontWeight.bold,
-                                              color: c.textPrimary,
+                                        Row(
+                                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                          children: [
+                                            Text(
+                                              'Configured Routines (${schedules.length})',
+                                              style: TextStyle(
+                                                fontSize: 15,
+                                                fontWeight: FontWeight.bold,
+                                                color: c.textPrimary,
+                                              ),
                                             ),
-                                          ),
-                                          Text(
-                                            'Tap card to edit',
-                                            style: TextStyle(fontSize: 12, color: c.textMuted),
-                                          ),
-                                        ],
-                                      ),
-                                      const SizedBox(height: 10),
+                                            Text(
+                                              'Tap card to edit',
+                                              style: TextStyle(fontSize: 12, color: c.textMuted),
+                                            ),
+                                          ],
+                                        ),
+                                        const SizedBox(height: 10),
 
-                                      ...schedules.asMap().entries.map((entry) {
-                                        final index = entry.key;
-                                        final item = entry.value;
-                                        return Padding(
-                                          padding: const EdgeInsets.only(bottom: 10.0),
-                                          child: _buildScheduleCard(item, index),
-                                        );
-                                      }),
-                                      const SizedBox(height: 70), // Spacing for FAB
-                                    ],
+                                        ...schedules.asMap().entries.map((entry) {
+                                          final index = entry.key;
+                                          final item = entry.value;
+                                          return Padding(
+                                            padding: const EdgeInsets.only(bottom: 10.0),
+                                            child: _buildScheduleCard(item, index),
+                                          );
+                                        }),
+                                        const SizedBox(height: 70), // Spacing for FAB
+                                      ],
+                                    ),
                                   ),
                           ),
                         ),

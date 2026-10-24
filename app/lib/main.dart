@@ -12,6 +12,7 @@ import 'screens/history_screen.dart';
 import 'screens/settings_screen.dart';
 import 'screens/onboarding_screen.dart';
 import 'widgets/app_logo.dart';
+import 'widgets/glass_components.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -156,61 +157,65 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
         );
 
         if (isWideScreen) {
-          // Desktop / Tablet layout with side NavigationRail
-          return Scaffold(
-            body: Row(
-              children: [
-                NavigationRail(
-                  selectedIndex: _currentIndex,
-                  onDestinationSelected: (idx) => setState(() => _currentIndex = idx),
-                  labelType: NavigationRailLabelType.all,
-                  leading: const Padding(
-                    padding: EdgeInsets.symmetric(vertical: 16.0),
-                    child: AppLogo(size: 42, borderWidth: 2.2),
-                  ),
-                  destinations: [
-                    for (final d in _destinations)
-                      NavigationRailDestination(
-                        icon: Icon(d.icon),
-                        selectedIcon: Icon(d.selected, color: c.brand),
-                        label: Text(d.label),
+          // Desktop / Tablet layout with side Liquid Glass NavigationRail
+          return LiquidBackground(
+            child: Scaffold(
+              backgroundColor: Colors.transparent,
+              body: Row(
+                children: [
+                  LiquidGlassContainer(
+                    margin: const EdgeInsets.fromLTRB(16, 16, 8, 16),
+                    borderRadius: BorderRadius.circular(30),
+                    blurSigma: 24,
+                    padding: const EdgeInsets.symmetric(vertical: 8),
+                    child: NavigationRail(
+                      backgroundColor: Colors.transparent,
+                      selectedIndex: _currentIndex,
+                      onDestinationSelected: (idx) => setState(() => _currentIndex = idx),
+                      labelType: NavigationRailLabelType.all,
+                      leading: const Padding(
+                        padding: EdgeInsets.symmetric(vertical: 12.0),
+                        child: AppLogo(size: 42, borderWidth: 2.2),
                       ),
-                  ],
-                ),
-                VerticalDivider(thickness: 1, width: 1, color: c.border),
-                Expanded(child: currentScreenWidget),
-              ],
+                      destinations: [
+                        for (final d in _destinations)
+                          NavigationRailDestination(
+                            icon: Icon(d.icon),
+                            selectedIcon: Icon(d.selected, color: c.brand),
+                            label: Text(d.label),
+                          ),
+                      ],
+                    ),
+                  ),
+                  Expanded(child: currentScreenWidget),
+                ],
+              ),
             ),
           );
         }
 
-        // Mobile layout with bottom NavigationBar
-        return Scaffold(
-          body: currentScreenWidget,
-          bottomNavigationBar: Container(
-            decoration: BoxDecoration(
-              color: c.surface,
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.04),
-                  blurRadius: 16,
-                  offset: const Offset(0, -2),
+        // Mobile / Compact layout with iOS-Inspired Floating Navigation Dock
+        return LiquidBackground(
+          child: Scaffold(
+            backgroundColor: Colors.transparent,
+            body: Stack(
+              children: [
+                Positioned.fill(
+                  child: currentScreenWidget,
                 ),
-              ],
-              border: Border(
-                top: BorderSide(color: c.border.withValues(alpha: 0.6), width: 0.8),
-              ),
-            ),
-            child: NavigationBar(
-              selectedIndex: _currentIndex,
-              onDestinationSelected: (idx) => setState(() => _currentIndex = idx),
-              destinations: [
-                for (final d in _destinations)
-                  NavigationDestination(
-                    icon: Icon(d.icon),
-                    selectedIcon: Icon(d.selected, color: c.brand),
-                    label: d.label,
+                Positioned(
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  child: SafeArea(
+                    top: false,
+                    child: IOSFloatingNavigationBar(
+                      selectedIndex: _currentIndex,
+                      onDestinationSelected: (idx) => setState(() => _currentIndex = idx),
+                      destinations: _destinations,
+                    ),
                   ),
+                ),
               ],
             ),
           ),

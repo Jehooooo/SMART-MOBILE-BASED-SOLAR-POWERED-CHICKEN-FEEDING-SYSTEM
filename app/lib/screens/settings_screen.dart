@@ -868,7 +868,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     FeederHardwareAdapter newAdapter;
     switch (type) {
       case HardwareTransportType.mockSimulator:
-        newAdapter = MockHardwareAdapter(simulateOffline: true);
+        newAdapter = MockHardwareAdapter(simulateOffline: false);
         break;
       case HardwareTransportType.firebaseCloud:
         newAdapter = FirebaseHardwareAdapter();
@@ -878,7 +878,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         break;
       case HardwareTransportType.bluetoothLowEnergy:
         newAdapter = MockHardwareAdapter(
-          simulateOffline: true,
+          simulateOffline: false,
           sourceLabel: 'Bluetooth Low Energy (Direct BLE)',
           transportType: HardwareTransportType.bluetoothLowEnergy,
         );

@@ -19,6 +19,8 @@ class FeederService extends ChangeNotifier {
   FeederTelemetry _telemetry = FeederTelemetry.initial();
   List<FeedingSchedule> _schedules = [];
   List<FeedingLog> _history = [];
+  Timer? _scheduleWatchTimer;
+  final Set<String> _executedScheduleMinutes = {};
   bool _isDispensing = false;
 
   FeederConnection _connection = FeederConnection.offline;
@@ -82,6 +84,7 @@ class FeederService extends ChangeNotifier {
     }
     _initSampleData();
     _bindAdapter(_adapter);
+    _initScheduleWatcher();
   }
 
   void _bindAdapter(FeederHardwareAdapter adapter) {
@@ -109,9 +112,11 @@ class FeederService extends ChangeNotifier {
     });
 
     _logSub = adapter.feedingLogStream.listen((log) {
-      _history.insert(0, log);
-      _syncLogToCloud(log);
-      notifyListeners();
+      if (!_history.any((l) => l.id == log.id)) {
+        _history.insert(0, log);
+        _syncLogToCloud(log);
+        notifyListeners();
+      }
     });
 
     adapter.initialize();
@@ -334,6 +339,34 @@ class FeederService extends ChangeNotifier {
       durationSeconds: durationSeconds,
       targetGrams: targetGrams,
     );
+  }
+
+  /// Triggers execution of a specific scheduled routine on the hardware.
+  Future<bool> triggerSchedule(FeedingSchedule schedule) async {
+    if (_isDispensing || !isConnected) return false;
+    return _adapter.triggerScheduleDispense(schedule);
+  }
+
+  void _initScheduleWatcher() {
+    _scheduleWatchTimer?.cancel();
+    _scheduleWatchTimer = Timer.periodic(const Duration(seconds: 5), (_) => _checkScheduledFeedings());
+  }
+
+  void _checkScheduledFeedings() {
+    if (_schedules.isEmpty || _isDispensing) return;
+    final now = DateTime.now();
+    for (final s in _schedules) {
+      if (!s.isEnabled) continue;
+      if (s.daysOfWeek.isNotEmpty && !s.daysOfWeek.contains(now.weekday)) continue;
+      if (s.hour == now.hour && s.minute == now.minute) {
+        final key = '${now.year}-${now.month}-${now.day}_${now.hour}:${now.minute}_${s.id}';
+        if (!_executedScheduleMinutes.contains(key)) {
+          _executedScheduleMinutes.add(key);
+          debugPrint('[FeederService] Schedule execution triggered: ${s.label} (${s.timeFormatted})');
+          triggerSchedule(s);
+        }
+      }
+    }
   }
 
   void addSchedule(FeedingSchedule schedule) {
@@ -571,6 +604,7 @@ class FeederService extends ChangeNotifier {
   @override
   void dispose() {
     _disposed = true;
+    _scheduleWatchTimer?.cancel();
     _telemetrySub?.cancel();
     _connectionSub?.cancel();
     _logSub?.cancel();

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
 import 'app_logo.dart';
+import 'glass_components.dart';
 
 /// Interactive, comprehensive guide for physical machine bring-up and backend configuration.
 void showHardwareGuideDialog(BuildContext context) {
@@ -34,8 +35,8 @@ class _HardwareGuideModalState extends State<_HardwareGuideModal> {
     final isCompact = media.size.width < 500;
 
     return Dialog(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22)),
-      backgroundColor: c.surface,
+      backgroundColor: Colors.transparent,
+      elevation: 0,
       insetPadding: EdgeInsets.symmetric(
         horizontal: isCompact ? 12 : 24,
         vertical: 24,
@@ -45,132 +46,136 @@ class _HardwareGuideModalState extends State<_HardwareGuideModal> {
           maxWidth: 680,
           maxHeight: media.size.height * 0.88,
         ),
-        child: Column(
-          children: [
-            // Header
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 20, 16, 12),
-              child: Row(
-                children: [
-                  const AppLogo(size: 40, borderWidth: 2.0),
-                  const SizedBox(width: 14),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Machine & Backend Guide',
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.w800,
-                            letterSpacing: -0.3,
-                            color: c.textPrimary,
-                          ),
-                        ),
-                        const SizedBox(height: 2),
-                        Text(
-                          'Physical bring-up, sensor calibration & cloud data flow',
-                          style: TextStyle(fontSize: 12, color: c.textMuted),
-                        ),
-                      ],
-                    ),
-                  ),
-                  IconButton(
-                    icon: Icon(Icons.close_rounded, color: c.textMuted),
-                    onPressed: () => Navigator.pop(context),
-                  ),
-                ],
-              ),
-            ),
-
-            // Tab Bar
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16.0),
-              child: SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
+        child: LiquidGlassContainer(
+          borderRadius: BorderRadius.circular(24),
+          padding: EdgeInsets.zero,
+          child: Column(
+            children: [
+              // Header
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 20, 16, 12),
                 child: Row(
-                  children: List.generate(_tabs.length, (idx) {
-                    final isSelected = _selectedTab == idx;
-                    final tab = _tabs[idx];
-                    return Padding(
-                      padding: const EdgeInsets.only(right: 6.0),
-                      child: ChoiceChip(
-                        label: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(
-                              tab.icon,
-                              size: 16,
-                              color: isSelected ? c.onBrand : c.textSecondary,
+                  children: [
+                    const AppLogo(size: 40, borderWidth: 2.0),
+                    const SizedBox(width: 14),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Machine & Backend Guide',
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.w800,
+                              letterSpacing: -0.3,
+                              color: c.textPrimary,
                             ),
-                            const SizedBox(width: 6),
-                            Text(tab.label),
-                          ],
-                        ),
-                        selected: isSelected,
-                        onSelected: (val) {
-                          if (val) setState(() => _selectedTab = idx);
-                        },
-                        shape: StadiumBorder(
-                          side: BorderSide(
-                            color: isSelected ? c.brand : c.border.withValues(alpha: 0.8),
                           ),
-                        ),
-                        selectedColor: c.brand,
-                        backgroundColor: c.surfaceMuted,
-                        labelStyle: TextStyle(
-                          fontSize: 12,
-                          fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
-                          color: isSelected ? c.onBrand : c.textSecondary,
-                        ),
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          const SizedBox(height: 2),
+                          Text(
+                            'Physical bring-up, sensor calibration & cloud data flow',
+                            style: TextStyle(fontSize: 12, color: c.textMuted),
+                          ),
+                        ],
                       ),
-                    );
-                  }),
+                    ),
+                    IconButton(
+                      icon: Icon(Icons.close_rounded, color: c.textMuted),
+                      onPressed: () => Navigator.pop(context),
+                    ),
+                  ],
                 ),
               ),
-            ),
 
-            const Divider(height: 18),
-
-            // Tab Content
-            Expanded(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-                child: _buildTabContent(context, _selectedTab),
-              ),
-            ),
-
-            // Footer Action
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-              decoration: BoxDecoration(
-                color: c.surfaceMuted,
-                borderRadius: const BorderRadius.vertical(bottom: Radius.circular(22)),
-                border: Border(top: BorderSide(color: c.border.withValues(alpha: 0.6))),
-              ),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      'ESP32 DevKit V1 • 12V Solar • FreeRTOS Firmware',
-                      style: TextStyle(fontSize: 11, color: c.textMuted, fontWeight: FontWeight.w500),
-                    ),
+              // Tab Bar
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                child: SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(
+                    children: List.generate(_tabs.length, (idx) {
+                      final isSelected = _selectedTab == idx;
+                      final tab = _tabs[idx];
+                      return Padding(
+                        padding: const EdgeInsets.only(right: 6.0),
+                        child: ChoiceChip(
+                          label: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                tab.icon,
+                                size: 16,
+                                color: isSelected ? c.onBrand : c.textSecondary,
+                              ),
+                              const SizedBox(width: 6),
+                              Text(tab.label),
+                            ],
+                          ),
+                          selected: isSelected,
+                          onSelected: (val) {
+                            if (val) setState(() => _selectedTab = idx);
+                          },
+                          shape: StadiumBorder(
+                            side: BorderSide(
+                              color: isSelected ? c.brand : c.border.withValues(alpha: 0.6),
+                            ),
+                          ),
+                          selectedColor: c.brand,
+                          backgroundColor: c.surfaceMuted.withValues(alpha: 0.5),
+                          labelStyle: TextStyle(
+                            fontSize: 12,
+                            fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
+                            color: isSelected ? c.onBrand : c.textSecondary,
+                          ),
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        ),
+                      );
+                    }),
                   ),
-                  ElevatedButton(
-                    onPressed: () => Navigator.pop(context),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: c.brand,
-                      foregroundColor: c.onBrand,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-                    ),
-                    child: const Text('Got it', style: TextStyle(fontWeight: FontWeight.w800)),
-                  ),
-                ],
+                ),
               ),
-            ),
-          ],
+
+              Divider(height: 18, color: c.border.withValues(alpha: 0.4)),
+
+              // Tab Content
+              Expanded(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                  child: _buildTabContent(context, _selectedTab),
+                ),
+              ),
+
+              // Footer Action
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                decoration: BoxDecoration(
+                  color: c.surfaceMuted.withValues(alpha: 0.5),
+                  borderRadius: const BorderRadius.vertical(bottom: Radius.circular(24)),
+                  border: Border(top: BorderSide(color: c.border.withValues(alpha: 0.4))),
+                ),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        'ESP32 DevKit V1 • 12V Solar • FreeRTOS Firmware',
+                        style: TextStyle(fontSize: 11, color: c.textMuted, fontWeight: FontWeight.w500),
+                      ),
+                    ),
+                    ElevatedButton(
+                      onPressed: () => Navigator.pop(context),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: c.brand,
+                        foregroundColor: c.onBrand,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                      ),
+                      child: const Text('Got it', style: TextStyle(fontWeight: FontWeight.w800)),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -402,14 +407,14 @@ class _HardwareGuideModalState extends State<_HardwareGuideModal> {
         const SizedBox(height: 8),
         Container(
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: c.border.withValues(alpha: 0.8)),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: c.border.withValues(alpha: 0.6)),
           ),
           clipBehavior: Clip.antiAlias,
           child: Column(
             children: [
               Container(
-                color: c.surfaceMuted,
+                color: c.surfaceMuted.withValues(alpha: 0.7),
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                 child: Row(
                   children: [
@@ -433,7 +438,7 @@ class _HardwareGuideModalState extends State<_HardwareGuideModal> {
                 final row = entry.value;
                 final isEven = idx % 2 == 0;
                 return Container(
-                  color: isEven ? c.surface : c.surfaceMuted.withValues(alpha: 0.4),
+                  color: isEven ? c.surface.withValues(alpha: 0.5) : c.surfaceMuted.withValues(alpha: 0.3),
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                   child: Row(
                     children: [
@@ -448,6 +453,7 @@ class _HardwareGuideModalState extends State<_HardwareGuideModal> {
                           decoration: BoxDecoration(
                             color: c.brandSoft,
                             borderRadius: BorderRadius.circular(6),
+                            border: Border.all(color: c.brand.withValues(alpha: 0.2)),
                           ),
                           child: Text(
                             row.$2,
@@ -546,6 +552,7 @@ class _HardwareGuideModalState extends State<_HardwareGuideModal> {
             decoration: BoxDecoration(
               color: c.brandSoft,
               borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: c.brand.withValues(alpha: 0.2)),
             ),
             child: Icon(icon, color: c.brand, size: 18),
           ),
@@ -576,9 +583,9 @@ class _HardwareGuideModalState extends State<_HardwareGuideModal> {
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: c.surface,
+        color: c.surface.withValues(alpha: 0.6),
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: c.border.withValues(alpha: 0.7)),
+        border: Border.all(color: c.border.withValues(alpha: 0.5)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -597,6 +604,7 @@ class _HardwareGuideModalState extends State<_HardwareGuideModal> {
                 decoration: BoxDecoration(
                   color: badgeColor.withValues(alpha: 0.14),
                   borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: badgeColor.withValues(alpha: 0.3)),
                 ),
                 child: Text(
                   badge,
@@ -624,9 +632,9 @@ class _HardwareGuideModalState extends State<_HardwareGuideModal> {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: c.surfaceMuted,
+        color: c.surfaceMuted.withValues(alpha: 0.6),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: c.border.withValues(alpha: 0.5)),
+        border: Border.all(color: c.border.withValues(alpha: 0.4)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -664,6 +672,13 @@ class _HardwareGuideModalState extends State<_HardwareGuideModal> {
             decoration: BoxDecoration(
               color: c.brand,
               shape: BoxShape.circle,
+              boxShadow: [
+                BoxShadow(
+                  color: c.brand.withValues(alpha: 0.35),
+                  blurRadius: 6,
+                  offset: const Offset(0, 2),
+                ),
+              ],
             ),
             child: Text(
               step,

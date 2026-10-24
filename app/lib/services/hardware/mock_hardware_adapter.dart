@@ -46,11 +46,18 @@ class MockHardwareAdapter implements FeederHardwareAdapter {
 
   final Random _rng = Random();
 
+  final String? _customSourceLabel;
+  final HardwareTransportType? _customTransportType;
+
   MockHardwareAdapter({
     this.connectDelay = const Duration(milliseconds: 600),
     this.dispenseTickInterval = const Duration(milliseconds: 400),
     bool simulateOffline = true,
-  }) : _simulateOffline = simulateOffline {
+    String? sourceLabel,
+    HardwareTransportType? transportType,
+  })  : _simulateOffline = simulateOffline,
+        _customSourceLabel = sourceLabel,
+        _customTransportType = transportType {
     if (!simulateOffline) {
       _currentConnection = FeederConnection.online;
     }
@@ -66,10 +73,12 @@ class MockHardwareAdapter implements FeederHardwareAdapter {
   Stream<FeedingLog> get feedingLogStream => _logController.stream;
 
   @override
-  String get hardwareSourceLabel => 'Mock Hardware Simulator (Off-Grid Emulation)';
+  String get hardwareSourceLabel =>
+      _customSourceLabel ?? 'Mock Hardware Simulator (Off-Grid Emulation)';
 
   @override
-  HardwareTransportType get transportType => HardwareTransportType.mockSimulator;
+  HardwareTransportType get transportType =>
+      _customTransportType ?? HardwareTransportType.mockSimulator;
 
   @override
   bool get isMock => true;

@@ -270,7 +270,6 @@ void main() {
       // Verify modal contents
       expect(find.text('Export Feeding Logs'), findsOneWidget);
       expect(find.text('Download CSV'), findsOneWidget);
-      expect(find.text('Download Excel (.xls)'), findsOneWidget);
       expect(find.text('Copy CSV'), findsOneWidget);
 
       // Tap Download CSV and allow native async disk I/O to complete

@@ -7,6 +7,7 @@ import '../models/feeding_log.dart';
 import '../theme/app_theme.dart';
 import '../widgets/connection_banner.dart';
 import '../widgets/skeleton.dart';
+import '../widgets/glass_components.dart';
 
 class HistoryScreen extends StatefulWidget {
   final FeederService feederService;
@@ -110,16 +111,11 @@ class _HistoryScreenState extends State<HistoryScreen> {
                                     onRefresh: () => widget.feederService.refreshLogsFromCloud(),
                                     child: ListView(
                                       physics: const AlwaysScrollableScrollPhysics(),
-                                      padding: const EdgeInsets.all(16.0),
+                                      padding: const EdgeInsets.fromLTRB(16.0, 16.0, 16.0, 110.0),
                                       children: [
                                         // Research Metrics Summary Card
-                                      Card(
-                                        shape: RoundedRectangleBorder(
-                                          borderRadius: BorderRadius.circular(18),
-                                          side: BorderSide(color: c.brandBorder.withValues(alpha: 0.8)),
-                                        ),
-                                        color: c.brandSurface,
-                                        child: Padding(
+                                        LiquidGlassCard(
+                                          borderRadius: BorderRadius.circular(22),
                                           padding: const EdgeInsets.all(18.0),
                                           child: Column(
                                             crossAxisAlignment: CrossAxisAlignment.start,
@@ -159,7 +155,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
                                                   Container(
                                                     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                                                     decoration: BoxDecoration(
-                                                      color: c.surface,
+                                                      color: c.surface.withValues(alpha: 0.8),
                                                       borderRadius: BorderRadius.circular(20),
                                                       border: Border.all(color: c.brandBorder.withValues(alpha: 0.6)),
                                                     ),
@@ -190,7 +186,6 @@ class _HistoryScreenState extends State<HistoryScreen> {
                                             ],
                                           ),
                                         ),
-                                      ),
 
                                       const SizedBox(height: 18),
 
@@ -282,11 +277,11 @@ class _HistoryScreenState extends State<HistoryScreen> {
       },
       shape: StadiumBorder(
         side: BorderSide(
-          color: isSelected ? c.brand : c.border.withValues(alpha: 0.8),
+          color: isSelected ? c.brand : c.border.withValues(alpha: 0.6),
         ),
       ),
       selectedColor: c.brand,
-      backgroundColor: c.surface,
+      backgroundColor: c.surfaceMuted.withValues(alpha: 0.6),
       labelStyle: TextStyle(
         fontSize: 12,
         fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
@@ -301,29 +296,33 @@ class _HistoryScreenState extends State<HistoryScreen> {
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(32.0),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Container(
-              padding: const EdgeInsets.all(22),
-              decoration: BoxDecoration(
-                color: c.surfaceMuted,
-                borderRadius: BorderRadius.circular(24),
+        child: LiquidGlassCard(
+          borderRadius: BorderRadius.circular(26),
+          padding: const EdgeInsets.all(28.0),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(22),
+                decoration: BoxDecoration(
+                  color: c.surfaceMuted,
+                  borderRadius: BorderRadius.circular(24),
+                ),
+                child: Icon(Icons.history_toggle_off, size: 52, color: c.textMuted),
               ),
-              child: Icon(Icons.history_toggle_off, size: 52, color: c.textMuted),
-            ),
-            const SizedBox(height: 18),
-            Text(
-              'No Feeding Logs Yet',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: c.textPrimary),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Dispense feed manually from the Dashboard or wait for your scheduled routines to trigger.',
-              style: TextStyle(fontSize: 13, color: c.textMuted, height: 1.4),
-              textAlign: TextAlign.center,
-            ),
-          ],
+              const SizedBox(height: 18),
+              Text(
+                'No Feeding Logs Yet',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: c.textPrimary),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Dispense feed manually from the Dashboard or wait for your scheduled routines to trigger.',
+                style: TextStyle(fontSize: 13, color: c.textMuted, height: 1.4),
+                textAlign: TextAlign.center,
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -336,7 +335,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
         margin: const EdgeInsets.symmetric(horizontal: 4),
         padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
         decoration: BoxDecoration(
-          color: c.surface,
+          color: c.surface.withValues(alpha: 0.75),
           borderRadius: BorderRadius.circular(14),
           border: Border.all(color: c.border.withValues(alpha: 0.5)),
         ),
@@ -373,13 +372,10 @@ class _HistoryScreenState extends State<HistoryScreen> {
     final isScheduled = log.triggerType.startsWith('Schedule');
     final isSuccess = log.isSuccess;
 
-    return Card(
-      margin: const EdgeInsets.only(bottom: 12),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(18),
-        side: BorderSide(color: c.border.withValues(alpha: 0.7)),
-      ),
-      child: Padding(
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: LiquidGlassCard(
+        borderRadius: BorderRadius.circular(20),
         padding: const EdgeInsets.all(16.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -497,7 +493,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
               decoration: BoxDecoration(
-                color: c.surfaceMuted,
+                color: c.surfaceMuted.withValues(alpha: 0.6),
                 borderRadius: BorderRadius.circular(10),
                 border: Border.all(color: c.border.withValues(alpha: 0.4)),
               ),
@@ -586,8 +582,8 @@ class _HistoryScreenState extends State<HistoryScreen> {
             }
           }
 
-          return AlertDialog(
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22)),
+          return LiquidGlassDialog(
+            maxWidth: 540,
             title: Row(
               children: [
                 Container(
@@ -634,7 +630,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
                     width: double.maxFinite,
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      color: c.surfaceMuted,
+                      color: c.surfaceMuted.withValues(alpha: 0.6),
                       borderRadius: BorderRadius.circular(12),
                       border: Border.all(color: c.border.withValues(alpha: 0.8)),
                     ),
@@ -648,44 +644,35 @@ class _HistoryScreenState extends State<HistoryScreen> {
                 ],
               ),
             ),
-            actionsAlignment: MainAxisAlignment.spaceBetween,
-            actionsPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(ctx),
                 child: Text('Close', style: TextStyle(color: c.textMuted)),
               ),
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                alignment: WrapAlignment.end,
-                children: [
-                  OutlinedButton.icon(
-                    onPressed: () {
-                      Clipboard.setData(ClipboardData(text: csvData));
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: const Text('CSV copied to clipboard! Paste directly into Excel or Google Sheets.'),
-                          backgroundColor: c.brand,
-                        ),
-                      );
-                    },
-                    icon: const Icon(Icons.copy_rounded, size: 16),
-                    label: const Text('Copy CSV'),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: c.textPrimary,
-                    ),
-                  ),
-                  ElevatedButton.icon(
-                    onPressed: isExporting ? null : () => handleExport(),
-                    icon: const Icon(Icons.download_rounded, size: 16),
-                    label: const Text('Download CSV'),
-                    style: ElevatedButton.styleFrom(
+              OutlinedButton.icon(
+                onPressed: () {
+                  Clipboard.setData(ClipboardData(text: csvData));
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: const Text('CSV copied to clipboard! Paste directly into Excel or Google Sheets.'),
                       backgroundColor: c.brand,
-                      foregroundColor: c.onBrand,
                     ),
-                  ),
-                ],
+                  );
+                },
+                icon: const Icon(Icons.copy_rounded, size: 16),
+                label: const Text('Copy CSV'),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: c.textPrimary,
+                ),
+              ),
+              ElevatedButton.icon(
+                onPressed: isExporting ? null : () => handleExport(),
+                icon: const Icon(Icons.download_rounded, size: 16),
+                label: const Text('Download CSV'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: c.brand,
+                  foregroundColor: c.onBrand,
+                ),
               ),
             ],
           );

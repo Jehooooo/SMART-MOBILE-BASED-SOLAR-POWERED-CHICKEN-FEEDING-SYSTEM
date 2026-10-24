@@ -257,6 +257,14 @@ class MockHardwareAdapter implements FeederHardwareAdapter {
   }
 
   @override
+  Future<bool> triggerScheduleDispense(FeedingSchedule schedule) async {
+    return triggerManualDispense(
+      durationSeconds: schedule.durationSeconds,
+      targetGrams: schedule.targetGrams,
+    );
+  }
+
+  @override
   Future<void> cancelDispense() async {
     if (_isDispensing) {
       _cancelRequested = true;

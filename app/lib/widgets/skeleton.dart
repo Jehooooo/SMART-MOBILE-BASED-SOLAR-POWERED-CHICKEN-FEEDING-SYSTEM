@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
+import 'glass_components.dart';
 
 /// Gives every [SkeletonBox] below it a gentle shared pulse animation.
 ///
@@ -78,15 +79,20 @@ class SkeletonBox extends StatelessWidget {
       width: circle ? height : width,
       height: height,
       decoration: BoxDecoration(
-        color: Color.lerp(c.skeletonBase, c.skeletonHighlight, t),
+        color: Color.lerp(
+          c.skeletonBase.withValues(alpha: 0.5),
+          c.skeletonHighlight.withValues(alpha: 0.8),
+          t,
+        ),
         borderRadius: circle ? null : BorderRadius.circular(radius),
         shape: circle ? BoxShape.circle : BoxShape.rectangle,
+        border: Border.all(color: Colors.white.withValues(alpha: 0.12), width: 0.8),
       ),
     );
   }
 }
 
-/// Card-shaped container that matches the real cards' border and padding.
+/// Card-shaped container that matches the real cards' liquid glass border and padding.
 class SkeletonCard extends StatelessWidget {
   final Widget child;
   final EdgeInsetsGeometry padding;
@@ -95,7 +101,7 @@ class SkeletonCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(child: Padding(padding: padding, child: child));
+    return LiquidGlassCard(padding: padding, child: child);
   }
 }
 
@@ -108,7 +114,7 @@ class DashboardSkeleton extends StatelessWidget {
     return SkeletonPulse(
       child: ListView(
         physics: const NeverScrollableScrollPhysics(),
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.fromLTRB(16, 16, 16, 110),
         children: [
           SkeletonCard(
             padding: const EdgeInsets.all(20),
@@ -117,11 +123,11 @@ class DashboardSkeleton extends StatelessWidget {
               children: const [
                 Row(
                   children: [
-                    SkeletonBox(height: 36, width: 36),
+                    SkeletonBox(height: 36, width: 36, radius: 10),
                     SizedBox(width: 10),
                     SkeletonBox(height: 16, width: 140),
                     Spacer(),
-                    SkeletonBox(height: 26, width: 56),
+                    SkeletonBox(height: 26, width: 56, radius: 12),
                   ],
                 ),
                 SizedBox(height: 18),
@@ -167,15 +173,15 @@ class DashboardSkeleton extends StatelessWidget {
                 SizedBox(height: 14),
                 Row(
                   children: [
-                    SkeletonBox(height: 44, width: 64),
+                    SkeletonBox(height: 44, width: 64, radius: 12),
                     SizedBox(width: 8),
-                    SkeletonBox(height: 44, width: 64),
+                    SkeletonBox(height: 44, width: 64, radius: 12),
                     SizedBox(width: 8),
-                    SkeletonBox(height: 44, width: 64),
+                    SkeletonBox(height: 44, width: 64, radius: 12),
                   ],
                 ),
                 SizedBox(height: 18),
-                SkeletonBox(height: 48, radius: 10),
+                SkeletonBox(height: 48, radius: 14),
               ],
             ),
           ),
@@ -195,7 +201,7 @@ class _MetricSkeleton extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          SkeletonBox(height: 28, width: 90),
+          SkeletonBox(height: 28, width: 90, radius: 8),
           SizedBox(height: 12),
           SkeletonBox(height: 18, width: 70),
           SizedBox(height: 6),
@@ -218,13 +224,13 @@ class ListSkeleton extends StatelessWidget {
     return SkeletonPulse(
       child: ListView(
         physics: const NeverScrollableScrollPhysics(),
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.fromLTRB(16, 16, 16, 110),
         children: [
           if (showHeaderCard) ...[
             const SkeletonCard(
               child: Row(
                 children: [
-                  SkeletonBox(height: 44, width: 44, radius: 10),
+                  SkeletonBox(height: 44, width: 44, radius: 12),
                   SizedBox(width: 14),
                   Expanded(
                     child: Column(
@@ -243,7 +249,7 @@ class ListSkeleton extends StatelessWidget {
           ],
           for (var i = 0; i < itemCount; i++) ...[
             const SkeletonCard(
-              padding: EdgeInsets.all(12),
+              padding: EdgeInsets.all(14),
               child: Row(
                 children: [
                   SkeletonBox(height: 40, circle: true),

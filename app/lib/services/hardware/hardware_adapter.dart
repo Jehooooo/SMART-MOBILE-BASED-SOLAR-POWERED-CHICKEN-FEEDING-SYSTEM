@@ -59,6 +59,9 @@ abstract class FeederHardwareAdapter {
   /// Triggers a manual dispense operation for [durationSeconds] on the hardware.
   Future<bool> triggerManualDispense({int durationSeconds = 5, double targetGrams = 0.0});
 
+  /// Triggers a scheduled routine dispense on the hardware.
+  Future<bool> triggerScheduleDispense(FeedingSchedule schedule);
+
   /// Sends an immediate emergency stop signal to close the servo gate and stop auger.
   Future<void> cancelDispense();
 

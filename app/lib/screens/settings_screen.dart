@@ -266,6 +266,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                         value: HardwareTransportType.localRestHttp,
                                         child: Text('Local Farm Wi-Fi HTTP (SoftAP)'),
                                       ),
+                                      DropdownMenuItem(
+                                        value: HardwareTransportType.bluetoothLowEnergy,
+                                        child: Text('Bluetooth Low Energy (Direct BLE)'),
+                                      ),
                                     ],
                                     onChanged: (val) {
                                       if (val != null && val != _feeder.transportType) {
@@ -873,7 +877,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
         newAdapter = RestHardwareAdapter();
         break;
       case HardwareTransportType.bluetoothLowEnergy:
-        newAdapter = MockHardwareAdapter(simulateOffline: true);
+        newAdapter = MockHardwareAdapter(
+          simulateOffline: true,
+          sourceLabel: 'Bluetooth Low Energy (Direct BLE)',
+          transportType: HardwareTransportType.bluetoothLowEnergy,
+        );
         break;
     }
     _settings.setHardwareTransport(type);

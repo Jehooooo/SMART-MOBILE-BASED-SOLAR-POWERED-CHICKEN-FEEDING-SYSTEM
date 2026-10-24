@@ -46,14 +46,14 @@ class _SmartChickenFeederAppState extends State<SmartChickenFeederApp> {
   static FeederHardwareAdapter _resolveAdapter(HardwareTransportType type) {
     switch (type) {
       case HardwareTransportType.mockSimulator:
-        return MockHardwareAdapter(simulateOffline: true);
+        return MockHardwareAdapter(simulateOffline: false);
       case HardwareTransportType.firebaseCloud:
         return FirebaseHardwareAdapter();
       case HardwareTransportType.localRestHttp:
         return RestHardwareAdapter();
       case HardwareTransportType.bluetoothLowEnergy:
         return MockHardwareAdapter(
-          simulateOffline: true,
+          simulateOffline: false,
           sourceLabel: 'Bluetooth Low Energy (Direct BLE)',
           transportType: HardwareTransportType.bluetoothLowEnergy,
         );

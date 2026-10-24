@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:http/http.dart' as http;
+import 'package:shared_preferences/shared_preferences.dart';
 import '../models/telemetry.dart';
 import '../models/schedule.dart';
 import '../models/feeding_log.dart';
@@ -14,6 +15,10 @@ import 'hardware/mock_hardware_adapter.dart';
 enum FeederConnection { connecting, online, offline }
 
 class FeederService extends ChangeNotifier {
+  static const _kSchedulesPrefKey = 'cached_feeder_schedules';
+  static const _kLogsPrefKey = 'cached_feeder_logs';
+  static const _kInitializedPrefKey = 'feeder_schedules_initialized';
+
   FeederHardwareAdapter _adapter;
 
   FeederTelemetry _telemetry = FeederTelemetry.initial();
@@ -83,6 +88,7 @@ class FeederService extends ChangeNotifier {
       _lastSyncedAt = DateTime.now();
     }
     _initSampleData();
+    loadLocalData();
     _bindAdapter(_adapter);
     _initScheduleWatcher();
   }
@@ -114,6 +120,7 @@ class FeederService extends ChangeNotifier {
     _logSub = adapter.feedingLogStream.listen((log) {
       if (!_history.any((l) => l.id == log.id)) {
         _history.insert(0, log);
+        _saveLocalLogs();
         _syncLogToCloud(log);
         notifyListeners();
       }
@@ -371,6 +378,7 @@ class FeederService extends ChangeNotifier {
 
   void addSchedule(FeedingSchedule schedule) {
     _schedules.add(schedule);
+    _saveLocalSchedules();
     _adapter.syncSchedules(_schedules);
     _syncSchedulesToCloud(_schedules);
     notifyListeners();
@@ -382,6 +390,7 @@ class FeederService extends ChangeNotifier {
     } else {
       _schedules.add(schedule);
     }
+    _saveLocalSchedules();
     _adapter.syncSchedules(_schedules);
     _syncSchedulesToCloud(_schedules);
     notifyListeners();
@@ -391,6 +400,7 @@ class FeederService extends ChangeNotifier {
     final idx = _schedules.indexWhere((s) => s.id == updated.id);
     if (idx != -1) {
       _schedules[idx] = updated;
+      _saveLocalSchedules();
       _adapter.syncSchedules(_schedules);
       _syncSchedulesToCloud(_schedules);
       notifyListeners();
@@ -401,6 +411,7 @@ class FeederService extends ChangeNotifier {
     final idx = _schedules.indexWhere((s) => s.id == id);
     if (idx != -1) {
       _schedules[idx] = _schedules[idx].copyWith(isEnabled: enabled);
+      _saveLocalSchedules();
       _adapter.syncSchedules(_schedules);
       _syncSchedulesToCloud(_schedules);
       notifyListeners();
@@ -409,6 +420,7 @@ class FeederService extends ChangeNotifier {
 
   void deleteSchedule(String id) {
     _schedules.removeWhere((s) => s.id == id);
+    _saveLocalSchedules();
     _adapter.syncSchedules(_schedules);
     _syncSchedulesToCloud(_schedules);
     notifyListeners();
@@ -420,8 +432,16 @@ class FeederService extends ChangeNotifier {
   /// Synchronizes schedules and history logs directly with Firebase Realtime Database.
   Future<void> syncWithFirebaseCloud() async {
     final hasSched = await refreshSchedulesFromCloud();
-    if (!hasSched && _schedules.isNotEmpty) {
-      await _syncSchedulesToCloud(_schedules);
+    if (!hasSched) {
+      try {
+        final prefs = await SharedPreferences.getInstance();
+        final isInitialized = prefs.getBool(_kInitializedPrefKey) ?? false;
+        if (!isInitialized && _schedules.isEmpty) {
+          _initSampleData();
+          await _saveLocalSchedules();
+          await _syncSchedulesToCloud(_schedules);
+        }
+      } catch (_) {}
     }
     await refreshLogsFromCloud();
   }
@@ -432,7 +452,22 @@ class FeederService extends ChangeNotifier {
       final resp = await http
           .get(Uri.parse('$defaultDatabaseUrl/schedules.json'))
           .timeout(const Duration(seconds: 4));
-      if (resp.statusCode == 200 && resp.body.isNotEmpty && resp.body != 'null') {
+      if (resp.statusCode == 200) {
+        if (resp.body.isEmpty || resp.body == 'null') {
+          // Cloud node is null / empty
+          final prefs = await SharedPreferences.getInstance();
+          final isInitialized = prefs.getBool(_kInitializedPrefKey) ?? false;
+          if (isInitialized && _schedules.isNotEmpty) {
+            // Local edits created offline, push them to cloud
+            await _syncSchedulesToCloud(_schedules);
+            return true;
+          } else if (isInitialized && _schedules.isEmpty) {
+            // User intentionally cleared all schedules; preserve empty state
+            return true;
+          }
+          return false;
+        }
+
         final data = jsonDecode(resp.body);
         final list = <FeedingSchedule>[];
         if (data is Map) {
@@ -449,11 +484,10 @@ class FeederService extends ChangeNotifier {
             }
           }
         }
-        if (list.isNotEmpty) {
-          _schedules = list;
-          notifyListeners();
-          return true;
-        }
+        _schedules = list;
+        await _saveLocalSchedules();
+        notifyListeners();
+        return true;
       }
     } catch (e) {
       debugPrint('refreshSchedulesFromCloud error: $e');
@@ -479,6 +513,7 @@ class FeederService extends ChangeNotifier {
           if (list.isNotEmpty) {
             list.sort((a, b) => b.timestamp.compareTo(a.timestamp));
             _history = list;
+            await _saveLocalLogs();
             notifyListeners();
             return true;
           }
@@ -490,8 +525,92 @@ class FeederService extends ChangeNotifier {
     return false;
   }
 
+  /// Loads cached schedules and logs from SharedPreferences.
+  Future<void> loadLocalData() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+
+      // 1. Load cached schedules
+      final isInitialized = prefs.getBool(_kInitializedPrefKey) ?? false;
+      final schedJson = prefs.getString(_kSchedulesPrefKey);
+      if (schedJson != null && schedJson.isNotEmpty) {
+        final List<dynamic> decoded = jsonDecode(schedJson);
+        final list = <FeedingSchedule>[];
+        for (final item in decoded) {
+          if (item is Map) {
+            final id = item['id']?.toString() ?? 'sch_${list.length}';
+            list.add(FeedingSchedule.fromMap(id, item));
+          }
+        }
+        _schedules = list;
+      } else if (isInitialized) {
+        _schedules = [];
+      }
+
+      // 2. Load cached logs
+      final logsJson = prefs.getString(_kLogsPrefKey);
+      if (logsJson != null && logsJson.isNotEmpty) {
+        final List<dynamic> decoded = jsonDecode(logsJson);
+        final list = <FeedingLog>[];
+        for (final item in decoded) {
+          if (item is Map) {
+            final id = item['id']?.toString() ?? 'log_${list.length}';
+            list.add(FeedingLog.fromMap(id, item));
+          }
+        }
+        if (list.isNotEmpty) {
+          list.sort((a, b) => b.timestamp.compareTo(a.timestamp));
+          _history = list;
+        }
+      }
+
+      notifyListeners();
+    } catch (e) {
+      debugPrint('FeederService.loadLocalData error: $e');
+    }
+  }
+
+  Future<void> _saveLocalSchedules() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final mapList = [
+        for (final s in _schedules)
+          {
+            'id': s.id,
+            ...s.toMap(),
+          }
+      ];
+      await prefs.setString(_kSchedulesPrefKey, jsonEncode(mapList));
+      await prefs.setBool(_kInitializedPrefKey, true);
+    } catch (e) {
+      debugPrint('Error saving local schedules: $e');
+    }
+  }
+
+  Future<void> _saveLocalLogs() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final mapList = [
+        for (final l in _history)
+          {
+            'id': l.id,
+            ...l.toMap(),
+          }
+      ];
+      await prefs.setString(_kLogsPrefKey, jsonEncode(mapList));
+    } catch (e) {
+      debugPrint('Error saving local logs: $e');
+    }
+  }
+
   Future<void> _syncSchedulesToCloud(List<FeedingSchedule> list) async {
     try {
+      if (list.isEmpty) {
+        await http.delete(
+          Uri.parse('$defaultDatabaseUrl/schedules.json'),
+        ).timeout(const Duration(seconds: 4));
+        return;
+      }
       final map = {
         for (final s in list)
           s.id: {
@@ -599,6 +718,13 @@ class FeederService extends ChangeNotifier {
     buffer.writeln(' </Worksheet>');
     buffer.writeln('</Workbook>');
     return buffer.toString();
+  }
+
+  @override
+  void notifyListeners() {
+    if (!_disposed) {
+      super.notifyListeners();
+    }
   }
 
   @override

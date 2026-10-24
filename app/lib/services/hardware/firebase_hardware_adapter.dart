@@ -35,6 +35,7 @@ class FirebaseHardwareAdapter implements FeederHardwareAdapter {
   Timer? _restPollTimer;
   FeederConnection _currentConnection = FeederConnection.connecting;
   bool _isDispensing = false;
+  final Set<String> _seenLogIds = <String>{};
 
   FirebaseHardwareAdapter({
     this.feederId = '',
@@ -180,9 +181,13 @@ class FirebaseHardwareAdapter implements FeederHardwareAdapter {
           final map = jsonDecode(body);
           if (map is Map) {
             for (final entry in map.entries) {
-              if (entry.value is Map) {
-                final log = FeedingLog.fromMap(entry.key.toString(), entry.value as Map);
-                _logController.add(log);
+              final logId = entry.key.toString();
+              if (!_seenLogIds.contains(logId)) {
+                _seenLogIds.add(logId);
+                if (entry.value is Map) {
+                  final log = FeedingLog.fromMap(logId, entry.value as Map);
+                  _logController.add(log);
+                }
               }
             }
           }
@@ -304,6 +309,43 @@ class FirebaseHardwareAdapter implements FeederHardwareAdapter {
       return response.statusCode == 200;
     } catch (e) {
       debugPrint('triggerManualDispense REST error: $e');
+      return false;
+    }
+  }
+
+  /// Triggers a scheduled routine dispense on the hardware.
+  @override
+  Future<bool> triggerScheduleDispense(FeedingSchedule schedule) async {
+    if (_isDispensing) return false;
+    final cmdMap = {
+      'id': 'cmd_sch_${DateTime.now().millisecondsSinceEpoch}',
+      'action': 'DISPENSE',
+      'durationSeconds': schedule.durationSeconds,
+      'targetGrams': schedule.targetGrams,
+      'triggerType': 'Schedule (${schedule.label})',
+      'timestamp': DateTime.now().millisecondsSinceEpoch,
+      'status': 'pending',
+    };
+
+    if (_rootRef != null) {
+      try {
+        await _rootRef!.child('commands/dispense').set(cmdMap);
+        await _rootRef!.child('commands/latest').set(cmdMap);
+        return true;
+      } catch (e) {
+        debugPrint('triggerScheduleDispense native error: $e');
+      }
+    }
+
+    try {
+      final response = await http.put(
+        Uri.parse('$_restBasePath/commands/dispense.json'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode(cmdMap),
+      ).timeout(const Duration(seconds: 4));
+      return response.statusCode == 200;
+    } catch (e) {
+      debugPrint('triggerScheduleDispense REST error: $e');
       return false;
     }
   }

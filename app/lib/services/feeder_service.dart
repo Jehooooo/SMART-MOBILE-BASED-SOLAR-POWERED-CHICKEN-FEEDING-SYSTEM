@@ -1,6 +1,8 @@
 import 'dart:async';
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:http/http.dart' as http;
 import '../models/telemetry.dart';
 import '../models/schedule.dart';
 import '../models/feeding_log.dart';
@@ -108,10 +110,12 @@ class FeederService extends ChangeNotifier {
 
     _logSub = adapter.feedingLogStream.listen((log) {
       _history.insert(0, log);
+      _syncLogToCloud(log);
       notifyListeners();
     });
 
     adapter.initialize();
+    syncWithFirebaseCloud();
   }
 
   /// Seamlessly switches the hardware communication transport at runtime.
@@ -335,6 +339,7 @@ class FeederService extends ChangeNotifier {
   void addSchedule(FeedingSchedule schedule) {
     _schedules.add(schedule);
     _adapter.syncSchedules(_schedules);
+    _syncSchedulesToCloud(_schedules);
     notifyListeners();
   }
 
@@ -345,6 +350,7 @@ class FeederService extends ChangeNotifier {
       _schedules.add(schedule);
     }
     _adapter.syncSchedules(_schedules);
+    _syncSchedulesToCloud(_schedules);
     notifyListeners();
   }
 
@@ -353,6 +359,7 @@ class FeederService extends ChangeNotifier {
     if (idx != -1) {
       _schedules[idx] = updated;
       _adapter.syncSchedules(_schedules);
+      _syncSchedulesToCloud(_schedules);
       notifyListeners();
     }
   }
@@ -362,6 +369,7 @@ class FeederService extends ChangeNotifier {
     if (idx != -1) {
       _schedules[idx] = _schedules[idx].copyWith(isEnabled: enabled);
       _adapter.syncSchedules(_schedules);
+      _syncSchedulesToCloud(_schedules);
       notifyListeners();
     }
   }
@@ -369,7 +377,118 @@ class FeederService extends ChangeNotifier {
   void deleteSchedule(String id) {
     _schedules.removeWhere((s) => s.id == id);
     _adapter.syncSchedules(_schedules);
+    _syncSchedulesToCloud(_schedules);
     notifyListeners();
+  }
+
+  static const String defaultDatabaseUrl =
+      'https://smart-chicken-feeder-33bec-default-rtdb.asia-southeast1.firebasedatabase.app';
+
+  /// Synchronizes schedules and history logs directly with Firebase Realtime Database.
+  Future<void> syncWithFirebaseCloud() async {
+    final hasSched = await refreshSchedulesFromCloud();
+    if (!hasSched && _schedules.isNotEmpty) {
+      await _syncSchedulesToCloud(_schedules);
+    }
+    await refreshLogsFromCloud();
+  }
+
+  /// Pulls the latest schedules from Firebase RTDB `/schedules.json`.
+  Future<bool> refreshSchedulesFromCloud() async {
+    try {
+      final resp = await http
+          .get(Uri.parse('$defaultDatabaseUrl/schedules.json'))
+          .timeout(const Duration(seconds: 4));
+      if (resp.statusCode == 200 && resp.body.isNotEmpty && resp.body != 'null') {
+        final data = jsonDecode(resp.body);
+        final list = <FeedingSchedule>[];
+        if (data is Map) {
+          for (final entry in data.entries) {
+            if (entry.value is Map) {
+              list.add(FeedingSchedule.fromMap(entry.key.toString(), entry.value as Map));
+            }
+          }
+        } else if (data is List) {
+          for (int i = 0; i < data.length; i++) {
+            if (data[i] is Map) {
+              final id = data[i]['id']?.toString() ?? 'sch_$i';
+              list.add(FeedingSchedule.fromMap(id, data[i] as Map));
+            }
+          }
+        }
+        if (list.isNotEmpty) {
+          _schedules = list;
+          notifyListeners();
+          return true;
+        }
+      }
+    } catch (e) {
+      debugPrint('refreshSchedulesFromCloud error: $e');
+    }
+    return false;
+  }
+
+  /// Pulls the latest feeding logs from Firebase RTDB `/logs.json`.
+  Future<bool> refreshLogsFromCloud() async {
+    try {
+      final resp = await http
+          .get(Uri.parse('$defaultDatabaseUrl/logs.json'))
+          .timeout(const Duration(seconds: 4));
+      if (resp.statusCode == 200 && resp.body.isNotEmpty && resp.body != 'null') {
+        final data = jsonDecode(resp.body);
+        if (data is Map) {
+          final list = <FeedingLog>[];
+          for (final entry in data.entries) {
+            if (entry.value is Map) {
+              list.add(FeedingLog.fromMap(entry.key.toString(), entry.value as Map));
+            }
+          }
+          if (list.isNotEmpty) {
+            list.sort((a, b) => b.timestamp.compareTo(a.timestamp));
+            _history = list;
+            notifyListeners();
+            return true;
+          }
+        }
+      }
+    } catch (e) {
+      debugPrint('refreshLogsFromCloud error: $e');
+    }
+    return false;
+  }
+
+  Future<void> _syncSchedulesToCloud(List<FeedingSchedule> list) async {
+    try {
+      final map = {
+        for (final s in list)
+          s.id: {
+            'id': s.id,
+            ...s.toMap(),
+          },
+      };
+      await http.put(
+        Uri.parse('$defaultDatabaseUrl/schedules.json'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode(map),
+      ).timeout(const Duration(seconds: 4));
+    } catch (e) {
+      debugPrint('Error syncing schedules to Firebase: $e');
+    }
+  }
+
+  Future<void> _syncLogToCloud(FeedingLog log) async {
+    try {
+      await http.put(
+        Uri.parse('$defaultDatabaseUrl/logs/${log.id}.json'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'id': log.id,
+          ...log.toMap(),
+        }),
+      ).timeout(const Duration(seconds: 4));
+    } catch (e) {
+      debugPrint('Error syncing log to Firebase: $e');
+    }
   }
 
   String exportCsv() {

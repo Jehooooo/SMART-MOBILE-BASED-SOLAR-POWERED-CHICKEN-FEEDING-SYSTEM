@@ -67,6 +67,19 @@ class _HistoryScreenState extends State<HistoryScreen> {
             ),
             actions: [
               IconButton(
+                icon: const Icon(Icons.sync_rounded),
+                tooltip: 'Sync with Firebase',
+                onPressed: () async {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Syncing logs with Firebase...'),
+                      duration: Duration(seconds: 1),
+                    ),
+                  );
+                  await widget.feederService.refreshLogsFromCloud();
+                },
+              ),
+              IconButton(
                 icon: Icon(Icons.download_rounded, color: c.brand),
                 tooltip: 'Export CSV Dataset',
                 onPressed: () => _showExportCsvModal(context),
@@ -86,11 +99,20 @@ class _HistoryScreenState extends State<HistoryScreen> {
                           child: ConstrainedBox(
                             constraints: const BoxConstraints(maxWidth: 850),
                             child: allLogs.isEmpty
-                                ? _buildEmptyState()
-                                : ListView(
-                                    padding: const EdgeInsets.all(16.0),
-                                    children: [
-                                      // Research Metrics Summary Card
+                                ? RefreshIndicator(
+                                    onRefresh: () => widget.feederService.refreshLogsFromCloud(),
+                                    child: SingleChildScrollView(
+                                      physics: const AlwaysScrollableScrollPhysics(),
+                                      child: _buildEmptyState(),
+                                    ),
+                                  )
+                                : RefreshIndicator(
+                                    onRefresh: () => widget.feederService.refreshLogsFromCloud(),
+                                    child: ListView(
+                                      physics: const AlwaysScrollableScrollPhysics(),
+                                      padding: const EdgeInsets.all(16.0),
+                                      children: [
+                                        // Research Metrics Summary Card
                                       Card(
                                         shape: RoundedRectangleBorder(
                                           borderRadius: BorderRadius.circular(18),
@@ -237,6 +259,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
                                         ...filteredLogs.map((log) => _buildLogCard(log)),
                                     ],
                                   ),
+                                ),
                           ),
                         ),
                 ),

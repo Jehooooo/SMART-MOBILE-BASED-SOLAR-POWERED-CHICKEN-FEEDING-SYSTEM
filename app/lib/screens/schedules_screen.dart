@@ -4,6 +4,7 @@ import '../models/schedule.dart';
 import '../theme/app_theme.dart';
 import '../widgets/connection_banner.dart';
 import '../widgets/skeleton.dart';
+import '../widgets/glass_components.dart';
 
 class SchedulesScreen extends StatefulWidget {
   final FeederService feederService;
@@ -73,7 +74,7 @@ class _SchedulesScreenState extends State<SchedulesScreen> {
                                     onRefresh: () => widget.feederService.refreshSchedulesFromCloud(),
                                     child: ListView(
                                       physics: const AlwaysScrollableScrollPhysics(),
-                                      padding: const EdgeInsets.all(16.0),
+                                      padding: const EdgeInsets.fromLTRB(16.0, 16.0, 16.0, 110.0),
                                       children: [
                                         // Summary Banner
                                         _buildSummaryBanner(activeCount, totalSeconds, totalGrams),
@@ -106,7 +107,7 @@ class _SchedulesScreenState extends State<SchedulesScreen> {
                                             child: _buildScheduleCard(item, index),
                                           );
                                         }),
-                                        const SizedBox(height: 70), // Spacing for FAB
+                                        const SizedBox(height: 20),
                                       ],
                                     ),
                                   ),
@@ -120,6 +121,7 @@ class _SchedulesScreenState extends State<SchedulesScreen> {
             onPressed: () => _showScheduleDialog(context),
             backgroundColor: c.brand,
             foregroundColor: c.onBrand,
+            elevation: 3,
             icon: const Icon(Icons.add_alarm),
             label: const Text('Add Schedule'),
           ),
@@ -130,73 +132,68 @@ class _SchedulesScreenState extends State<SchedulesScreen> {
 
   Widget _buildSummaryBanner(int activeCount, int totalDailySeconds, double totalDailyGrams) {
     final c = context.colors;
-    return Card(
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(18),
-        side: BorderSide(color: c.brandBorder.withValues(alpha: 0.8)),
-      ),
-      color: c.brandSurface,
-      child: Padding(
-        padding: const EdgeInsets.all(18.0),
-        child: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: c.brandSoft,
-                borderRadius: BorderRadius.circular(14),
-              ),
-              child: Icon(Icons.calendar_month_rounded, color: c.brand, size: 24),
+    return LiquidGlassCard(
+      borderRadius: BorderRadius.circular(22),
+      padding: const EdgeInsets.all(18.0),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: c.brandSoft,
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: c.brandBorder.withValues(alpha: 0.6), width: 1),
             ),
-            const SizedBox(width: 14),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    '$activeCount Active Daily ${activeCount == 1 ? 'Routine' : 'Routines'}',
-                    style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: c.textPrimary),
-                  ),
-                  const SizedBox(height: 3),
-                  Text(
-                    'Total daily flock runtime: ${totalDailySeconds}s (~${totalDailyGrams.toInt()}g)',
-                    style: TextStyle(fontSize: 13, color: c.brand, fontWeight: FontWeight.w600),
-                  ),
-                ],
-              ),
+            child: Icon(Icons.calendar_month_rounded, color: c.brand, size: 24),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '$activeCount Active Daily ${activeCount == 1 ? 'Routine' : 'Routines'}',
+                  style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: c.textPrimary),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  'Total daily flock runtime: ${totalDailySeconds}s (~${totalDailyGrams.toInt()}g)',
+                  style: TextStyle(fontSize: 13, color: c.brand, fontWeight: FontWeight.w600),
+                ),
+              ],
             ),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-              decoration: BoxDecoration(
-                color: c.surface,
-                borderRadius: BorderRadius.circular(20),
-                border: Border.all(color: c.brandBorder.withValues(alpha: 0.6)),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Container(
-                    width: 7,
-                    height: 7,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: activeCount > 0 ? c.brand : c.textMuted,
-                    ),
-                  ),
-                  const SizedBox(width: 6),
-                  Text(
-                    activeCount > 0 ? 'Active' : 'Paused',
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.bold,
-                      color: activeCount > 0 ? c.brand : c.textMuted,
-                    ),
-                  ),
-                ],
-              ),
+          ),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+            decoration: BoxDecoration(
+              color: c.surface.withValues(alpha: 0.8),
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: c.brandBorder.withValues(alpha: 0.6)),
             ),
-          ],
-        ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 7,
+                  height: 7,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: activeCount > 0 ? c.brand : c.textMuted,
+                  ),
+                ),
+                const SizedBox(width: 6),
+                Text(
+                  activeCount > 0 ? 'Active' : 'Paused',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.bold,
+                    color: activeCount > 0 ? c.brand : c.textMuted,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -206,159 +203,30 @@ class _SchedulesScreenState extends State<SchedulesScreen> {
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(32.0),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Container(
-              padding: const EdgeInsets.all(22),
-              decoration: BoxDecoration(
-                color: c.surfaceMuted,
-                borderRadius: BorderRadius.circular(24),
-              ),
-              child: Icon(Icons.alarm_off, size: 52, color: c.textMuted),
-            ),
-            const SizedBox(height: 18),
-            Text(
-              'No Feeding Schedules Set',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: c.textPrimary),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Tap the "+ Add Schedule" button below to set up automated poultry feeding times.',
-              style: TextStyle(fontSize: 13, color: c.textMuted, height: 1.4),
-              textAlign: TextAlign.center,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildScheduleCard(FeedingSchedule schedule, int index) {
-    final c = context.colors;
-    return InkWell(
-      borderRadius: BorderRadius.circular(18),
-      onTap: () => _showScheduleDialog(context, existing: schedule),
-      child: Card(
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(18),
-          side: BorderSide(
-            color: schedule.isEnabled ? c.border : c.border.withValues(alpha: 0.5),
-          ),
-        ),
-        child: Padding(
-          padding: const EdgeInsets.all(14.0),
-          child: Row(
+        child: LiquidGlassCard(
+          borderRadius: BorderRadius.circular(26),
+          padding: const EdgeInsets.all(28.0),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Container(
-                padding: const EdgeInsets.all(11),
+                padding: const EdgeInsets.all(22),
                 decoration: BoxDecoration(
-                  color: schedule.isEnabled ? c.brandSoft : c.surfaceMuted,
-                  borderRadius: BorderRadius.circular(14),
+                  color: c.surfaceMuted,
+                  borderRadius: BorderRadius.circular(24),
                 ),
-                child: Icon(
-                  Icons.access_time_filled_rounded,
-                  color: schedule.isEnabled ? c.brand : c.textMuted,
-                  size: 22,
-                ),
+                child: Icon(Icons.alarm_off, size: 52, color: c.textMuted),
               ),
-              const SizedBox(width: 14),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      schedule.timeFormatted,
-                      style: TextStyle(
-                        fontSize: 22,
-                        fontWeight: FontWeight.w800,
-                        letterSpacing: -0.4,
-                        color: schedule.isEnabled ? c.textPrimary : c.textMuted,
-                      ),
-                    ),
-                    const SizedBox(height: 3),
-                    Row(
-                      children: [
-                        Flexible(
-                          child: Text(
-                            schedule.label,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w500,
-                              color: schedule.isEnabled ? c.textSecondary : c.textMuted,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                          decoration: BoxDecoration(
-                            color: schedule.isEnabled ? c.brandSoft : c.track,
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: Text(
-                            '${schedule.durationSeconds}s (~${schedule.targetGrams.toInt()}g)',
-                            style: TextStyle(
-                              fontSize: 11,
-                              fontWeight: FontWeight.w700,
-                              color: schedule.isEnabled ? c.brand : c.textMuted,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
+              const SizedBox(height: 18),
+              Text(
+                'No Feeding Schedules Set',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: c.textPrimary),
               ),
-              const SizedBox(width: 6),
-              Tooltip(
-                message: 'Test run routine now',
-                child: IconButton(
-                  icon: Icon(
-                    Icons.play_circle_outline_rounded,
-                    color: schedule.isEnabled ? c.brand : c.textMuted,
-                    size: 22,
-                  ),
-                  visualDensity: VisualDensity.compact,
-                  padding: const EdgeInsets.all(4),
-                  constraints: const BoxConstraints(),
-                  onPressed: () async {
-                    final ok = await widget.feederService.triggerSchedule(schedule);
-                    if (mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text(ok
-                              ? 'Executing "${schedule.label}" (${schedule.targetGrams.toInt()}g)...'
-                              : 'Could not trigger feeding. Feeder is busy or offline.'),
-                          backgroundColor: ok ? c.brand : c.danger,
-                          duration: const Duration(seconds: 3),
-                        ),
-                      );
-                    }
-                  },
-                ),
-              ),
-              const SizedBox(width: 4),
-              Tooltip(
-                message: schedule.isEnabled ? 'Pause schedule' : 'Enable schedule',
-                child: Switch(
-                  value: schedule.isEnabled,
-                  materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                  onChanged: (val) {
-                    widget.feederService.toggleSchedule(schedule.id, val);
-                  },
-                ),
-              ),
-              const SizedBox(width: 4),
-              IconButton(
-                icon: Icon(Icons.delete_outline, color: c.textMuted, size: 22),
-                tooltip: 'Delete schedule',
-                visualDensity: VisualDensity.compact,
-                padding: const EdgeInsets.all(4),
-                constraints: const BoxConstraints(),
-                onPressed: () => _confirmDelete(schedule, index),
+              const SizedBox(height: 8),
+              Text(
+                'Tap the "+ Add Schedule" button below to set up automated poultry feeding times.',
+                style: TextStyle(fontSize: 13, color: c.textMuted, height: 1.4),
+                textAlign: TextAlign.center,
               ),
             ],
           ),
@@ -367,12 +235,150 @@ class _SchedulesScreenState extends State<SchedulesScreen> {
     );
   }
 
+  Widget _buildScheduleCard(FeedingSchedule schedule, int index) {
+    final c = context.colors;
+    return LiquidGlassCard(
+      borderRadius: BorderRadius.circular(20),
+      padding: const EdgeInsets.all(14.0),
+      glowBorderColor: schedule.isEnabled ? c.brandBorder.withValues(alpha: 0.5) : null,
+      onTap: () => _showScheduleDialog(context, existing: schedule),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(11),
+            decoration: BoxDecoration(
+              color: schedule.isEnabled ? c.brandSoft : c.surfaceMuted,
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: Icon(
+              Icons.access_time_filled_rounded,
+              color: schedule.isEnabled ? c.brand : c.textMuted,
+              size: 22,
+            ),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  schedule.timeFormatted,
+                  style: TextStyle(
+                    fontSize: 22,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: -0.4,
+                    color: schedule.isEnabled ? c.textPrimary : c.textMuted,
+                  ),
+                ),
+                const SizedBox(height: 3),
+                Row(
+                  children: [
+                    Flexible(
+                      child: Text(
+                        schedule.label,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w500,
+                          color: schedule.isEnabled ? c.textSecondary : c.textMuted,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: schedule.isEnabled ? c.brandSoft : c.track,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Text(
+                        '${schedule.durationSeconds}s (~${schedule.targetGrams.toInt()}g)',
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                          color: schedule.isEnabled ? c.brand : c.textMuted,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 6),
+          Tooltip(
+            message: 'Test run routine now',
+            child: IconButton(
+              icon: Icon(
+                Icons.play_circle_outline_rounded,
+                color: schedule.isEnabled ? c.brand : c.textMuted,
+                size: 22,
+              ),
+              visualDensity: VisualDensity.compact,
+              padding: const EdgeInsets.all(4),
+              constraints: const BoxConstraints(),
+              onPressed: () async {
+                final ok = await widget.feederService.triggerSchedule(schedule);
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(ok
+                          ? 'Executing "${schedule.label}" (${schedule.targetGrams.toInt()}g)...'
+                          : 'Could not trigger feeding. Feeder is busy or offline.'),
+                      backgroundColor: ok ? c.brand : c.danger,
+                      duration: const Duration(seconds: 3),
+                    ),
+                  );
+                }
+              },
+            ),
+          ),
+          const SizedBox(width: 4),
+          Tooltip(
+            message: schedule.isEnabled ? 'Pause schedule' : 'Enable schedule',
+            child: Switch(
+              value: schedule.isEnabled,
+              materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              onChanged: (val) {
+                widget.feederService.toggleSchedule(schedule.id, val);
+              },
+            ),
+          ),
+          const SizedBox(width: 4),
+          IconButton(
+            icon: Icon(Icons.delete_outline, color: c.textMuted, size: 22),
+            tooltip: 'Delete schedule',
+            visualDensity: VisualDensity.compact,
+            padding: const EdgeInsets.all(4),
+            constraints: const BoxConstraints(),
+            onPressed: () => _confirmDelete(schedule, index),
+          ),
+        ],
+      ),
+    );
+  }
+
   void _confirmDelete(FeedingSchedule schedule, int originalIndex) {
     final c = context.colors;
     showDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Delete Schedule'),
+      builder: (ctx) => LiquidGlassDialog(
+        maxWidth: 400,
+        title: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: c.dangerSoft,
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Icon(Icons.delete_outline, color: c.danger, size: 20),
+            ),
+            const SizedBox(width: 10),
+            const Text('Delete Schedule', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 17)),
+          ],
+        ),
         content: Text('Remove "${schedule.label}" at ${schedule.timeFormatted}?'),
         actions: [
           TextButton(
@@ -430,8 +436,8 @@ class _SchedulesScreenState extends State<SchedulesScreen> {
     showDialog(
       context: context,
       builder: (ctx) => StatefulBuilder(
-        builder: (context, setDialogState) => AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22)),
+        builder: (context, setDialogState) => LiquidGlassDialog(
+          maxWidth: 480,
           title: Row(
             children: [
               Container(

@@ -383,6 +383,25 @@ class FirebaseHardwareAdapter implements FeederHardwareAdapter {
 
   @override
   Future<bool> syncSchedules(List<FeedingSchedule> schedules) async {
+    if (schedules.isEmpty) {
+      if (_rootRef != null) {
+        try {
+          await _rootRef!.child('schedules').remove();
+        } catch (e) {
+          debugPrint('syncSchedules native remove error: $e');
+        }
+      }
+      try {
+        final response = await http.delete(
+          Uri.parse('$_restBasePath/schedules.json'),
+        ).timeout(const Duration(seconds: 4));
+        return response.statusCode == 200;
+      } catch (e) {
+        debugPrint('syncSchedules REST remove error: $e');
+        return false;
+      }
+    }
+
     final map = {
       for (final s in schedules)
         s.id: {

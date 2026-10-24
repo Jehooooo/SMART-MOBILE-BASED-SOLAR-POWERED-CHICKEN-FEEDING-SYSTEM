@@ -222,6 +222,32 @@ class _DiagnosticsScreenState extends State<DiagnosticsScreen> {
                           style: const TextStyle(fontSize: 10, color: Colors.white, fontWeight: FontWeight.bold),
                         ),
                       ),
+                      if (widget.feederService.isMock && !isOnline) ...[
+                        const SizedBox(width: 8),
+                        InkWell(
+                          onTap: () => widget.feederService.setSimulatedOffline(false),
+                          borderRadius: BorderRadius.circular(8),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                            decoration: BoxDecoration(
+                              color: c.brandSoft,
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(color: c.brand),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(Icons.bolt, size: 12, color: c.brand),
+                                const SizedBox(width: 4),
+                                Text(
+                                  'Enable Simulator',
+                                  style: TextStyle(fontSize: 10, color: c.brand, fontWeight: FontWeight.bold),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
                     ],
                   ),
                   const SizedBox(height: 4),

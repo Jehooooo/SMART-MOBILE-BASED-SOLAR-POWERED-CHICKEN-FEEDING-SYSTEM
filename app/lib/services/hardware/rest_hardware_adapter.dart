@@ -120,6 +120,14 @@ class RestHardwareAdapter implements FeederHardwareAdapter {
   }
 
   @override
+  Future<bool> triggerScheduleDispense(FeedingSchedule schedule) async {
+    return triggerManualDispense(
+      durationSeconds: schedule.durationSeconds,
+      targetGrams: schedule.targetGrams,
+    );
+  }
+
+  @override
   Future<void> cancelDispense() async {
     if (kIsWeb) return;
     try {

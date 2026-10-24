@@ -8,6 +8,7 @@ import '../widgets/connection_banner.dart';
 import '../widgets/skeleton.dart';
 import '../widgets/hardware_guide_dialog.dart';
 import '../widgets/app_logo.dart';
+import '../widgets/glass_components.dart';
 
 export '../widgets/hardware_guide_dialog.dart' show showHardwareGuideDialog;
 
@@ -176,20 +177,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     onTap: widget.feederService.isMock
                         ? () => _showSimulatorConnectionSheet(context)
                         : null,
-                    child: Container(
+                    child: LiquidGlassContainer(
+                      borderRadius: BorderRadius.circular(20),
+                      blurSigma: 12,
+                      tintColor: chipDot.withValues(alpha: 0.08),
+                      tintOpacity: 0.85,
                       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                      decoration: BoxDecoration(
-                        color: c.surface,
-                        borderRadius: BorderRadius.circular(20),
-                        border: Border.all(color: c.border.withValues(alpha: 0.8)),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.03),
-                            blurRadius: 4,
-                            offset: const Offset(0, 1),
-                          ),
-                        ],
-                      ),
+                      customBorder: Border.all(color: chipDot.withValues(alpha: 0.35), width: 1),
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
@@ -201,8 +195,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                               shape: BoxShape.circle,
                               boxShadow: [
                                 BoxShadow(
-                                  color: chipDot.withValues(alpha: 0.45),
-                                  blurRadius: 4,
+                                  color: chipDot.withValues(alpha: 0.55),
+                                  blurRadius: 5,
                                   spreadRadius: 1,
                                 ),
                               ],
@@ -333,7 +327,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           // Mobile Single Column View
           return SingleChildScrollView(
             physics: const AlwaysScrollableScrollPhysics(),
-            padding: const EdgeInsets.all(16.0),
+            padding: const EdgeInsets.fromLTRB(16.0, 16.0, 16.0, 110.0),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
@@ -393,26 +387,28 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   Widget _buildWarningBanner(String message, Color color) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: color.withValues(alpha: 0.35)),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(Icons.warning_amber_rounded, color: color, size: 22),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Text(
-              message,
-              style: TextStyle(color: color, fontSize: 13, fontWeight: FontWeight.w600, height: 1.3),
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: LiquidGlassContainer(
+        borderRadius: BorderRadius.circular(16),
+        tintColor: color.withValues(alpha: 0.12),
+        tintOpacity: 0.85,
+        blurSigma: 16,
+        customBorder: Border.all(color: color.withValues(alpha: 0.45), width: 1.2),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(Icons.warning_amber_rounded, color: color, size: 22),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                message,
+                style: TextStyle(color: color, fontSize: 13, fontWeight: FontWeight.w600, height: 1.3),
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -424,71 +420,73 @@ class _DashboardScreenState extends State<DashboardScreen> {
         ? (telemetry.currentWeightGrams / estimatedTargetGrams).clamp(0.0, 1.0)
         : 0.0;
 
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: c.infoSoft,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: c.infoBorder),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              SizedBox(
-                width: 18,
-                height: 18,
-                child: CircularProgressIndicator(strokeWidth: 2.2, color: c.info),
-              ),
-              const SizedBox(width: 10),
-              Text(
-                'Dispensing in Progress...',
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: c.infoStrong),
-              ),
-              const Spacer(),
-              Text(
-                '${telemetry.currentWeightGrams.toStringAsFixed(1)}g / ~${estimatedTargetGrams.toInt()}g (${_selectedDurationSeconds}s)',
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: c.infoStrong),
-              ),
-            ],
-          ),
-          const SizedBox(height: 10),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(4),
-            child: TweenAnimationBuilder<double>(
-              tween: Tween(begin: 0, end: progress),
-              duration: const Duration(milliseconds: 450),
-              curve: Curves.easeOut,
-              builder: (context, value, _) => LinearProgressIndicator(
-                value: value,
-                minHeight: 8,
-                backgroundColor: c.infoBorder.withValues(alpha: 0.4),
-                valueColor: AlwaysStoppedAnimation<Color>(c.info),
-              ),
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: LiquidGlassContainer(
+        borderRadius: BorderRadius.circular(18),
+        tintColor: c.infoSoft,
+        tintOpacity: 0.88,
+        blurSigma: 18,
+        customBorder: Border.all(color: c.infoBorder, width: 1.2),
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                SizedBox(
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(strokeWidth: 2.2, color: c.info),
+                ),
+                const SizedBox(width: 10),
+                Text(
+                  'Dispensing in Progress...',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: c.infoStrong),
+                ),
+                const Spacer(),
+                Text(
+                  '${telemetry.currentWeightGrams.toStringAsFixed(1)}g / ~${estimatedTargetGrams.toInt()}g (${_selectedDurationSeconds}s)',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: c.infoStrong),
+                ),
+              ],
             ),
-          ),
-          const SizedBox(height: 10),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                'Motor active • Scale monitoring',
-                style: TextStyle(fontSize: 12, color: c.info),
-              ),
-              TextButton.icon(
-                onPressed: () => widget.feederService.cancelDispensing(),
-                icon: Icon(Icons.stop_circle, size: 16, color: c.danger),
-                label: Text('Emergency Stop', style: TextStyle(color: c.danger, fontWeight: FontWeight.bold, fontSize: 12)),
-                style: TextButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  visualDensity: VisualDensity.compact,
+            const SizedBox(height: 12),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(6),
+              child: TweenAnimationBuilder<double>(
+                tween: Tween(begin: 0, end: progress),
+                duration: const Duration(milliseconds: 450),
+                curve: Curves.easeOut,
+                builder: (context, value, _) => LinearProgressIndicator(
+                  value: value,
+                  minHeight: 8,
+                  backgroundColor: c.infoBorder.withValues(alpha: 0.4),
+                  valueColor: AlwaysStoppedAnimation<Color>(c.info),
                 ),
               ),
-            ],
-          ),
-        ],
+            ),
+            const SizedBox(height: 10),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  'Motor active • Scale monitoring',
+                  style: TextStyle(fontSize: 12, color: c.info),
+                ),
+                TextButton.icon(
+                  onPressed: () => widget.feederService.cancelDispensing(),
+                  icon: Icon(Icons.stop_circle, size: 16, color: c.danger),
+                  label: Text('Emergency Stop', style: TextStyle(color: c.danger, fontWeight: FontWeight.bold, fontSize: 12)),
+                  style: TextButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    visualDensity: VisualDensity.compact,
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -502,9 +500,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final remainingKg = ((pct / 100.0) * capacityKg).clamp(0.0, capacityKg);
     final daysSupplyText = _getHopperEstimatedDays(pct, dailyTarget);
 
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(20.0),
+    return LiquidGlassCard(
+      borderRadius: BorderRadius.circular(22),
+      padding: const EdgeInsets.all(20.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -607,7 +605,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
             ),
           ],
         ),
-      ),
     );
   }
 
@@ -619,45 +616,45 @@ class _DashboardScreenState extends State<DashboardScreen> {
     required String subtitle,
   }) {
     final c = context.colors;
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: iconColor.withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: Icon(icon, color: iconColor, size: 20),
+    return LiquidGlassCard(
+      borderRadius: BorderRadius.circular(20),
+      padding: const EdgeInsets.all(16.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: iconColor.withValues(alpha: 0.14),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: iconColor.withValues(alpha: 0.25), width: 1),
                 ),
-                const SizedBox(width: 10),
-                Flexible(
-                  child: Text(
-                    title,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: c.textSecondary),
-                  ),
+                child: Icon(icon, color: iconColor, size: 20),
+              ),
+              const SizedBox(width: 10),
+              Flexible(
+                child: Text(
+                  title,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: c.textSecondary),
                 ),
-              ],
-            ),
-            const SizedBox(height: 14),
-            Text(
-              value,
-              style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800, letterSpacing: -0.4, color: c.textPrimary),
-            ),
-            const SizedBox(height: 3),
-            Text(
-              subtitle,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: c.textMuted),
-            ),
-          ],
-        ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          Text(
+            value,
+            style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800, letterSpacing: -0.4, color: c.textPrimary),
+          ),
+          const SizedBox(height: 3),
+          Text(
+            subtitle,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: c.textMuted),
+          ),
+        ],
       ),
     );
   }
@@ -666,72 +663,73 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final c = context.colors;
     final countdown = _getTimeUntilNextFeed(nextSch);
 
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: c.brandSoft,
-                borderRadius: BorderRadius.circular(14),
-              ),
-              child: Icon(Icons.alarm_on_rounded, color: c.brand, size: 24),
+    return LiquidGlassCard(
+      borderRadius: BorderRadius.circular(22),
+      padding: const EdgeInsets.all(18.0),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: c.brandSoft,
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: c.brandBorder.withValues(alpha: 0.6), width: 1),
             ),
-            const SizedBox(width: 14),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Flexible(
+            child: Icon(Icons.alarm_on_rounded, color: c.brand, size: 24),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Flexible(
+                      child: Text(
+                        'Next Automated Feeding',
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: c.textMuted),
+                      ),
+                    ),
+                    if (nextSch != null) ...[
+                      const SizedBox(width: 8),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: c.brandSurface,
+                          borderRadius: BorderRadius.circular(20),
+                          border: Border.all(color: c.brandBorder.withValues(alpha: 0.8)),
+                        ),
                         child: Text(
-                          'Next Automated Feeding',
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: c.textMuted),
+                          countdown,
+                          style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: c.brand),
                         ),
                       ),
-                      if (nextSch != null) ...[
-                        const SizedBox(width: 8),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: c.brandSurface,
-                            borderRadius: BorderRadius.circular(20),
-                            border: Border.all(color: c.brandBorder.withValues(alpha: 0.8)),
-                          ),
-                          child: Text(
-                            countdown,
-                            style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: c.brand),
-                          ),
-                        ),
-                      ],
                     ],
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    nextSch != null ? '${nextSch.label} at ${nextSch.timeFormatted}' : 'No active automated schedules',
-                    style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: c.textPrimary),
-                  ),
-                ],
+                  ],
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  nextSch != null ? '${nextSch.label} at ${nextSch.timeFormatted}' : 'No active automated schedules',
+                  style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: c.textPrimary),
+                ),
+              ],
+            ),
+          ),
+          if (nextSch != null)
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              decoration: BoxDecoration(
+                color: c.brandSoft,
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: c.brandBorder.withValues(alpha: 0.5), width: 1),
+              ),
+              child: Text(
+                '${nextSch.targetGrams.toInt()}g',
+                style: TextStyle(color: c.brand, fontWeight: FontWeight.w800, fontSize: 13),
               ),
             ),
-            if (nextSch != null)
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                decoration: BoxDecoration(
-                  color: c.brandSoft,
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: Text(
-                  '${nextSch.targetGrams.toInt()}g',
-                  style: TextStyle(color: c.brand, fontWeight: FontWeight.w800, fontSize: 13),
-                ),
-              ),
-          ],
-        ),
+        ],
       ),
     );
   }
@@ -749,93 +747,96 @@ class _DashboardScreenState extends State<DashboardScreen> {
       {'seconds': 15, 'name': '15s', 'desc': 'Full (~300g)'},
     ];
 
-    return Card(
-      elevation: 1.5,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(18),
-        side: BorderSide(color: c.brandBorder.withValues(alpha: 0.8), width: 1.2),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(20.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Flexible(
-                  child: Text(
-                    'Manual Feed Trigger',
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w800,
-                      letterSpacing: -0.2,
-                      color: c.textPrimary,
+    return LiquidGlassCard(
+      borderRadius: BorderRadius.circular(22),
+      glowBorderColor: c.brandBorder.withValues(alpha: 0.7),
+      padding: const EdgeInsets.all(20.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Flexible(
+                child: Text(
+                  'Manual Feed Trigger',
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: -0.2,
+                    color: c.textPrimary,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: c.brandSurface,
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(color: c.brandBorder.withValues(alpha: 0.8)),
+                ),
+                child: Text(
+                  'Selected: ${_selectedDurationSeconds}s (~${_selectedDurationSeconds * 20}g)',
+                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: c.brand),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          Text(
+            'Select standard feed duration or fine-tune with the slider below:',
+            style: TextStyle(fontSize: 13, color: c.textMuted),
+          ),
+          const SizedBox(height: 14),
+
+          // Duration Preset Chips
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: durationOptions.map((opt) {
+              final seconds = opt['seconds'] as int;
+              final isSelected = _selectedDurationSeconds == seconds;
+              return ChoiceChip(
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                label: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(opt['name'] as String, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                    Text(
+                      opt['desc'] as String,
+                      style: TextStyle(fontSize: 10, color: isSelected ? c.onBrand.withValues(alpha: 0.85) : c.textMuted),
                     ),
-                  ),
+                  ],
                 ),
-                const SizedBox(width: 8),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: c.brandSurface,
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(color: c.brandBorder.withValues(alpha: 0.8)),
-                  ),
-                  child: Text(
-                    'Selected: ${_selectedDurationSeconds}s (~${_selectedDurationSeconds * 20}g)',
-                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: c.brand),
-                  ),
+                selected: isSelected,
+                showCheckmark: false,
+                onSelected: isDispensing ? null : (selected) {
+                  if (selected) setState(() => _selectedDurationSeconds = seconds);
+                },
+                selectedColor: c.brand,
+                backgroundColor: c.surfaceMuted.withValues(alpha: 0.6),
+                side: BorderSide(color: isSelected ? c.brand : c.border.withValues(alpha: 0.6)),
+                labelStyle: TextStyle(
+                  color: isSelected ? c.onBrand : c.textPrimary,
                 ),
-              ],
-            ),
-            const SizedBox(height: 4),
-            Text(
-              'Select standard feed duration or fine-tune with the slider below:',
-              style: TextStyle(fontSize: 13, color: c.textMuted),
-            ),
-            const SizedBox(height: 14),
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              );
+            }).toList(),
+          ),
 
-            // Duration Preset Chips
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: durationOptions.map((opt) {
-                final seconds = opt['seconds'] as int;
-                final isSelected = _selectedDurationSeconds == seconds;
-                return ChoiceChip(
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                  label: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(opt['name'] as String, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-                      Text(
-                        opt['desc'] as String,
-                        style: TextStyle(fontSize: 10, color: isSelected ? c.onBrand.withValues(alpha: 0.85) : c.textMuted),
-                      ),
-                    ],
-                  ),
-                  selected: isSelected,
-                  showCheckmark: false,
-                  onSelected: isDispensing ? null : (selected) {
-                    if (selected) setState(() => _selectedDurationSeconds = seconds);
-                  },
-                  selectedColor: c.brand,
-                  backgroundColor: c.surfaceMuted,
-                  side: BorderSide(color: isSelected ? c.brand : c.border.withValues(alpha: 0.7)),
-                  labelStyle: TextStyle(
-                    color: isSelected ? c.onBrand : c.textPrimary,
-                  ),
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                );
-              }).toList(),
+          const SizedBox(height: 14),
+
+          // Fine-tune duration slider in glass wrapper
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: c.surfaceMuted.withValues(alpha: 0.45),
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: c.border.withValues(alpha: 0.4), width: 1),
             ),
-
-            const SizedBox(height: 12),
-
-            // Fine-tune duration slider
-            Column(
+            child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Row(
@@ -863,85 +864,88 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 ),
               ],
             ),
+          ),
 
-            if (isHopperEmpty)
-              _buildBlockedReason(Icons.error_outline, 'Dispense blocked: Hopper is empty. Refill feed first.', c.danger)
-            else if (isOffline && !isDispensing) ...[
-              _buildBlockedReason(
-                Icons.cloud_off_rounded,
-                'Manual feeding is unavailable while the feeder is offline.',
-                c.danger,
+          const SizedBox(height: 12),
+
+          if (isHopperEmpty)
+            _buildBlockedReason(Icons.error_outline, 'Dispense blocked: Hopper is empty. Refill feed first.', c.danger)
+          else if (isOffline && !isDispensing) ...[
+            _buildBlockedReason(
+              Icons.cloud_off_rounded,
+              'Manual feeding is unavailable while the feeder is offline.',
+              c.danger,
+            ),
+            if (widget.feederService.isMock)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 10.0),
+                child: SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton.icon(
+                    onPressed: () => widget.feederService.setSimulatedOffline(false),
+                    icon: const Icon(Icons.bolt, size: 18),
+                    label: const Text(
+                      'Enable Online Simulator (Click to Test Dispensing)',
+                      style: TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: c.brand,
+                      foregroundColor: c.onBrand,
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
+                  ),
+                ),
               ),
-              if (widget.feederService.isMock)
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 10.0),
-                  child: SizedBox(
+          ],
+
+          const SizedBox(height: 6),
+
+          // Action Button (or Emergency Cancel if dispensing)
+          AnimatedSwitcher(
+            duration: const Duration(milliseconds: 200),
+            child: isDispensing
+                ? SizedBox(
+                    key: const ValueKey('cancel'),
                     width: double.infinity,
+                    height: 48,
+                    child: OutlinedButton.icon(
+                      onPressed: () => widget.feederService.cancelDispensing(),
+                      icon: Icon(Icons.stop_circle_outlined, color: c.danger),
+                      label: Text(
+                        'CANCEL / EMERGENCY STOP',
+                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: c.danger),
+                      ),
+                      style: OutlinedButton.styleFrom(
+                        side: BorderSide(color: c.danger, width: 1.5),
+                        backgroundColor: c.dangerSoft,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      ),
+                    ),
+                  )
+                : SizedBox(
+                    key: const ValueKey('dispense'),
+                    width: double.infinity,
+                    height: 48,
                     child: ElevatedButton.icon(
-                      onPressed: () => widget.feederService.setSimulatedOffline(false),
-                      icon: const Icon(Icons.bolt, size: 18),
-                      label: const Text(
-                        'Enable Online Simulator (Click to Test Dispensing)',
-                        style: TextStyle(fontWeight: FontWeight.bold),
+                      onPressed: canDispense ? () => _confirmManualFeed(context) : null,
+                      icon: const Icon(Icons.play_arrow_rounded),
+                      label: Text(
+                        'DISPENSE ${_selectedDurationSeconds}s NOW',
+                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
                       ),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: c.brand,
                         foregroundColor: c.onBrand,
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                        disabledBackgroundColor: c.track,
+                        disabledForegroundColor: c.textMuted,
+                        elevation: canDispense ? 2 : 0,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                       ),
                     ),
                   ),
-                ),
-            ],
-
-            const SizedBox(height: 6),
-
-            // Action Button (or Emergency Cancel if dispensing)
-            AnimatedSwitcher(
-              duration: const Duration(milliseconds: 200),
-              child: isDispensing
-                  ? SizedBox(
-                      key: const ValueKey('cancel'),
-                      width: double.infinity,
-                      height: 48,
-                      child: OutlinedButton.icon(
-                        onPressed: () => widget.feederService.cancelDispensing(),
-                        icon: Icon(Icons.stop_circle_outlined, color: c.danger),
-                        label: Text(
-                          'CANCEL / EMERGENCY STOP',
-                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: c.danger),
-                        ),
-                        style: OutlinedButton.styleFrom(
-                          side: BorderSide(color: c.danger, width: 1.5),
-                          backgroundColor: c.dangerSoft,
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                        ),
-                      ),
-                    )
-                  : SizedBox(
-                      key: const ValueKey('dispense'),
-                      width: double.infinity,
-                      height: 48,
-                      child: ElevatedButton.icon(
-                        onPressed: canDispense ? () => _confirmManualFeed(context) : null,
-                        icon: const Icon(Icons.play_arrow_rounded),
-                        label: Text(
-                          'DISPENSE ${_selectedDurationSeconds}s NOW',
-                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
-                        ),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: c.brand,
-                          foregroundColor: c.onBrand,
-                          disabledBackgroundColor: c.track,
-                          disabledForegroundColor: c.textMuted,
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                        ),
-                      ),
-                    ),
-            ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
@@ -968,12 +972,20 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final c = context.colors;
     showDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
+      builder: (ctx) => LiquidGlassDialog(
+        maxWidth: 440,
         title: Row(
           children: [
-            Icon(Icons.touch_app, color: c.brand),
-            const SizedBox(width: 8),
-            const Text('Confirm Manual Feed'),
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: c.brandSoft,
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Icon(Icons.touch_app, color: c.brand, size: 22),
+            ),
+            const SizedBox(width: 10),
+            const Text('Confirm Manual Feed', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
           ],
         ),
         content: Column(
@@ -982,15 +994,15 @@ class _DashboardScreenState extends State<DashboardScreen> {
           children: [
             Text(
               'You are about to run the feeder dispenser for $_selectedDurationSeconds seconds directly into the feeding trough.',
-              style: const TextStyle(fontSize: 14),
+              style: TextStyle(fontSize: 14, color: c.textSecondary, height: 1.4),
             ),
             const SizedBox(height: 12),
             Container(
               padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(
-                color: c.surfaceMuted,
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: c.border),
+                color: c.surfaceMuted.withValues(alpha: 0.6),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: c.border.withValues(alpha: 0.7)),
               ),
               child: Row(
                 children: [
@@ -1068,85 +1080,89 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final feeder = widget.feederService;
     showModalBottomSheet(
       context: context,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
       builder: (ctx) {
         return StatefulBuilder(
           builder: (ctx, setSheetState) {
             final isSimOffline = feeder.isSimulatingOffline;
             return SafeArea(
               child: Padding(
-                padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Center(
-                      child: Container(
-                        width: 40,
-                        height: 4,
-                        decoration: BoxDecoration(
-                          color: c.border,
-                          borderRadius: BorderRadius.circular(2),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    Row(
-                      children: [
-                        CircleAvatar(
-                          backgroundColor: isSimOffline ? c.dangerSoft : c.brandSoft,
-                          child: Icon(
-                            isSimOffline ? Icons.cloud_off : Icons.cloud_done,
-                            color: isSimOffline ? c.danger : c.brand,
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                child: LiquidGlassContainer(
+                  borderRadius: BorderRadius.circular(28),
+                  blurSigma: 24,
+                  padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Center(
+                        child: Container(
+                          width: 40,
+                          height: 4,
+                          decoration: BoxDecoration(
+                            color: c.border.withValues(alpha: 0.8),
+                            borderRadius: BorderRadius.circular(2),
                           ),
                         ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'Hardware Simulator',
-                                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: c.textPrimary),
-                              ),
-                              Text(
-                                isSimOffline
-                                    ? 'Offline (Development Default)'
-                                    : 'Simulating Live Hardware Connection',
-                                style: TextStyle(fontSize: 12, color: c.textMuted),
-                              ),
-                            ],
+                      ),
+                      const SizedBox(height: 16),
+                      Row(
+                        children: [
+                          CircleAvatar(
+                            backgroundColor: isSimOffline ? c.dangerSoft : c.brandSoft,
+                            child: Icon(
+                              isSimOffline ? Icons.cloud_off : Icons.cloud_done,
+                              color: isSimOffline ? c.danger : c.brand,
+                            ),
                           ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Hardware Simulator',
+                                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: c.textPrimary),
+                                ),
+                                Text(
+                                  isSimOffline
+                                      ? 'Offline (Development Default)'
+                                      : 'Simulating Live Hardware Connection',
+                                  style: TextStyle(fontSize: 12, color: c.textMuted),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 14),
+                      Text(
+                        'Because the physical feeder is still in development, the app defaults to Offline. You can toggle simulated online telemetry below to test dispensing.',
+                        style: TextStyle(fontSize: 13, color: c.textMuted, height: 1.4),
+                      ),
+                      const SizedBox(height: 12),
+                      SwitchListTile(
+                        contentPadding: EdgeInsets.zero,
+                        title: Text(
+                          'Simulate Online Feeder',
+                          style: TextStyle(fontWeight: FontWeight.bold, color: c.textPrimary),
                         ),
-                      ],
-                    ),
-                    const SizedBox(height: 14),
-                    Text(
-                      'Because the physical feeder is still in development, the app defaults to Offline. You can toggle simulated online telemetry below to test dispensing.',
-                      style: TextStyle(fontSize: 13, color: c.textMuted, height: 1.4),
-                    ),
-                    const SizedBox(height: 12),
-                    SwitchListTile(
-                      contentPadding: EdgeInsets.zero,
-                      title: Text(
-                        'Simulate Online Feeder',
-                        style: TextStyle(fontWeight: FontWeight.bold, color: c.textPrimary),
+                        subtitle: Text(
+                          isSimOffline
+                              ? 'Toggle ON to test dispensing and live telemetry'
+                              : 'Toggle OFF to return to offline development default',
+                          style: TextStyle(fontSize: 12, color: c.textMuted),
+                        ),
+                        value: !isSimOffline,
+                        onChanged: (val) {
+                          feeder.setSimulatedOffline(!val);
+                          setSheetState(() {});
+                        },
                       ),
-                      subtitle: Text(
-                        isSimOffline
-                            ? 'Toggle ON to test dispensing and live telemetry'
-                            : 'Toggle OFF to return to offline development default',
-                        style: TextStyle(fontSize: 12, color: c.textMuted),
-                      ),
-                      value: !isSimOffline,
-                      onChanged: (val) {
-                        feeder.setSimulatedOffline(!val);
-                        setSheetState(() {});
-                      },
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
             );

@@ -34,6 +34,9 @@ class ConnectionBanner extends StatelessWidget {
                     state: state,
                     lastSyncedAt: feederService.lastSyncedAt,
                     onRetry: () async {
+                      if (feederService.isMock) {
+                        feederService.setSimulatedOffline(false);
+                      }
                       final ok = await feederService.retryConnection();
                       if (!context.mounted) return;
                       ScaffoldMessenger.of(context)

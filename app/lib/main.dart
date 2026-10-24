@@ -52,7 +52,11 @@ class _SmartChickenFeederAppState extends State<SmartChickenFeederApp> {
       case HardwareTransportType.localRestHttp:
         return RestHardwareAdapter();
       case HardwareTransportType.bluetoothLowEnergy:
-        return MockHardwareAdapter(simulateOffline: true);
+        return MockHardwareAdapter(
+          simulateOffline: true,
+          sourceLabel: 'Bluetooth Low Energy (Direct BLE)',
+          transportType: HardwareTransportType.bluetoothLowEnergy,
+        );
     }
   }
 

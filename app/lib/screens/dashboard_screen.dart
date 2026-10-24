@@ -866,12 +866,34 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
             if (isHopperEmpty)
               _buildBlockedReason(Icons.error_outline, 'Dispense blocked: Hopper is empty. Refill feed first.', c.danger)
-            else if (isOffline && !isDispensing)
+            else if (isOffline && !isDispensing) ...[
               _buildBlockedReason(
                 Icons.cloud_off_rounded,
-                'Manual feeding is unavailable while the feeder is offline. Tap Retry on the banner above.',
+                'Manual feeding is unavailable while the feeder is offline.',
                 c.danger,
               ),
+              if (widget.feederService.isMock)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 10.0),
+                  child: SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton.icon(
+                      onPressed: () => widget.feederService.setSimulatedOffline(false),
+                      icon: const Icon(Icons.bolt, size: 18),
+                      label: const Text(
+                        'Enable Online Simulator (Click to Test Dispensing)',
+                        style: TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: c.brand,
+                        foregroundColor: c.onBrand,
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                      ),
+                    ),
+                  ),
+                ),
+            ],
 
             const SizedBox(height: 6),
 
@@ -991,9 +1013,47 @@ class _DashboardScreenState extends State<DashboardScreen> {
             child: const Text('Cancel'),
           ),
           ElevatedButton.icon(
-            onPressed: () {
+            onPressed: () async {
               Navigator.pop(ctx);
-              widget.feederService.triggerManualFeed(durationSeconds: _selectedDurationSeconds);
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  backgroundColor: c.brand,
+                  content: Row(
+                    children: [
+                      const SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          'Transmitting dispense command (${_selectedDurationSeconds}s) to feeder...',
+                          style: const TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                    ],
+                  ),
+                  duration: const Duration(seconds: 2),
+                ),
+              );
+              final success = await widget.feederService.triggerManualFeed(
+                durationSeconds: _selectedDurationSeconds,
+              );
+              if (context.mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    backgroundColor: success ? c.brand : c.danger,
+                    content: Text(
+                      success
+                          ? 'Dispense command executed successfully! Scale weight and feeding log updated.'
+                          : 'Dispense failed or feeder is offline. Check hardware connection.',
+                      style: const TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                    duration: const Duration(seconds: 3),
+                  ),
+                );
+              }
             },
             icon: const Icon(Icons.check),
             label: const Text('Confirm & Dispense'),

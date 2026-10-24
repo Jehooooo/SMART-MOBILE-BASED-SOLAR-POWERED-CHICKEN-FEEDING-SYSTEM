@@ -7,7 +7,6 @@ import '../services/hardware/firebase_hardware_adapter.dart';
 import '../services/hardware/rest_hardware_adapter.dart';
 import '../theme/app_theme.dart';
 import 'dashboard_screen.dart';
-import 'diagnostics_screen.dart';
 
 class SettingsScreen extends StatefulWidget {
   final FeederService feederService;
@@ -421,74 +420,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   const SizedBox(height: 20),
 
                   // Diagnostics & Testing Section
-                  _buildSectionHeader('Diagnostics & Hardware Calibration', Icons.biotech_outlined),
-                  Card(
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(18),
-                      side: BorderSide(color: c.brandBorder.withValues(alpha: 0.8)),
-                    ),
-                    color: c.brandSurface,
-                    child: Padding(
-                      padding: const EdgeInsets.all(18.0),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              Container(
-                                padding: const EdgeInsets.all(10),
-                                decoration: BoxDecoration(
-                                  color: c.brandSoft,
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                                child: Icon(Icons.tune_rounded, color: c.brand, size: 22),
-                              ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      'Hardware Sensor Calibration Wizard',
-                                      style: TextStyle(fontWeight: FontWeight.w800, fontSize: 15, color: c.textPrimary),
-                                    ),
-                                    Text(
-                                      'Tare scale, 500g factor calibration, HC-SR04 depth & servo sweep testing.',
-                                      style: TextStyle(fontSize: 12, color: c.textSecondary),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 12),
-                          SizedBox(
-                            width: double.infinity,
-                            child: ElevatedButton.icon(
-                              onPressed: () {
-                                Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (_) => DiagnosticsScreen(feederService: _feeder),
-                                  ),
-                                );
-                              },
-                              icon: const Icon(Icons.play_circle_outline_rounded, size: 18),
-                              label: const Text('Open Hardware Calibration Wizard'),
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: c.brand,
-                                foregroundColor: c.onBrand,
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                                padding: const EdgeInsets.symmetric(vertical: 12),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-
-                  const SizedBox(height: 16),
+                  _buildSectionHeader('System Diagnostics & Testing', Icons.biotech_outlined),
 
                   Card(
                     shape: RoundedRectangleBorder(
@@ -586,35 +518,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                 _feeder.setSimulatedSensorError(val);
                               },
                             ),
-                            const Divider(height: 20),
-                            Wrap(
-                              spacing: 8,
-                              runSpacing: 8,
-                              children: [
-                                OutlinedButton.icon(
-                                  onPressed: () {
-                                    _feeder.refillHopper();
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      const SnackBar(content: Text('Simulated hopper refilled to 100%')),
-                                    );
-                                  },
-                                  icon: const Icon(Icons.refresh_rounded, size: 16),
-                                  label: const Text('Refill Hopper'),
-                                ),
-                                OutlinedButton.icon(
-                                  onPressed: () async {
-                                    await _feeder.tareScale();
-                                    if (context.mounted) {
-                                      ScaffoldMessenger.of(context).showSnackBar(
-                                        const SnackBar(content: Text('Load cell tared to 0.0g')),
-                                      );
-                                    }
-                                  },
-                                  icon: const Icon(Icons.scale_rounded, size: 16),
-                                  label: const Text('Tare Load Cell'),
-                                ),
-                              ],
-                            ),
                           ] else ...[
                             ListTile(
                               contentPadding: EdgeInsets.zero,
@@ -685,7 +588,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   const SizedBox(height: 20),
 
                   // Help & About Section
-                  _buildSectionHeader('Help & Research Info', Icons.help_outline),
+                  _buildSectionHeader('Help & Support', Icons.help_outline),
                   Card(
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(18),
@@ -715,26 +618,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
                             ),
                             trailing: const Icon(Icons.chevron_right),
                             onTap: () => showHardwareGuideDialog(context),
-                          ),
-                          const Divider(height: 20),
-                          ListTile(
-                            contentPadding: EdgeInsets.zero,
-                            leading: Container(
-                              padding: const EdgeInsets.all(10),
-                              decoration: BoxDecoration(
-                                color: c.brandSoft,
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              child: Icon(Icons.info_outline, color: c.brand, size: 20),
-                            ),
-                            title: Text(
-                              'Smart Poultry Feeder System',
-                              style: TextStyle(fontWeight: FontWeight.w800, color: c.textPrimary),
-                            ),
-                            subtitle: Text(
-                              'Version $kAppVersion (Build $kAppBuild)\nResearch Project • Capstone Study',
-                              style: TextStyle(fontSize: 12, color: c.textMuted),
-                            ),
                           ),
                           const Divider(height: 20),
                           Align(

@@ -582,16 +582,10 @@ class _DiagnosticsScreenState extends State<DiagnosticsScreen> {
                       ],
                     ),
                     const SizedBox(height: 8),
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(6),
-                      child: LinearProgressIndicator(
-                        value: (feedLevel / 100.0).clamp(0.0, 1.0),
-                        minHeight: 8,
-                        backgroundColor: c.track,
-                        valueColor: AlwaysStoppedAnimation<Color>(
-                          feedLevel < 20 ? c.danger : c.brand,
-                        ),
-                      ),
+                    LiquidProgressBar(
+                      value: (feedLevel / 100.0).clamp(0.0, 1.0),
+                      height: 10,
+                      color: feedLevel < 20 ? c.danger : c.brand,
                     ),
                   ],
                 ),

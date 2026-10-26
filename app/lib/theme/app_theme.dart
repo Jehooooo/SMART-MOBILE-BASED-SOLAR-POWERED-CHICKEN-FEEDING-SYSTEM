@@ -335,24 +335,60 @@ class AppTheme {
         style: ElevatedButton.styleFrom(
           backgroundColor: c.brand,
           foregroundColor: c.onBrand,
-          elevation: 2.0,
-          shadowColor: c.brand.withValues(alpha: 0.35),
+          elevation: 4.0,
+          shadowColor: c.brand.withValues(alpha: 0.40),
           padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 15),
-          shape: RoundedRectangleBorder(borderRadius: buttonRadius),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(24),
+            side: BorderSide(
+              color: Colors.white.withValues(alpha: isLight ? 0.55 : 0.25),
+              width: 1.0,
+            ),
+          ),
           textStyle: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14, letterSpacing: 0.2),
         ),
       ),
       outlinedButtonTheme: OutlinedButtonThemeData(
         style: OutlinedButton.styleFrom(
           foregroundColor: c.brand,
-          backgroundColor: isLight ? Colors.white.withValues(alpha: 0.50) : c.surfaceMuted.withValues(alpha: 0.40),
+          backgroundColor: isLight ? Colors.white.withValues(alpha: 0.60) : c.surfaceMuted.withValues(alpha: 0.45),
           side: BorderSide(
-            color: isLight ? Colors.white.withValues(alpha: 0.85) : Colors.white.withValues(alpha: 0.16),
+            color: isLight ? Colors.white.withValues(alpha: 0.88) : Colors.white.withValues(alpha: 0.20),
             width: 1.2,
           ),
           padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 13),
-          shape: RoundedRectangleBorder(borderRadius: buttonRadius),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22)),
           textStyle: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
+        ),
+      ),
+      floatingActionButtonTheme: FloatingActionButtonThemeData(
+        backgroundColor: c.brand,
+        foregroundColor: c.onBrand,
+        elevation: 6,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(22),
+          side: BorderSide(
+            color: Colors.white.withValues(alpha: isLight ? 0.70 : 0.35),
+            width: 1.2,
+          ),
+        ),
+      ),
+      segmentedButtonTheme: SegmentedButtonThemeData(
+        style: ButtonStyle(
+          shape: WidgetStateProperty.all(RoundedRectangleBorder(borderRadius: BorderRadius.circular(16))),
+          side: WidgetStateProperty.all(BorderSide(color: c.border.withValues(alpha: 0.5), width: 1.0)),
+          backgroundColor: WidgetStateProperty.resolveWith((states) {
+            if (states.contains(WidgetState.selected)) {
+              return c.brandSoft;
+            }
+            return isLight ? Colors.white.withValues(alpha: 0.45) : c.surfaceMuted.withValues(alpha: 0.40);
+          }),
+          foregroundColor: WidgetStateProperty.resolveWith((states) {
+            if (states.contains(WidgetState.selected)) {
+              return c.brand;
+            }
+            return c.textSecondary;
+          }),
         ),
       ),
       chipTheme: ChipThemeData(

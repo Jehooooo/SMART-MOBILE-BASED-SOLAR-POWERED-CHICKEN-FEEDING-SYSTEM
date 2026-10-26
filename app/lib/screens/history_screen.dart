@@ -67,7 +67,8 @@ class _HistoryScreenState extends State<HistoryScreen> {
               style: TextStyle(fontWeight: FontWeight.bold),
             ),
             actions: [
-              IconButton(
+              LiquidGlassIconButton(
+                size: 38,
                 icon: const Icon(Icons.sync_rounded),
                 tooltip: 'Sync with Firebase',
                 onPressed: () async {
@@ -80,11 +81,14 @@ class _HistoryScreenState extends State<HistoryScreen> {
                   await widget.feederService.refreshLogsFromCloud();
                 },
               ),
-              IconButton(
+              const SizedBox(width: 8),
+              LiquidGlassIconButton(
+                size: 38,
                 icon: Icon(Icons.download_rounded, color: c.brand),
                 tooltip: 'Export CSV Dataset',
                 onPressed: () => _showExportCsvModal(context),
               ),
+              const SizedBox(width: 8),
             ],
           ),
           body: Column(
@@ -267,27 +271,13 @@ class _HistoryScreenState extends State<HistoryScreen> {
   }
 
   Widget _buildFilterChip(String filterKey, String label) {
-    final c = context.colors;
     final isSelected = _selectedFilter == filterKey;
-    return ChoiceChip(
-      label: Text(label),
-      selected: isSelected,
+    return LiquidGlassChip(
+      label: label,
+      isSelected: isSelected,
       onSelected: (selected) {
         if (selected) setState(() => _selectedFilter = filterKey);
       },
-      shape: StadiumBorder(
-        side: BorderSide(
-          color: isSelected ? c.brand : c.border.withValues(alpha: 0.6),
-        ),
-      ),
-      selectedColor: c.brand,
-      backgroundColor: c.surfaceMuted.withValues(alpha: 0.6),
-      labelStyle: TextStyle(
-        fontSize: 12,
-        fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
-        color: isSelected ? c.onBrand : c.textSecondary,
-      ),
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
     );
   }
 
@@ -645,11 +635,18 @@ class _HistoryScreenState extends State<HistoryScreen> {
               ),
             ),
             actions: [
-              TextButton(
+              LiquidGlassButton(
+                isSecondary: true,
+                height: 38,
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                 onPressed: () => Navigator.pop(ctx),
-                child: Text('Close', style: TextStyle(color: c.textMuted)),
+                child: const Text('Close'),
               ),
-              OutlinedButton.icon(
+              LiquidGlassButton(
+                isSecondary: true,
+                height: 38,
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                icon: const Icon(Icons.copy_rounded, size: 16),
                 onPressed: () {
                   Clipboard.setData(ClipboardData(text: csvData));
                   ScaffoldMessenger.of(context).showSnackBar(
@@ -659,20 +656,14 @@ class _HistoryScreenState extends State<HistoryScreen> {
                     ),
                   );
                 },
-                icon: const Icon(Icons.copy_rounded, size: 16),
-                label: const Text('Copy CSV'),
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: c.textPrimary,
-                ),
+                child: const Text('Copy CSV'),
               ),
-              ElevatedButton.icon(
-                onPressed: isExporting ? null : () => handleExport(),
+              LiquidGlassButton(
+                height: 38,
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                 icon: const Icon(Icons.download_rounded, size: 16),
-                label: const Text('Download CSV'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: c.brand,
-                  foregroundColor: c.onBrand,
-                ),
+                onPressed: isExporting ? null : () => handleExport(),
+                child: const Text('Download CSV'),
               ),
             ],
           );

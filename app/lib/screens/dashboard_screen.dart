@@ -452,19 +452,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
               ],
             ),
             const SizedBox(height: 12),
-            ClipRRect(
-              borderRadius: BorderRadius.circular(6),
-              child: TweenAnimationBuilder<double>(
-                tween: Tween(begin: 0, end: progress),
-                duration: const Duration(milliseconds: 450),
-                curve: Curves.easeOut,
-                builder: (context, value, _) => LinearProgressIndicator(
-                  value: value,
-                  minHeight: 8,
-                  backgroundColor: c.infoBorder.withValues(alpha: 0.4),
-                  valueColor: AlwaysStoppedAnimation<Color>(c.info),
-                ),
-              ),
+            LiquidProgressBar(
+              value: progress,
+              height: 10,
+              color: c.info,
             ),
             const SizedBox(height: 10),
             Row(
@@ -558,19 +549,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
               ],
             ),
             const SizedBox(height: 18),
-            ClipRRect(
-              borderRadius: BorderRadius.circular(10),
-              child: TweenAnimationBuilder<double>(
-                tween: Tween(begin: 0, end: (pct / 100.0).clamp(0.0, 1.0)),
-                duration: const Duration(milliseconds: 700),
-                curve: Curves.easeOutCubic,
-                builder: (context, value, _) => LinearProgressIndicator(
-                  value: value,
-                  minHeight: 16,
-                  backgroundColor: c.track,
-                  valueColor: AlwaysStoppedAnimation<Color>(color),
-                ),
-              ),
+            LiquidProgressBar(
+              value: (pct / 100.0).clamp(0.0, 1.0),
+              height: 18,
+              color: color,
             ),
             const SizedBox(height: 16),
             Wrap(

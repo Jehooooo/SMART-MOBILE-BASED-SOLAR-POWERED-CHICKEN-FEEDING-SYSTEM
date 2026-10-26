@@ -157,11 +157,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
                             style: TextStyle(fontWeight: FontWeight.w800, color: c.textPrimary),
                           ),
                           subtitle: Text(_settings.feederName, style: TextStyle(color: c.textMuted)),
-                          trailing: OutlinedButton(
-                            style: OutlinedButton.styleFrom(
-                              side: BorderSide(color: c.border),
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                            ),
+                          trailing: LiquidGlassButton(
+                            isSecondary: true,
+                            height: 36,
+                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
                             onPressed: () => _showEditFeederNameDialog(context),
                             child: const Text('Edit'),
                           ),
@@ -550,12 +549,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                               'Sends hardware calibration command to HX711 load cell.',
                               style: TextStyle(fontSize: 12, color: c.textMuted),
                             ),
-                            trailing: ElevatedButton(
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: c.brand,
-                                foregroundColor: Colors.white,
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                              ),
+                            trailing: LiquidGlassButton(
+                              height: 38,
+                              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                               onPressed: () async {
                                 final ok = await _feeder.tareScale();
                                 if (context.mounted) {
@@ -592,11 +588,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
                             'Launch the walkthrough guide for farm staff training.',
                             style: TextStyle(fontSize: 12, color: c.textMuted),
                           ),
-                          trailing: OutlinedButton(
-                            style: OutlinedButton.styleFrom(
-                              side: BorderSide(color: c.border),
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                            ),
+                          trailing: LiquidGlassButton(
+                            isSecondary: true,
+                            height: 36,
+                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
                             onPressed: () {
                               _settings.setOnboardingComplete(false);
                             },
@@ -640,13 +635,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         Divider(height: 20, color: c.border.withValues(alpha: 0.4)),
                         Align(
                           alignment: Alignment.centerLeft,
-                          child: TextButton.icon(
+                          child: LiquidGlassButton(
+                            isDanger: true,
+                            height: 38,
+                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                             onPressed: () => _confirmResetDefaults(context),
-                            icon: Icon(Icons.restore, color: c.danger, size: 18),
-                            label: Text(
-                              'Reset Feeder Settings to Default',
-                              style: TextStyle(color: c.danger, fontWeight: FontWeight.bold),
-                            ),
+                            icon: const Icon(Icons.restore, size: 16),
+                            child: const Text('Reset Feeder Settings to Default'),
                           ),
                         ),
                       ],
@@ -719,11 +714,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ),
         ),
         actions: [
-          TextButton(
+          LiquidGlassButton(
+            isSecondary: true,
+            height: 38,
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             onPressed: () => Navigator.pop(ctx),
             child: const Text('Cancel'),
           ),
-          ElevatedButton(
+          LiquidGlassButton(
+            height: 38,
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             onPressed: () {
               _settings.setFeederName(ctrl.text);
               Navigator.pop(ctx);
@@ -744,11 +744,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
           'This will restore default feeder naming, 5.0 kg hopper capacity, and 20% alert thresholds. Your custom feeding schedules and logs will remain untouched.',
         ),
         actions: [
-          TextButton(
+          LiquidGlassButton(
+            isSecondary: true,
+            height: 38,
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             onPressed: () => Navigator.pop(ctx),
             child: const Text('Cancel'),
           ),
-          ElevatedButton(
+          LiquidGlassButton(
+            isDanger: true,
+            height: 38,
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             onPressed: () {
               _settings.resetFeederDefaults();
               Navigator.pop(ctx);

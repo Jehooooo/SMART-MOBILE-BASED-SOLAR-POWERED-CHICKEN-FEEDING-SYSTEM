@@ -138,12 +138,15 @@ class _DashboardScreenState extends State<DashboardScreen> {
               ],
             ),
             actions: [
-              IconButton(
+              LiquidGlassIconButton(
+                size: 38,
                 icon: Icon(Icons.info_outline, color: c.brand),
                 tooltip: 'System & Hardware Info',
                 onPressed: () => showHardwareGuideDialog(context),
               ),
-              IconButton(
+              const SizedBox(width: 8),
+              LiquidGlassIconButton(
+                size: 38,
                 icon: const Icon(Icons.refresh_rounded),
                 tooltip: 'Sync Feeder Telemetry',
                 onPressed: isLoading
@@ -162,6 +165,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         }
                       },
               ),
+              const SizedBox(width: 8),
               Padding(
                 padding: const EdgeInsets.only(right: 12.0),
                 child: Tooltip(
@@ -780,30 +784,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
             children: durationOptions.map((opt) {
               final seconds = opt['seconds'] as int;
               final isSelected = _selectedDurationSeconds == seconds;
-              return ChoiceChip(
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                label: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(opt['name'] as String, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-                    Text(
-                      opt['desc'] as String,
-                      style: TextStyle(fontSize: 10, color: isSelected ? c.onBrand.withValues(alpha: 0.85) : c.textMuted),
-                    ),
-                  ],
-                ),
-                selected: isSelected,
-                showCheckmark: false,
-                onSelected: isDispensing ? null : (selected) {
-                  if (selected) setState(() => _selectedDurationSeconds = seconds);
-                },
-                selectedColor: c.brand,
-                backgroundColor: c.surfaceMuted.withValues(alpha: 0.6),
-                side: BorderSide(color: isSelected ? c.brand : c.border.withValues(alpha: 0.6)),
-                labelStyle: TextStyle(
-                  color: isSelected ? c.onBrand : c.textPrimary,
-                ),
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              return LiquidGlassChip(
+                label: '${opt['name']} • ${opt['desc']}',
+                isSelected: isSelected,
+                onSelected: isDispensing
+                    ? null
+                    : (selected) {
+                        if (selected) setState(() => _selectedDurationSeconds = seconds);
+                      },
               );
             }).toList(),
           ),
@@ -861,22 +849,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
             if (widget.feederService.isMock)
               Padding(
                 padding: const EdgeInsets.only(bottom: 10.0),
-                child: SizedBox(
+                child: LiquidGlassButton(
                   width: double.infinity,
-                  child: ElevatedButton.icon(
-                    onPressed: () => widget.feederService.setSimulatedOffline(false),
-                    icon: const Icon(Icons.bolt, size: 18),
-                    label: const Text(
-                      'Enable Online Simulator (Click to Test Dispensing)',
-                      style: TextStyle(fontWeight: FontWeight.bold),
-                    ),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: c.brand,
-                      foregroundColor: c.onBrand,
-                      padding: const EdgeInsets.symmetric(vertical: 12),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                    ),
-                  ),
+                  height: 44,
+                  onPressed: () => widget.feederService.setSimulatedOffline(false),
+                  icon: const Icon(Icons.bolt, size: 18),
+                  child: const Text('Enable Online Simulator (Click to Test Dispensing)'),
                 ),
               ),
           ],
@@ -887,44 +865,22 @@ class _DashboardScreenState extends State<DashboardScreen> {
           AnimatedSwitcher(
             duration: const Duration(milliseconds: 200),
             child: isDispensing
-                ? SizedBox(
+                ? LiquidGlassButton(
                     key: const ValueKey('cancel'),
                     width: double.infinity,
                     height: 48,
-                    child: OutlinedButton.icon(
-                      onPressed: () => widget.feederService.cancelDispensing(),
-                      icon: Icon(Icons.stop_circle_outlined, color: c.danger),
-                      label: Text(
-                        'CANCEL / EMERGENCY STOP',
-                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: c.danger),
-                      ),
-                      style: OutlinedButton.styleFrom(
-                        side: BorderSide(color: c.danger, width: 1.5),
-                        backgroundColor: c.dangerSoft,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                      ),
-                    ),
+                    isDanger: true,
+                    onPressed: () => widget.feederService.cancelDispensing(),
+                    icon: const Icon(Icons.stop_circle_outlined),
+                    child: const Text('CANCEL / EMERGENCY STOP'),
                   )
-                : SizedBox(
+                : LiquidGlassButton(
                     key: const ValueKey('dispense'),
                     width: double.infinity,
                     height: 48,
-                    child: ElevatedButton.icon(
-                      onPressed: canDispense ? () => _confirmManualFeed(context) : null,
-                      icon: const Icon(Icons.play_arrow_rounded),
-                      label: Text(
-                        'DISPENSE ${_selectedDurationSeconds}s NOW',
-                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
-                      ),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: c.brand,
-                        foregroundColor: c.onBrand,
-                        disabledBackgroundColor: c.track,
-                        disabledForegroundColor: c.textMuted,
-                        elevation: canDispense ? 2 : 0,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                      ),
-                    ),
+                    onPressed: canDispense ? () => _confirmManualFeed(context) : null,
+                    icon: const Icon(Icons.play_arrow_rounded),
+                    child: Text('DISPENSE ${_selectedDurationSeconds}s NOW'),
                   ),
           ),
         ],
@@ -1002,11 +958,17 @@ class _DashboardScreenState extends State<DashboardScreen> {
           ],
         ),
         actions: [
-          TextButton(
+          LiquidGlassButton(
+            isSecondary: true,
+            height: 38,
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             onPressed: () => Navigator.pop(ctx),
             child: const Text('Cancel'),
           ),
-          ElevatedButton.icon(
+          LiquidGlassButton(
+            height: 38,
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            icon: const Icon(Icons.check, size: 16),
             onPressed: () async {
               Navigator.pop(ctx);
               ScaffoldMessenger.of(context).showSnackBar(
@@ -1049,8 +1011,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 );
               }
             },
-            icon: const Icon(Icons.check),
-            label: const Text('Confirm & Dispense'),
+            child: const Text('Confirm & Dispense'),
           ),
         ],
       ),

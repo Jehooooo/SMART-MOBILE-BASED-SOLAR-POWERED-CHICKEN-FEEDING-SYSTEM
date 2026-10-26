@@ -140,15 +140,15 @@ class _BannerBody extends StatelessWidget {
               ),
               if (!isConnecting) ...[
                 const SizedBox(width: 8),
-                TextButton.icon(
+                LiquidGlassButton(
+                  height: 36,
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  backgroundColor: fg.withValues(alpha: 0.18),
+                  foregroundColor: fg,
+                  glowColor: fg.withValues(alpha: 0.25),
                   onPressed: onRetry,
-                  icon: Icon(Icons.refresh_rounded, size: 18, color: fg),
-                  label: Text('Retry', style: TextStyle(color: fg, fontWeight: FontWeight.bold)),
-                  style: TextButton.styleFrom(
-                    minimumSize: const Size(48, 38),
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                  ),
+                  icon: Icon(Icons.refresh_rounded, size: 16, color: fg),
+                  child: const Text('Retry'),
                 ),
               ],
             ],

@@ -35,7 +35,8 @@ class _SchedulesScreenState extends State<SchedulesScreen> {
               style: TextStyle(fontWeight: FontWeight.bold),
             ),
             actions: [
-              IconButton(
+              LiquidGlassIconButton(
+                size: 38,
                 icon: const Icon(Icons.sync_rounded),
                 tooltip: 'Sync with Firebase',
                 onPressed: () async {
@@ -48,6 +49,7 @@ class _SchedulesScreenState extends State<SchedulesScreen> {
                   await widget.feederService.refreshSchedulesFromCloud();
                 },
               ),
+              const SizedBox(width: 8),
             ],
           ),
           body: Column(
@@ -117,13 +119,12 @@ class _SchedulesScreenState extends State<SchedulesScreen> {
               ),
             ],
           ),
-          floatingActionButton: FloatingActionButton.extended(
+          floatingActionButton: LiquidGlassButton(
+            height: 50,
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
             onPressed: () => _showScheduleDialog(context),
-            backgroundColor: c.brand,
-            foregroundColor: c.onBrand,
-            elevation: 3,
-            icon: const Icon(Icons.add_alarm),
-            label: const Text('Add Schedule'),
+            icon: const Icon(Icons.add_alarm, size: 20),
+            child: const Text('Add Schedule'),
           ),
         );
       },
@@ -307,32 +308,28 @@ class _SchedulesScreenState extends State<SchedulesScreen> {
             ),
           ),
           const SizedBox(width: 6),
-          Tooltip(
-            message: 'Test run routine now',
-            child: IconButton(
-              icon: Icon(
-                Icons.play_circle_outline_rounded,
-                color: schedule.isEnabled ? c.brand : c.textMuted,
-                size: 22,
-              ),
-              visualDensity: VisualDensity.compact,
-              padding: const EdgeInsets.all(4),
-              constraints: const BoxConstraints(),
-              onPressed: () async {
-                final ok = await widget.feederService.triggerSchedule(schedule);
-                if (mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text(ok
-                          ? 'Executing "${schedule.label}" (${schedule.targetGrams.toInt()}g)...'
-                          : 'Could not trigger feeding. Feeder is busy or offline.'),
-                      backgroundColor: ok ? c.brand : c.danger,
-                      duration: const Duration(seconds: 3),
-                    ),
-                  );
-                }
-              },
+          LiquidGlassIconButton(
+            size: 34,
+            icon: Icon(
+              Icons.play_circle_outline_rounded,
+              color: schedule.isEnabled ? c.brand : c.textMuted,
+              size: 20,
             ),
+            tooltip: 'Test run routine now',
+            onPressed: () async {
+              final ok = await widget.feederService.triggerSchedule(schedule);
+              if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(ok
+                        ? 'Executing "${schedule.label}" (${schedule.targetGrams.toInt()}g)...'
+                        : 'Could not trigger feeding. Feeder is busy or offline.'),
+                    backgroundColor: ok ? c.brand : c.danger,
+                    duration: const Duration(seconds: 3),
+                  ),
+                );
+              }
+            },
           ),
           const SizedBox(width: 4),
           Tooltip(
@@ -346,12 +343,10 @@ class _SchedulesScreenState extends State<SchedulesScreen> {
             ),
           ),
           const SizedBox(width: 4),
-          IconButton(
-            icon: Icon(Icons.delete_outline, color: c.textMuted, size: 22),
+          LiquidGlassIconButton(
+            size: 34,
+            icon: Icon(Icons.delete_outline, color: c.danger, size: 18),
             tooltip: 'Delete schedule',
-            visualDensity: VisualDensity.compact,
-            padding: const EdgeInsets.all(4),
-            constraints: const BoxConstraints(),
             onPressed: () => _confirmDelete(schedule, index),
           ),
         ],
@@ -381,11 +376,17 @@ class _SchedulesScreenState extends State<SchedulesScreen> {
         ),
         content: Text('Remove "${schedule.label}" at ${schedule.timeFormatted}?'),
         actions: [
-          TextButton(
+          LiquidGlassButton(
+            isSecondary: true,
+            height: 38,
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             onPressed: () => Navigator.pop(ctx),
             child: const Text('Cancel'),
           ),
-          ElevatedButton(
+          LiquidGlassButton(
+            isDanger: true,
+            height: 38,
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             onPressed: () {
               Navigator.pop(ctx);
               widget.feederService.deleteSchedule(schedule.id);
@@ -406,10 +407,6 @@ class _SchedulesScreenState extends State<SchedulesScreen> {
                 );
               }
             },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: c.danger,
-              foregroundColor: Colors.white,
-            ),
             child: const Text('Delete'),
           ),
         ],
@@ -499,12 +496,11 @@ class _SchedulesScreenState extends State<SchedulesScreen> {
                   spacing: 6,
                   runSpacing: 6,
                   children: presetLabels.map((preset) {
-                    return ActionChip(
-                      label: Text(preset, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600)),
-                      shape: StadiumBorder(side: BorderSide(color: c.border.withValues(alpha: 0.6))),
-                      backgroundColor: c.surfaceMuted,
-                      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                      onPressed: () {
+                    final isSel = labelCtrl.text == preset;
+                    return LiquidGlassChip(
+                      label: preset,
+                      isSelected: isSel,
+                      onSelected: (_) {
                         setDialogState(() {
                           labelCtrl.text = preset;
                         });
@@ -539,7 +535,10 @@ class _SchedulesScreenState extends State<SchedulesScreen> {
                           style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
                         ),
                       ),
-                      FilledButton.tonal(
+                      LiquidGlassButton(
+                        isSecondary: true,
+                        height: 36,
+                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
                         onPressed: () async {
                           final picked = await showTimePicker(
                             context: context,
@@ -552,18 +551,7 @@ class _SchedulesScreenState extends State<SchedulesScreen> {
                             });
                           }
                         },
-                        style: FilledButton.styleFrom(
-                          backgroundColor: c.surface,
-                          foregroundColor: c.brand,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(10),
-                            side: BorderSide(color: c.brandBorder),
-                          ),
-                        ),
-                        child: Text(
-                          selectedTime.format(context),
-                          style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13),
-                        ),
+                        child: Text(selectedTime.format(context)),
                       ),
                     ],
                   ),
@@ -591,12 +579,11 @@ class _SchedulesScreenState extends State<SchedulesScreen> {
                   spacing: 6,
                   runSpacing: 6,
                   children: presetDurations.map((sec) {
-                    return ActionChip(
-                      label: Text('${sec}s (~${sec * 20}g)', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600)),
-                      shape: StadiumBorder(side: BorderSide(color: c.border.withValues(alpha: 0.6))),
-                      backgroundColor: c.surfaceMuted,
-                      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                      onPressed: () {
+                    final isSel = durationCtrl.text == sec.toString();
+                    return LiquidGlassChip(
+                      label: '${sec}s (~${sec * 20}g)',
+                      isSelected: isSel,
+                      onSelected: (_) {
                         setDialogState(() {
                           durationCtrl.text = sec.toString();
                         });
@@ -608,11 +595,16 @@ class _SchedulesScreenState extends State<SchedulesScreen> {
             ),
           ),
           actions: [
-            TextButton(
+            LiquidGlassButton(
+              isSecondary: true,
+              height: 38,
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               onPressed: () => Navigator.pop(ctx),
               child: const Text('Cancel'),
             ),
-            ElevatedButton(
+            LiquidGlassButton(
+              height: 38,
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               onPressed: () {
                 final duration = int.tryParse(durationCtrl.text.trim());
                 if (duration == null || duration < 1 || duration > 60) {
@@ -660,10 +652,6 @@ class _SchedulesScreenState extends State<SchedulesScreen> {
                 }
                 Navigator.pop(ctx);
               },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: c.brand,
-                foregroundColor: c.onBrand,
-              ),
               child: Text(isEditing ? 'Save Changes' : 'Save Schedule'),
             ),
           ],

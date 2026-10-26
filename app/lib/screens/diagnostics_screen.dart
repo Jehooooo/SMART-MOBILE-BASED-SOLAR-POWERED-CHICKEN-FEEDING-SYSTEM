@@ -102,11 +102,13 @@ class _DiagnosticsScreenState extends State<DiagnosticsScreen> {
               style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
             ),
             actions: [
-              IconButton(
+              LiquidGlassIconButton(
+                size: 38,
                 icon: const Icon(Icons.refresh_rounded),
                 tooltip: 'Refresh Telemetry',
                 onPressed: () => widget.feederService.refreshTelemetry(),
               ),
+              const SizedBox(width: 8),
             ],
           ),
           body: Column(
@@ -402,18 +404,14 @@ class _DiagnosticsScreenState extends State<DiagnosticsScreen> {
                   ],
                 ),
               ),
-              ElevatedButton.icon(
+              LiquidGlassButton(
+                height: 38,
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                 onPressed: _isActionRunning
                     ? null
                     : () => _executeAction('Tare Scale', () => widget.feederService.tareScale()),
                 icon: const Icon(Icons.exposure_zero_rounded, size: 16),
-                label: const Text('Tare (0.0g)'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: c.brand,
-                  foregroundColor: c.onBrand,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                  visualDensity: VisualDensity.compact,
-                ),
+                child: const Text('Tare (0.0g)'),
               ),
             ],
           ),
@@ -433,24 +431,25 @@ class _DiagnosticsScreenState extends State<DiagnosticsScreen> {
                 style: TextStyle(fontSize: 11, color: c.textMuted),
               ),
               const SizedBox(height: 12),
-              Row(
+              Wrap(
+                spacing: 6,
+                runSpacing: 6,
+                crossAxisAlignment: WrapCrossAlignment.center,
                 children: [
                   ...[100.0, 200.0, 500.0, 1000.0].map((w) {
                     final isSelected = _selectedCalWeight == w;
-                    return Padding(
-                      padding: const EdgeInsets.only(right: 6.0),
-                      child: ChoiceChip(
-                        label: Text('${w.toInt()}g'),
-                        selected: isSelected,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                        onSelected: (selected) {
-                          if (selected) setState(() => _selectedCalWeight = w);
-                        },
-                      ),
+                    return LiquidGlassChip(
+                      label: '${w.toInt()}g',
+                      isSelected: isSelected,
+                      onSelected: (selected) {
+                        if (selected) setState(() => _selectedCalWeight = w);
+                      },
                     );
                   }),
-                  const Spacer(),
-                  ElevatedButton.icon(
+                  const SizedBox(width: 8),
+                  LiquidGlassButton(
+                    height: 38,
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                     onPressed: _isActionRunning
                         ? null
                         : () => _executeAction(
@@ -458,13 +457,7 @@ class _DiagnosticsScreenState extends State<DiagnosticsScreen> {
                               () => widget.feederService.calibrateScale(_selectedCalWeight),
                             ),
                     icon: const Icon(Icons.check_rounded, size: 16),
-                    label: const Text('Save Factor'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: c.brand,
-                      foregroundColor: c.onBrand,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                      visualDensity: VisualDensity.compact,
-                    ),
+                    child: const Text('Save Factor'),
                   ),
                 ],
               ),
@@ -646,11 +639,10 @@ class _DiagnosticsScreenState extends State<DiagnosticsScreen> {
 
           const SizedBox(height: 12),
           if (widget.feederService.isMock)
-            OutlinedButton.icon(
-              style: OutlinedButton.styleFrom(
-                side: BorderSide(color: c.border),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-              ),
+            LiquidGlassButton(
+              isSecondary: true,
+              height: 38,
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               onPressed: () {
                 widget.feederService.refillHopper();
                 ScaffoldMessenger.of(context).showSnackBar(
@@ -658,7 +650,7 @@ class _DiagnosticsScreenState extends State<DiagnosticsScreen> {
                 );
               },
               icon: const Icon(Icons.replay_rounded, size: 16),
-              label: const Text('Reset / Refill Hopper (100%)'),
+              child: const Text('Reset / Refill Hopper (100%)'),
             ),
         ],
       ),
@@ -721,7 +713,10 @@ class _DiagnosticsScreenState extends State<DiagnosticsScreen> {
             spacing: 8,
             runSpacing: 8,
             children: [
-              ElevatedButton.icon(
+              LiquidGlassButton(
+                isSecondary: true,
+                height: 38,
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                 onPressed: _isActionRunning
                     ? null
                     : () => _executeAction(
@@ -729,15 +724,12 @@ class _DiagnosticsScreenState extends State<DiagnosticsScreen> {
                           () => widget.feederService.testServoGate(0),
                         ),
                 icon: const Icon(Icons.lock_outline_rounded, size: 16),
-                label: const Text('Close (0°)'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: c.surface.withValues(alpha: 0.8),
-                  foregroundColor: c.textPrimary,
-                  side: BorderSide(color: c.border),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                ),
+                child: const Text('Close (0°)'),
               ),
-              ElevatedButton.icon(
+              LiquidGlassButton(
+                isSecondary: true,
+                height: 38,
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                 onPressed: _isActionRunning
                     ? null
                     : () => _executeAction(
@@ -745,15 +737,12 @@ class _DiagnosticsScreenState extends State<DiagnosticsScreen> {
                           () => widget.feederService.testServoGate(45),
                         ),
                 icon: const Icon(Icons.change_history_rounded, size: 16),
-                label: const Text('Half (45°)'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: c.surface.withValues(alpha: 0.8),
-                  foregroundColor: c.textPrimary,
-                  side: BorderSide(color: c.border),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                ),
+                child: const Text('Half (45°)'),
               ),
-              ElevatedButton.icon(
+              LiquidGlassButton(
+                isSecondary: true,
+                height: 38,
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                 onPressed: _isActionRunning
                     ? null
                     : () => _executeAction(
@@ -761,15 +750,11 @@ class _DiagnosticsScreenState extends State<DiagnosticsScreen> {
                           () => widget.feederService.testServoGate(90),
                         ),
                 icon: const Icon(Icons.lock_open_rounded, size: 16),
-                label: const Text('Full Open (90°)'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: c.surface.withValues(alpha: 0.8),
-                  foregroundColor: c.textPrimary,
-                  side: BorderSide(color: c.border),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                ),
+                child: const Text('Full Open (90°)'),
               ),
-              ElevatedButton.icon(
+              LiquidGlassButton(
+                height: 38,
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                 onPressed: _isActionRunning
                     ? null
                     : () => _executeAction(
@@ -777,12 +762,7 @@ class _DiagnosticsScreenState extends State<DiagnosticsScreen> {
                           () => widget.feederService.triggerManualFeed(durationSeconds: 2),
                         ),
                 icon: const Icon(Icons.play_arrow_rounded, size: 16),
-                label: const Text('Pulse Test (2s)'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: c.brand,
-                  foregroundColor: c.onBrand,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                ),
+                child: const Text('Pulse Test (2s)'),
               ),
             ],
           ),

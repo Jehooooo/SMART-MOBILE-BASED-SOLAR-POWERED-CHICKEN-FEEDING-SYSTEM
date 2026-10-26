@@ -81,20 +81,12 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.end,
                   children: [
-                    LiquidGlassContainer(
-                      borderRadius: BorderRadius.circular(20),
-                      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                      child: TextButton(
-                        onPressed: widget.onFinished,
-                        child: Text(
-                          'Skip',
-                          style: TextStyle(
-                            color: c.textPrimary,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 14,
-                          ),
-                        ),
-                      ),
+                    LiquidGlassButton(
+                      isSecondary: true,
+                      height: 36,
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                      onPressed: widget.onFinished,
+                      child: const Text('Skip'),
                     ),
                   ],
                 ),
@@ -217,22 +209,13 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                 padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 16.0),
                 child: ConstrainedBox(
                   constraints: const BoxConstraints(maxWidth: 580),
-                  child: SizedBox(
+                  child: LiquidGlassButton(
                     width: double.infinity,
-                    height: 54,
-                    child: ElevatedButton(
-                      onPressed: _nextPage,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: c.brand,
-                        foregroundColor: c.onBrand,
-                        elevation: 4,
-                        shadowColor: c.brand.withValues(alpha: 0.4),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
-                      ),
-                      child: Text(
-                        isLastPage ? 'GET STARTED' : 'CONTINUE',
-                        style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15, letterSpacing: 0.5),
-                      ),
+                    height: 52,
+                    onPressed: _nextPage,
+                    child: Text(
+                      isLastPage ? 'GET STARTED' : 'CONTINUE',
+                      style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15, letterSpacing: 0.5),
                     ),
                   ),
                 ),

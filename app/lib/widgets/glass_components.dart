@@ -1011,3 +1011,597 @@ class LiquidGlassDialog extends StatelessWidget {
     );
   }
 }
+
+/// Liquid Glass interactive button with tactile spring feedback,
+/// specular meniscus reflections, and glowing caustic drop shadows.
+class LiquidGlassButton extends StatefulWidget {
+  final VoidCallback? onPressed;
+  final Widget child;
+  final Widget? icon;
+  final Color? backgroundColor;
+  final Color? foregroundColor;
+  final Color? glowColor;
+  final bool isSecondary;
+  final bool isDanger;
+  final double height;
+  final double? width;
+  final BorderRadius? borderRadius;
+  final EdgeInsetsGeometry padding;
+
+  const LiquidGlassButton({
+    super.key,
+    required this.onPressed,
+    required this.child,
+    this.icon,
+    this.backgroundColor,
+    this.foregroundColor,
+    this.glowColor,
+    this.isSecondary = false,
+    this.isDanger = false,
+    this.height = 48,
+    this.width,
+    this.borderRadius,
+    this.padding = const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+  });
+
+  @override
+  State<LiquidGlassButton> createState() => _LiquidGlassButtonState();
+}
+
+class _LiquidGlassButtonState extends State<LiquidGlassButton> {
+  bool _isPressed = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final c = context.colors;
+    final isEnabled = widget.onPressed != null;
+
+    final baseColor = widget.backgroundColor ??
+        (widget.isDanger
+            ? c.danger
+            : (widget.isSecondary
+                ? (isDark
+                    ? Colors.white.withValues(alpha: 0.12)
+                    : Colors.white.withValues(alpha: 0.75))
+                : c.brand));
+
+    final fgColor = widget.foregroundColor ??
+        (widget.isDanger
+            ? Colors.white
+            : (widget.isSecondary ? c.textPrimary : c.onBrand));
+
+    final glow = widget.glowColor ??
+        (widget.isSecondary
+            ? Colors.transparent
+            : (widget.isDanger ? c.danger : baseColor));
+
+    final r = widget.borderRadius ?? BorderRadius.circular(widget.height / 2);
+
+    return AnimatedScale(
+      scale: _isPressed ? 0.95 : 1.0,
+      duration: const Duration(milliseconds: 140),
+      curve: Curves.easeOutBack,
+      child: Container(
+        height: widget.height,
+        width: widget.width,
+        decoration: BoxDecoration(
+          borderRadius: r,
+          boxShadow: isEnabled && glow != Colors.transparent
+              ? [
+                  BoxShadow(
+                    color: glow.withValues(alpha: isDark ? 0.40 : 0.28),
+                    blurRadius: 18,
+                    offset: const Offset(0, 5),
+                    spreadRadius: _isPressed ? 1.5 : 0.5,
+                  ),
+                ]
+              : null,
+        ),
+        child: CustomPaint(
+          foregroundPainter: _LiquidBorderPainter(
+            strokeWidth: 1.2,
+            borderRadius: r,
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                Colors.white.withValues(alpha: isDark ? 0.42 : 0.88),
+                Colors.white.withValues(alpha: isDark ? 0.08 : 0.22),
+              ],
+            ),
+          ),
+          child: ClipRRect(
+            borderRadius: r,
+            child: BackdropFilter(
+              filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
+              child: Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  borderRadius: r,
+                  onTap: widget.onPressed,
+                  onTapDown: isEnabled ? (_) => setState(() => _isPressed = true) : null,
+                  onTapUp: isEnabled ? (_) => setState(() => _isPressed = false) : null,
+                  onTapCancel: isEnabled ? () => setState(() => _isPressed = false) : null,
+                  splashColor: Colors.white.withValues(alpha: 0.16),
+                  highlightColor: Colors.white.withValues(alpha: 0.08),
+                  child: Container(
+                    padding: widget.padding,
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: isEnabled
+                            ? [
+                                baseColor.withValues(alpha: widget.isSecondary ? 0.82 : 0.95),
+                                baseColor,
+                                baseColor.withValues(alpha: widget.isSecondary ? 0.62 : 0.85),
+                              ]
+                            : [
+                                (isDark ? Colors.grey[800]! : Colors.grey[300]!)
+                                    .withValues(alpha: 0.5),
+                                (isDark ? const Color(0xFF2E2E2E) : const Color(0xFFDCDCDC))
+                                    .withValues(alpha: 0.45),
+                                (isDark ? Colors.grey[850]! : Colors.grey[350]!)
+                                    .withValues(alpha: 0.4),
+                              ],
+                      ),
+                    ),
+                    child: Stack(
+                      alignment: Alignment.center,
+                      children: [
+                        // Top specular meniscus shine
+                        Positioned(
+                          top: 0,
+                          left: 0,
+                          right: 0,
+                          height: widget.height * 0.42,
+                          child: Container(
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                begin: Alignment.topCenter,
+                                end: Alignment.bottomCenter,
+                                colors: [
+                                  Colors.white.withValues(alpha: isDark ? 0.28 : 0.52),
+                                  Colors.white.withValues(alpha: 0.0),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+
+                        // Child content
+                        Row(
+                          mainAxisSize: widget.width != null
+                              ? MainAxisSize.max
+                              : MainAxisSize.min,
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          crossAxisAlignment: CrossAxisAlignment.center,
+                          children: [
+                            if (widget.icon != null) ...[
+                              IconTheme(
+                                data: IconThemeData(
+                                  color: isEnabled
+                                      ? fgColor
+                                      : (isDark ? Colors.white38 : Colors.black38),
+                                  size: 18,
+                                ),
+                                child: widget.icon!,
+                              ),
+                              const SizedBox(width: 8),
+                            ],
+                            Flexible(
+                              child: DefaultTextStyle(
+                                overflow: TextOverflow.ellipsis,
+                                maxLines: 1,
+                                style: TextStyle(
+                                  color: isEnabled
+                                      ? fgColor
+                                      : (isDark ? Colors.white38 : Colors.black38),
+                                  fontWeight: FontWeight.w800,
+                                  fontSize: 14,
+                                  letterSpacing: 0.3,
+                                ),
+                                child: widget.child,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Circular or squircle liquid glass icon button with frosted backdrop,
+/// specular rim, and glowing pressed state.
+class LiquidGlassIconButton extends StatefulWidget {
+  final VoidCallback? onPressed;
+  final Widget icon;
+  final double size;
+  final Color? backgroundColor;
+  final Color? iconColor;
+  final String? tooltip;
+  final BorderRadius? borderRadius;
+
+  const LiquidGlassIconButton({
+    super.key,
+    required this.onPressed,
+    required this.icon,
+    this.size = 42,
+    this.backgroundColor,
+    this.iconColor,
+    this.tooltip,
+    this.borderRadius,
+  });
+
+  @override
+  State<LiquidGlassIconButton> createState() => _LiquidGlassIconButtonState();
+}
+
+class _LiquidGlassIconButtonState extends State<LiquidGlassIconButton> {
+  bool _isPressed = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final c = context.colors;
+    final isEnabled = widget.onPressed != null;
+    final r = widget.borderRadius ?? BorderRadius.circular(widget.size / 2);
+
+    final baseColor = widget.backgroundColor ??
+        (isDark
+            ? Colors.white.withValues(alpha: 0.12)
+            : Colors.white.withValues(alpha: 0.80));
+
+    Widget button = AnimatedScale(
+      scale: _isPressed ? 0.92 : 1.0,
+      duration: const Duration(milliseconds: 140),
+      curve: Curves.easeOutBack,
+      child: Container(
+        width: widget.size,
+        height: widget.size,
+        decoration: BoxDecoration(
+          borderRadius: r,
+          boxShadow: [
+            BoxShadow(
+              color: isDark
+                  ? Colors.black.withValues(alpha: 0.40)
+                  : const Color(0x18000000),
+              blurRadius: 12,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: CustomPaint(
+          foregroundPainter: _LiquidBorderPainter(
+            strokeWidth: 1.1,
+            borderRadius: r,
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                Colors.white.withValues(alpha: isDark ? 0.38 : 0.90),
+                Colors.white.withValues(alpha: isDark ? 0.08 : 0.22),
+              ],
+            ),
+          ),
+          child: ClipRRect(
+            borderRadius: r,
+            child: BackdropFilter(
+              filter: ImageFilter.blur(sigmaX: 14, sigmaY: 14),
+              child: Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  borderRadius: r,
+                  onTap: widget.onPressed,
+                  onTapDown: isEnabled ? (_) => setState(() => _isPressed = true) : null,
+                  onTapUp: isEnabled ? (_) => setState(() => _isPressed = false) : null,
+                  onTapCancel: isEnabled ? () => setState(() => _isPressed = false) : null,
+                  child: Container(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: [
+                          baseColor.withValues(alpha: isDark ? 0.28 : 0.85),
+                          baseColor.withValues(alpha: isDark ? 0.14 : 0.65),
+                        ],
+                      ),
+                    ),
+                    alignment: Alignment.center,
+                    child: IconTheme(
+                      data: IconThemeData(
+                        color: widget.iconColor ??
+                            (isEnabled ? c.textPrimary : c.textMuted),
+                        size: widget.size * 0.52,
+                      ),
+                      child: widget.icon,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    if (widget.tooltip != null) {
+      button = Tooltip(message: widget.tooltip!, child: button);
+    }
+
+    return button;
+  }
+}
+
+/// Liquid pill choice chip with fluid selected state, glowing aura,
+/// specular meniscus reflection, and smooth spring feedback.
+class LiquidGlassChip extends StatelessWidget {
+  final String label;
+  final Widget? icon;
+  final bool isSelected;
+  final ValueChanged<bool>? onSelected;
+  final Color? activeColor;
+  final EdgeInsetsGeometry padding;
+
+  const LiquidGlassChip({
+    super.key,
+    required this.label,
+    this.icon,
+    this.isSelected = false,
+    this.onSelected,
+    this.activeColor,
+    this.padding = const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final c = context.colors;
+    final color = activeColor ?? c.brand;
+    final r = BorderRadius.circular(20);
+
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 220),
+      curve: Curves.easeOutCubic,
+      decoration: BoxDecoration(
+        borderRadius: r,
+        boxShadow: isSelected
+            ? [
+                BoxShadow(
+                  color: color.withValues(alpha: isDark ? 0.40 : 0.24),
+                  blurRadius: 12,
+                  offset: const Offset(0, 3),
+                  spreadRadius: 0.5,
+                ),
+              ]
+            : null,
+      ),
+      child: CustomPaint(
+        foregroundPainter: _LiquidBorderPainter(
+          strokeWidth: isSelected ? 1.3 : 1.0,
+          borderRadius: r,
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: isSelected
+                ? [
+                    Colors.white.withValues(alpha: isDark ? 0.55 : 0.90),
+                    color.withValues(alpha: isDark ? 0.40 : 0.30),
+                  ]
+                : [
+                    Colors.white.withValues(alpha: isDark ? 0.25 : 0.70),
+                    Colors.white.withValues(alpha: isDark ? 0.05 : 0.15),
+                  ],
+          ),
+        ),
+        child: ClipRRect(
+          borderRadius: r,
+          child: BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+            child: Material(
+              color: Colors.transparent,
+              child: InkWell(
+                borderRadius: r,
+                onTap: onSelected != null ? () => onSelected!(!isSelected) : null,
+                splashColor: color.withValues(alpha: 0.2),
+                child: Container(
+                  padding: padding,
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: isSelected
+                          ? [
+                              color.withValues(alpha: isDark ? 0.35 : 0.24),
+                              color.withValues(alpha: isDark ? 0.18 : 0.10),
+                            ]
+                          : [
+                              (isDark
+                                  ? Colors.white.withValues(alpha: 0.08)
+                                  : Colors.white.withValues(alpha: 0.65)),
+                              (isDark
+                                  ? Colors.white.withValues(alpha: 0.03)
+                                  : Colors.white.withValues(alpha: 0.45)),
+                            ],
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (icon != null) ...[
+                        icon!,
+                        const SizedBox(width: 5),
+                      ],
+                      Text(
+                        label,
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
+                          color: isSelected
+                              ? (isDark ? Colors.white : color)
+                              : c.textSecondary,
+                          letterSpacing: 0.1,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Liquid Glass Floating Action Button with fluid specular sheen,
+/// caustic drop shadow, and tactile bounce.
+class LiquidGlassFAB extends StatefulWidget {
+  final VoidCallback? onPressed;
+  final Widget child;
+  final String? tooltip;
+  final Color? backgroundColor;
+  final Color? foregroundColor;
+  final double size;
+
+  const LiquidGlassFAB({
+    super.key,
+    required this.onPressed,
+    required this.child,
+    this.tooltip,
+    this.backgroundColor,
+    this.foregroundColor,
+    this.size = 56,
+  });
+
+  @override
+  State<LiquidGlassFAB> createState() => _LiquidGlassFABState();
+}
+
+class _LiquidGlassFABState extends State<LiquidGlassFAB> {
+  bool _isPressed = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final c = context.colors;
+    final isEnabled = widget.onPressed != null;
+    final baseColor = widget.backgroundColor ?? c.brand;
+    final fgColor = widget.foregroundColor ?? c.onBrand;
+    final r = BorderRadius.circular(widget.size / 2);
+
+    Widget fab = AnimatedScale(
+      scale: _isPressed ? 0.92 : 1.0,
+      duration: const Duration(milliseconds: 140),
+      curve: Curves.easeOutBack,
+      child: Container(
+        width: widget.size,
+        height: widget.size,
+        decoration: BoxDecoration(
+          borderRadius: r,
+          boxShadow: [
+            BoxShadow(
+              color: baseColor.withValues(alpha: isDark ? 0.45 : 0.32),
+              blurRadius: 20,
+              offset: const Offset(0, 6),
+              spreadRadius: 1,
+            ),
+          ],
+        ),
+        child: CustomPaint(
+          foregroundPainter: _LiquidBorderPainter(
+            strokeWidth: 1.3,
+            borderRadius: r,
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                Colors.white.withValues(alpha: isDark ? 0.55 : 0.95),
+                Colors.white.withValues(alpha: isDark ? 0.10 : 0.30),
+              ],
+            ),
+          ),
+          child: ClipRRect(
+            borderRadius: r,
+            child: BackdropFilter(
+              filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
+              child: Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  borderRadius: r,
+                  onTap: widget.onPressed,
+                  onTapDown: isEnabled ? (_) => setState(() => _isPressed = true) : null,
+                  onTapUp: isEnabled ? (_) => setState(() => _isPressed = false) : null,
+                  onTapCancel: isEnabled ? () => setState(() => _isPressed = false) : null,
+                  child: Container(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        stops: const [0.0, 0.5, 1.0],
+                        colors: [
+                          baseColor.withValues(alpha: 0.95),
+                          baseColor,
+                          baseColor.withValues(alpha: 0.85),
+                        ],
+                      ),
+                    ),
+                    alignment: Alignment.center,
+                    child: Stack(
+                      alignment: Alignment.center,
+                      children: [
+                        Positioned(
+                          top: 0,
+                          left: 0,
+                          right: 0,
+                          height: widget.size * 0.45,
+                          child: Container(
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                begin: Alignment.topCenter,
+                                end: Alignment.bottomCenter,
+                                colors: [
+                                  Colors.white.withValues(alpha: isDark ? 0.35 : 0.55),
+                                  Colors.white.withValues(alpha: 0.0),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                        IconTheme(
+                          data: IconThemeData(
+                            color: fgColor,
+                            size: 24,
+                          ),
+                          child: widget.child,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    if (widget.tooltip != null) {
+      fab = Tooltip(message: widget.tooltip!, child: fab);
+    }
+
+    return fab;
+  }
+}
+
+

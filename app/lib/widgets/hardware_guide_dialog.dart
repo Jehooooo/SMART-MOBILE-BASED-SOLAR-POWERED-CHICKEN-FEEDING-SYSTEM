@@ -79,8 +79,9 @@ class _HardwareGuideModalState extends State<_HardwareGuideModal> {
                         ],
                       ),
                     ),
-                    IconButton(
-                      icon: Icon(Icons.close_rounded, color: c.textMuted),
+                    LiquidGlassIconButton(
+                      size: 34,
+                      icon: Icon(Icons.close_rounded, color: c.textMuted, size: 18),
                       onPressed: () => Navigator.pop(context),
                     ),
                   ],
@@ -96,38 +97,20 @@ class _HardwareGuideModalState extends State<_HardwareGuideModal> {
                     children: List.generate(_tabs.length, (idx) {
                       final isSelected = _selectedTab == idx;
                       final tab = _tabs[idx];
+                      final isDark = Theme.of(context).brightness == Brightness.dark;
                       return Padding(
                         padding: const EdgeInsets.only(right: 6.0),
-                        child: ChoiceChip(
-                          label: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(
-                                tab.icon,
-                                size: 16,
-                                color: isSelected ? c.onBrand : c.textSecondary,
-                              ),
-                              const SizedBox(width: 6),
-                              Text(tab.label),
-                            ],
+                        child: LiquidGlassChip(
+                          label: tab.label,
+                          icon: Icon(
+                            tab.icon,
+                            size: 16,
+                            color: isSelected ? (isDark ? Colors.white : c.brand) : c.textSecondary,
                           ),
-                          selected: isSelected,
+                          isSelected: isSelected,
                           onSelected: (val) {
                             if (val) setState(() => _selectedTab = idx);
                           },
-                          shape: StadiumBorder(
-                            side: BorderSide(
-                              color: isSelected ? c.brand : c.border.withValues(alpha: 0.6),
-                            ),
-                          ),
-                          selectedColor: c.brand,
-                          backgroundColor: c.surfaceMuted.withValues(alpha: 0.5),
-                          labelStyle: TextStyle(
-                            fontSize: 12,
-                            fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
-                            color: isSelected ? c.onBrand : c.textSecondary,
-                          ),
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                         ),
                       );
                     }),

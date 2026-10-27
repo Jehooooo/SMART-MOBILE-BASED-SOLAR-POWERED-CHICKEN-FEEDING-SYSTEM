@@ -119,12 +119,20 @@ class _SchedulesScreenState extends State<SchedulesScreen> {
               ),
             ],
           ),
-          floatingActionButton: LiquidGlassButton(
-            height: 50,
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-            onPressed: () => _showScheduleDialog(context),
-            icon: const Icon(Icons.add_alarm, size: 20),
-            child: const Text('Add Schedule'),
+          floatingActionButton: Builder(
+            builder: (context) {
+              final isWide = MediaQuery.of(context).size.width >= 720;
+              return Padding(
+                padding: EdgeInsets.only(bottom: isWide ? 0.0 : 78.0),
+                child: LiquidGlassButton(
+                  height: 50,
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                  onPressed: () => _showScheduleDialog(context),
+                  icon: const Icon(Icons.add_alarm, size: 20),
+                  child: const Text('Add Schedule'),
+                ),
+              );
+            },
           ),
         );
       },

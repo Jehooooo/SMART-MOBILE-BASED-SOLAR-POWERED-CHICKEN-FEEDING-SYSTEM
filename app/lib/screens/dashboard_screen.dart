@@ -9,6 +9,7 @@ import '../widgets/skeleton.dart';
 import '../widgets/hardware_guide_dialog.dart';
 import '../widgets/app_logo.dart';
 import '../widgets/glass_components.dart';
+import 'diagnostics_screen.dart';
 
 export '../widgets/hardware_guide_dialog.dart' show showHardwareGuideDialog;
 
@@ -138,6 +139,19 @@ class _DashboardScreenState extends State<DashboardScreen> {
               ],
             ),
             actions: [
+              LiquidGlassIconButton(
+                size: 38,
+                icon: Icon(Icons.tune_rounded, color: c.brand),
+                tooltip: 'Hardware Diagnostics & Actuator Test',
+                onPressed: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => DiagnosticsScreen(feederService: widget.feederService),
+                    ),
+                  );
+                },
+              ),
+              const SizedBox(width: 8),
               LiquidGlassIconButton(
                 size: 38,
                 icon: Icon(Icons.info_outline, color: c.brand),
@@ -444,14 +458,17 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   child: CircularProgressIndicator(strokeWidth: 2.2, color: c.info),
                 ),
                 const SizedBox(width: 10),
-                Text(
-                  'Dispensing in Progress...',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: c.infoStrong),
+                Expanded(
+                  child: Text(
+                    'Dispensing in Progress...',
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: c.infoStrong),
+                  ),
                 ),
-                const Spacer(),
+                const SizedBox(width: 8),
                 Text(
                   '${telemetry.currentWeightGrams.toStringAsFixed(1)}g / ~${estimatedTargetGrams.toInt()}g (${_selectedDurationSeconds}s)',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: c.infoStrong),
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: c.infoStrong),
                 ),
               ],
             ),

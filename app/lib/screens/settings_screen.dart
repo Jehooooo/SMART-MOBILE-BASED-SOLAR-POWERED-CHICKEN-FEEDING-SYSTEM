@@ -8,6 +8,7 @@ import '../services/hardware/rest_hardware_adapter.dart';
 import '../theme/app_theme.dart';
 import '../widgets/glass_components.dart';
 import '../widgets/hardware_guide_dialog.dart';
+import 'diagnostics_screen.dart';
 
 class SettingsScreen extends StatefulWidget {
   final FeederService feederService;
@@ -434,6 +435,39 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
+                        ListTile(
+                          contentPadding: EdgeInsets.zero,
+                          leading: Container(
+                            padding: const EdgeInsets.all(10),
+                            decoration: BoxDecoration(
+                              color: c.brandSoft,
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(color: c.brand.withValues(alpha: 0.2)),
+                            ),
+                            child: Icon(Icons.tune_rounded, color: c.brand, size: 20),
+                          ),
+                          title: Text(
+                            'Hardware Diagnostics & Calibration Suite',
+                            style: TextStyle(fontWeight: FontWeight.w800, color: c.textPrimary),
+                          ),
+                          subtitle: Text(
+                            'Real-time scale tare & calibration, ultrasonic feed sensor tests, and servo motor gate angle checks.',
+                            style: TextStyle(fontSize: 12, color: c.textMuted),
+                          ),
+                          trailing: LiquidGlassButton(
+                            height: 36,
+                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                            onPressed: () {
+                              Navigator.of(context).push(
+                                MaterialPageRoute(
+                                  builder: (_) => DiagnosticsScreen(feederService: _feeder),
+                                ),
+                              );
+                            },
+                            child: const Text('Open Suite'),
+                          ),
+                        ),
+                        Divider(height: 22, color: c.border.withValues(alpha: 0.4)),
                         if (_feeder.isMock) ...[
                           SwitchListTile(
                             contentPadding: EdgeInsets.zero,

@@ -99,6 +99,7 @@ class _DiagnosticsScreenState extends State<DiagnosticsScreen> {
             elevation: 0,
             title: const Text(
               'Hardware Diagnostics & Calibration',
+              overflow: TextOverflow.ellipsis,
               style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
             ),
             actions: [
@@ -283,28 +284,34 @@ class _DiagnosticsScreenState extends State<DiagnosticsScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: c.brandSoft,
-                      borderRadius: BorderRadius.circular(10),
-                      border: Border.all(color: c.brand.withValues(alpha: 0.2)),
+              Expanded(
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: c.brandSoft,
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: c.brand.withValues(alpha: 0.2)),
+                      ),
+                      child: Icon(Icons.scale_rounded, color: c.brand, size: 20),
                     ),
-                    child: Icon(Icons.scale_rounded, color: c.brand, size: 20),
-                  ),
-                  const SizedBox(width: 10),
-                  Text(
-                    'Load Cell & Scale (HX711)',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w800,
-                      color: c.textPrimary,
+                    const SizedBox(width: 10),
+                    Flexible(
+                      child: Text(
+                        'Load Cell & Scale (HX711)',
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w800,
+                          color: c.textPrimary,
+                        ),
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
+              const SizedBox(width: 8),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                 decoration: BoxDecoration(
@@ -481,28 +488,34 @@ class _DiagnosticsScreenState extends State<DiagnosticsScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: c.brandSoft,
-                      borderRadius: BorderRadius.circular(10),
-                      border: Border.all(color: c.brand.withValues(alpha: 0.2)),
+              Expanded(
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: c.brandSoft,
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: c.brand.withValues(alpha: 0.2)),
+                      ),
+                      child: Icon(Icons.sensors_rounded, color: c.brand, size: 20),
                     ),
-                    child: Icon(Icons.sensors_rounded, color: c.brand, size: 20),
-                  ),
-                  const SizedBox(width: 10),
-                  Text(
-                    'Hopper Depth (HC-SR04)',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w800,
-                      color: c.textPrimary,
+                    const SizedBox(width: 10),
+                    Flexible(
+                      child: Text(
+                        'Hopper Depth (HC-SR04)',
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w800,
+                          color: c.textPrimary,
+                        ),
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
+              const SizedBox(width: 8),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                 decoration: BoxDecoration(
@@ -666,28 +679,34 @@ class _DiagnosticsScreenState extends State<DiagnosticsScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: c.brandSoft,
-                      borderRadius: BorderRadius.circular(10),
-                      border: Border.all(color: c.brand.withValues(alpha: 0.2)),
+              Expanded(
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: c.brandSoft,
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: c.brand.withValues(alpha: 0.2)),
+                      ),
+                      child: Icon(Icons.settings_input_component_rounded, color: c.brand, size: 20),
                     ),
-                    child: Icon(Icons.settings_input_component_rounded, color: c.brand, size: 20),
-                  ),
-                  const SizedBox(width: 10),
-                  Text(
-                    'Dispenser Gate Servo (MG996R)',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w800,
-                      color: c.textPrimary,
+                    const SizedBox(width: 10),
+                    Flexible(
+                      child: Text(
+                        'Dispenser Gate Servo (MG996R)',
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w800,
+                          color: c.textPrimary,
+                        ),
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
+              const SizedBox(width: 8),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                 decoration: BoxDecoration(
@@ -784,28 +803,34 @@ class _DiagnosticsScreenState extends State<DiagnosticsScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: c.brandSoft,
-                      borderRadius: BorderRadius.circular(10),
-                      border: Border.all(color: c.brand.withValues(alpha: 0.2)),
+              Expanded(
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: c.brandSoft,
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: c.brand.withValues(alpha: 0.2)),
+                      ),
+                      child: Icon(Icons.solar_power_outlined, color: c.solar, size: 20),
                     ),
-                    child: Icon(Icons.solar_power_outlined, color: c.solar, size: 20),
-                  ),
-                  const SizedBox(width: 10),
-                  Text(
-                    'Solar & 12V Battery (GPIO 34)',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w800,
-                      color: c.textPrimary,
+                    const SizedBox(width: 10),
+                    Flexible(
+                      child: Text(
+                        'Solar & 12V Battery (GPIO 34)',
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w800,
+                          color: c.textPrimary,
+                        ),
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
+              const SizedBox(width: 8),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                 decoration: BoxDecoration(

@@ -352,4 +352,4 @@ flutter test --no-pub
 
 - **Strict Secret Hygiene:** Never commit sensitive credentials. `secrets.h`, `.env`, and `firebase_options.dart` are excluded by `.gitignore`.
 - **Per-File Commits:** Maintain clean version history by creating isolated, descriptive commits per file.
-- **Automated Verification:** Ensure `flutter test --no-pub` and `pio run` pass cleanly before submitting changes.
+- **Automated Verification:** Ensure `flutter test --no-pub` and `pio run` pass cleanly before submitting changes, Stay tune.

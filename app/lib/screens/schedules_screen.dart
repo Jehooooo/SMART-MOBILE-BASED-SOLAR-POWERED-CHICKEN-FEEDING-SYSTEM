@@ -40,13 +40,23 @@ class _SchedulesScreenState extends State<SchedulesScreen> {
                 icon: const Icon(Icons.sync_rounded),
                 tooltip: 'Sync with Firebase',
                 onPressed: () async {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Syncing schedules with Firebase...'),
-                      duration: Duration(seconds: 1),
-                    ),
-                  );
-                  await widget.feederService.refreshSchedulesFromCloud();
+                  final ok = await widget.feederService.refreshSchedulesFromCloud();
+                  if (!context.mounted) return;
+                  final msg = ok
+                      ? (widget.feederService.isMock
+                          ? 'Schedules verified in local simulator cache.'
+                          : 'Schedules synchronized from Firebase.')
+                      : (widget.feederService.lastErrorMessage ??
+                          'Could not sync schedules from Firebase. Showing cached schedules.');
+                  ScaffoldMessenger.of(context)
+                    ..clearSnackBars()
+                    ..showSnackBar(
+                      SnackBar(
+                        backgroundColor: ok ? c.brand : c.danger,
+                        content: Text(msg),
+                        duration: const Duration(seconds: 2),
+                      ),
+                    );
                 },
               ),
               const SizedBox(width: 8),

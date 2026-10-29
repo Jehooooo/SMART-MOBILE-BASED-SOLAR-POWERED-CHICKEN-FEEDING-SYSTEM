@@ -30,6 +30,9 @@ class MockHardwareAdapter implements FeederHardwareAdapter {
   bool _isDispensing = false;
   bool _cancelRequested = false;
   bool _disposed = false;
+  int _lastServoAngle = 0;
+
+  int get lastServoAngle => _lastServoAngle;
 
   // Simulation fault flags for integration testing
   bool simulateMotorJam = false;
@@ -38,7 +41,7 @@ class MockHardwareAdapter implements FeederHardwareAdapter {
   set simulateOffline(bool value) {
     _simulateOffline = value;
     _currentConnection = value ? FeederConnection.offline : FeederConnection.online;
-    if (!_disposed) {
+    if (!_disposed && !_connectionController.isClosed) {
       _connectionController.add(_currentConnection);
     }
   }
@@ -83,11 +86,29 @@ class MockHardwareAdapter implements FeederHardwareAdapter {
   @override
   bool get isMock => true;
 
+  void _emitTelemetry(FeederTelemetry t) {
+    if (!_disposed && !_telemetryController.isClosed) {
+      _telemetryController.add(t);
+    }
+  }
+
+  void _emitConnection(FeederConnection c) {
+    if (!_disposed && !_connectionController.isClosed) {
+      _connectionController.add(c);
+    }
+  }
+
+  void _emitLog(FeedingLog l) {
+    if (!_disposed && !_logController.isClosed) {
+      _logController.add(l);
+    }
+  }
+
   @override
   Future<void> initialize() async {
     if (connectDelay > Duration.zero) {
       _currentConnection = FeederConnection.connecting;
-      _connectionController.add(_currentConnection);
+      _emitConnection(_currentConnection);
       await Future.delayed(connectDelay);
       if (_disposed) return;
     }
@@ -95,7 +116,7 @@ class MockHardwareAdapter implements FeederHardwareAdapter {
     if (simulateOffline) {
       _currentConnection = FeederConnection.offline;
       _currentTelemetry = FeederTelemetry.initial();
-      _telemetryController.add(_currentTelemetry);
+      _emitTelemetry(_currentTelemetry);
     } else {
       _currentConnection = FeederConnection.online;
       _currentTelemetry = FeederTelemetry(
@@ -109,9 +130,9 @@ class MockHardwareAdapter implements FeederHardwareAdapter {
         lastFedGrams: 150.0,
         isSolarCharging: true,
       );
-      _telemetryController.add(_currentTelemetry);
+      _emitTelemetry(_currentTelemetry);
     }
-    _connectionController.add(_currentConnection);
+    _emitConnection(_currentConnection);
   }
 
   @override
@@ -121,12 +142,12 @@ class MockHardwareAdapter implements FeederHardwareAdapter {
 
     if (simulateOffline) {
       _currentConnection = FeederConnection.offline;
-      _connectionController.add(_currentConnection);
+      _emitConnection(_currentConnection);
       return false;
     }
 
     _currentConnection = FeederConnection.online;
-    _connectionController.add(_currentConnection);
+    _emitConnection(_currentConnection);
 
     // Natural solar/battery fluctuation
     final voltVariation = (_rng.nextDouble() * 0.2) - 0.1;
@@ -138,20 +159,27 @@ class MockHardwareAdapter implements FeederHardwareAdapter {
       batteryVolts: double.parse(volts.toStringAsFixed(2)),
       batteryPercent: batPct,
       currentWeightGrams: _currentTelemetry.currentWeightGrams,
-      status: simulateSensorError ? FeederStatus.error : _currentTelemetry.status,
+      status: simulateSensorError
+          ? FeederStatus.error
+          : (_isDispensing ? FeederStatus.dispensing : FeederStatus.idle),
       lastHeartbeat: DateTime.now(),
       lastFedTimestamp: _currentTelemetry.lastFedTimestamp,
       lastFedGrams: _currentTelemetry.lastFedGrams,
       isSolarCharging: _currentTelemetry.isSolarCharging,
+      sensorError: simulateSensorError ? 'ultrasonic_timeout' : null,
     );
 
-    _telemetryController.add(_currentTelemetry);
+    _emitTelemetry(_currentTelemetry);
     return true;
   }
 
   @override
-  Future<bool> triggerManualDispense({int durationSeconds = 5, double targetGrams = 0.0}) async {
-    if (_isDispensing || _currentConnection != FeederConnection.online) {
+  Future<bool> triggerManualDispense({
+    int durationSeconds = 5,
+    double targetGrams = 0.0,
+    String triggerType = 'Manual',
+  }) async {
+    if (_isDispensing || _currentConnection != FeederConnection.online || simulateSensorError) {
       return false;
     }
 
@@ -171,19 +199,20 @@ class MockHardwareAdapter implements FeederHardwareAdapter {
       lastFedGrams: _currentTelemetry.lastFedGrams,
       isSolarCharging: _currentTelemetry.isSolarCharging,
     );
-    _telemetryController.add(_currentTelemetry);
+    _emitTelemetry(_currentTelemetry);
 
     // Incremental ramp across durationSeconds
     final steps = durationSeconds.clamp(1, 30);
     double currentWeight = 0.0;
 
     for (int i = 1; i <= steps; i++) {
-      if (_cancelRequested) break;
+      if (_cancelRequested || _disposed) break;
       await Future.delayed(dispenseTickInterval);
-      if (_cancelRequested) break;
+      if (_cancelRequested || _disposed) break;
 
       if (simulateMotorJam && i == 3) {
-        // Simulate mechanical auger jam / motor stall
+        // Simulate mechanical auger jam / motor stall -> close gate & log failure
+        _lastServoAngle = 0;
         _currentTelemetry = FeederTelemetry(
           feedLevelPercent: _currentTelemetry.feedLevelPercent,
           batteryVolts: _currentTelemetry.batteryVolts,
@@ -194,8 +223,20 @@ class MockHardwareAdapter implements FeederHardwareAdapter {
           lastFedTimestamp: _currentTelemetry.lastFedTimestamp,
           lastFedGrams: _currentTelemetry.lastFedGrams,
           isSolarCharging: _currentTelemetry.isSolarCharging,
+          sensorError: 'feed_flow_stall',
         );
-        _telemetryController.add(_currentTelemetry);
+        _emitTelemetry(_currentTelemetry);
+        _emitLog(FeedingLog(
+          id: 'log_${DateTime.now().millisecondsSinceEpoch}',
+          timestamp: DateTime.now(),
+          targetGrams: effectiveTargetGrams,
+          actualGrams: double.parse(currentWeight.toStringAsFixed(1)),
+          durationSeconds: i,
+          triggerType: '$triggerType (Motor Jam)',
+          isSuccess: false,
+          batteryVolts: _currentTelemetry.batteryVolts,
+          feedLevelPercent: _currentTelemetry.feedLevelPercent,
+        ));
         _isDispensing = false;
         return false;
       }
@@ -212,7 +253,12 @@ class MockHardwareAdapter implements FeederHardwareAdapter {
         lastFedGrams: _currentTelemetry.lastFedGrams,
         isSolarCharging: _currentTelemetry.isSolarCharging,
       );
-      _telemetryController.add(_currentTelemetry);
+      _emitTelemetry(_currentTelemetry);
+    }
+
+    if (_disposed) {
+      _isDispensing = false;
+      return false;
     }
 
     final wasCancelled = _cancelRequested;
@@ -229,16 +275,17 @@ class MockHardwareAdapter implements FeederHardwareAdapter {
       targetGrams: effectiveTargetGrams,
       actualGrams: double.parse(actualGrams.toStringAsFixed(1)),
       durationSeconds: wasCancelled ? 1 : durationSeconds,
-      triggerType: wasCancelled ? 'Manual (Aborted)' : 'Manual',
+      triggerType: wasCancelled ? '$triggerType (Aborted)' : triggerType,
       isSuccess: !wasCancelled,
       batteryVolts: _currentTelemetry.batteryVolts,
       feedLevelPercent: newFeedLevel,
     );
 
-    _logController.add(log);
+    _emitLog(log);
 
     _isDispensing = false;
     _cancelRequested = false;
+    _lastServoAngle = 0;
 
     _currentTelemetry = FeederTelemetry(
       feedLevelPercent: newFeedLevel,
@@ -251,7 +298,7 @@ class MockHardwareAdapter implements FeederHardwareAdapter {
       lastFedGrams: actualGrams,
       isSolarCharging: _currentTelemetry.isSolarCharging,
     );
-    _telemetryController.add(_currentTelemetry);
+    _emitTelemetry(_currentTelemetry);
 
     return !wasCancelled;
   }
@@ -261,6 +308,7 @@ class MockHardwareAdapter implements FeederHardwareAdapter {
     return triggerManualDispense(
       durationSeconds: schedule.durationSeconds,
       targetGrams: schedule.targetGrams,
+      triggerType: 'Schedule (${schedule.label})',
     );
   }
 
@@ -269,6 +317,7 @@ class MockHardwareAdapter implements FeederHardwareAdapter {
     if (_isDispensing) {
       _cancelRequested = true;
     }
+    _lastServoAngle = 0;
   }
 
   @override
@@ -292,6 +341,7 @@ class MockHardwareAdapter implements FeederHardwareAdapter {
         final ok = await triggerManualDispense(
           durationSeconds: command.durationSeconds,
           targetGrams: command.targetGrams,
+          triggerType: command.triggerType ?? 'Manual',
         );
         return command.copyWith(status: ok ? CommandStatus.completed : CommandStatus.failed);
       case FeederAction.emergencyStop:
@@ -299,6 +349,9 @@ class MockHardwareAdapter implements FeederHardwareAdapter {
         return command.copyWith(status: CommandStatus.completed);
       case FeederAction.tareScale:
         tareScale();
+        return command.copyWith(status: CommandStatus.completed);
+      case FeederAction.setServoAngle:
+        _lastServoAngle = (command.servoAngle ?? 0).clamp(0, 90);
         return command.copyWith(status: CommandStatus.completed);
       case FeederAction.calibrateScale:
       case FeederAction.syncClock:
@@ -312,8 +365,16 @@ class MockHardwareAdapter implements FeederHardwareAdapter {
     _currentTelemetry = _currentTelemetry.copyWith(
       feedLevelPercent: 100.0,
       status: FeederStatus.idle,
+      clearSensorError: true,
     );
-    _telemetryController.add(_currentTelemetry);
+    _emitTelemetry(_currentTelemetry);
+  }
+
+  /// Testing helper: injects custom telemetry values (e.g., low feed, low battery) for integration tests.
+  void emitTestTelemetry(FeederTelemetry telemetry) {
+    _currentTelemetry = telemetry;
+    _isDispensing = telemetry.status == FeederStatus.dispensing;
+    _emitTelemetry(_currentTelemetry);
   }
 
   /// Resets simulated load cell weight to zero.
@@ -321,7 +382,7 @@ class MockHardwareAdapter implements FeederHardwareAdapter {
     _currentTelemetry = _currentTelemetry.copyWith(
       currentWeightGrams: 0.0,
     );
-    _telemetryController.add(_currentTelemetry);
+    _emitTelemetry(_currentTelemetry);
   }
 
   @override

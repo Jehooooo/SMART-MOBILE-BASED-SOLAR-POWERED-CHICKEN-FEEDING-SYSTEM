@@ -37,6 +37,7 @@ class FeederTelemetry {
   final DateTime? lastFedTimestamp;
   final double lastFedGrams;
   final bool isSolarCharging;
+  final String? sensorError;
 
   const FeederTelemetry({
     required this.feedLevelPercent,
@@ -48,12 +49,13 @@ class FeederTelemetry {
     this.lastFedTimestamp,
     this.lastFedGrams = 0.0,
     this.isSolarCharging = true,
+    this.sensorError,
   });
 
   bool get isOnline {
     if (lastHeartbeat == null) return false;
     final diff = DateTime.now().difference(lastHeartbeat!);
-    return diff.inMinutes < 3;
+    return diff.inMinutes < 3 && diff.inMinutes >= -5;
   }
 
   factory FeederTelemetry.initial() {
@@ -73,24 +75,32 @@ class FeederTelemetry {
   factory FeederTelemetry.fromMap(Map<dynamic, dynamic> map) {
     FeederStatus parsedStatus = FeederStatus.idle;
     final statusStr = map['status']?.toString().toLowerCase() ?? '';
+    final rawSensorErr = map['sensorError']?.toString();
+    final hasSensorErr = rawSensorErr != null && rawSensorErr.trim().isNotEmpty;
+
     if (statusStr.contains('dispens')) {
       parsedStatus = FeederStatus.dispensing;
+    } else if (statusStr.contains('err') || hasSensorErr) {
+      parsedStatus = FeederStatus.error;
     } else if (statusStr.contains('feed')) {
       parsedStatus = FeederStatus.lowFeed;
     } else if (statusStr.contains('bat')) {
       parsedStatus = FeederStatus.lowBattery;
-    } else if (statusStr.contains('err')) {
-      parsedStatus = FeederStatus.error;
     }
 
     final hbMillis = (map['lastHeartbeat'] as num?)?.toInt() ?? 0;
     final lastFedMillis = (map['lastFedTimestamp'] as num?)?.toInt();
 
+    final rawFeed = (map['feedLevelPercent'] as num?)?.toDouble() ?? 0.0;
+    final rawVolts = (map['batteryVolts'] as num?)?.toDouble() ?? 12.0;
+    final rawBatPct = (map['batteryPercent'] as num?)?.toInt() ?? 50;
+    final rawWeight = (map['currentWeightGrams'] as num?)?.toDouble() ?? 0.0;
+
     return FeederTelemetry(
-      feedLevelPercent: (map['feedLevelPercent'] as num?)?.toDouble() ?? 0.0,
-      batteryVolts: (map['batteryVolts'] as num?)?.toDouble() ?? 12.0,
-      batteryPercent: (map['batteryPercent'] as num?)?.toInt() ?? 50,
-      currentWeightGrams: (map['currentWeightGrams'] as num?)?.toDouble() ?? 0.0,
+      feedLevelPercent: rawFeed.isFinite ? rawFeed.clamp(0.0, 100.0) : 0.0,
+      batteryVolts: rawVolts.isFinite ? rawVolts.clamp(0.0, 24.0) : 0.0,
+      batteryPercent: rawBatPct.clamp(0, 100),
+      currentWeightGrams: rawWeight.isFinite ? rawWeight.clamp(-500.0, 10000.0) : 0.0,
       status: parsedStatus,
       lastHeartbeat: hbMillis > 0
           ? DateTime.fromMillisecondsSinceEpoch(hbMillis)
@@ -100,6 +110,7 @@ class FeederTelemetry {
           : null,
       lastFedGrams: (map['lastFedGrams'] as num?)?.toDouble() ?? 0.0,
       isSolarCharging: map['isSolarCharging'] as bool? ?? true,
+      sensorError: hasSensorErr ? rawSensorErr : null,
     );
   }
 
@@ -114,6 +125,8 @@ class FeederTelemetry {
     DateTime? lastFedTimestamp,
     double? lastFedGrams,
     bool? isSolarCharging,
+    String? sensorError,
+    bool clearSensorError = false,
   }) {
     return FeederTelemetry(
       feedLevelPercent: feedLevelPercent ?? this.feedLevelPercent,
@@ -125,6 +138,7 @@ class FeederTelemetry {
       lastFedTimestamp: lastFedTimestamp ?? this.lastFedTimestamp,
       lastFedGrams: lastFedGrams ?? this.lastFedGrams,
       isSolarCharging: isSolarCharging ?? this.isSolarCharging,
+      sensorError: clearSensorError ? null : (sensorError ?? this.sensorError),
     );
   }
 
@@ -139,6 +153,7 @@ class FeederTelemetry {
       'lastFedTimestamp': lastFedTimestamp?.millisecondsSinceEpoch,
       'lastFedGrams': lastFedGrams,
       'isSolarCharging': isSolarCharging,
+      if (sensorError != null) 'sensorError': sensorError,
     };
   }
 }

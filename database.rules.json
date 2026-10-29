@@ -1,0 +1,66 @@
+{
+  "rules": {
+    "telemetry": {
+      ".read": "auth != null",
+      ".write": "auth != null",
+      ".validate": "newData.hasChildren(['feedLevelPercent', 'batteryVolts', 'batteryPercent', 'currentWeightGrams', 'status']) && newData.child('feedLevelPercent').isNumber() && newData.child('feedLevelPercent').val() >= 0 && newData.child('feedLevelPercent').val() <= 100 && newData.child('batteryVolts').isNumber() && newData.child('batteryVolts').val() >= 0 && newData.child('batteryVolts').val() <= 20 && newData.child('batteryPercent').isNumber() && newData.child('batteryPercent').val() >= 0 && newData.child('batteryPercent').val() <= 100 && newData.child('currentWeightGrams').isNumber() && newData.child('currentWeightGrams').val() >= -100 && newData.child('currentWeightGrams').val() <= 5000 && newData.child('status').isString()"
+    },
+    "commands": {
+      ".read": "auth != null",
+      ".write": "auth != null",
+      "dispense": {
+        ".validate": "newData.hasChildren(['action', 'timestamp']) && newData.child('action').isString() && (newData.child('action').val() === 'DISPENSE' || newData.child('action').val() === 'STOP' || newData.child('action').val() === 'EMERGENCY_STOP' || newData.child('action').val() === 'TARE_SCALE' || newData.child('action').val() === 'CALIBRATE_SCALE' || newData.child('action').val() === 'SYNC_CLOCK' || newData.child('action').val() === 'SERVO_TEST' || newData.child('action').val() === 'RESTART') && newData.child('timestamp').isNumber() && (!newData.hasChild('durationSeconds') || (newData.child('durationSeconds').isNumber() && newData.child('durationSeconds').val() >= 0 && newData.child('durationSeconds').val() <= 60)) && (!newData.hasChild('targetGrams') || (newData.child('targetGrams').isNumber() && newData.child('targetGrams').val() >= 0 && newData.child('targetGrams').val() <= 2000))"
+      },
+      "stop": {
+        ".validate": "newData.hasChildren(['action', 'timestamp']) && (newData.child('action').val() === 'STOP' || newData.child('action').val() === 'EMERGENCY_STOP') && newData.child('timestamp').isNumber()"
+      },
+      "latest": {
+        ".validate": "newData.hasChildren(['id', 'action', 'status']) && newData.child('id').isString() && newData.child('action').isString() && newData.child('status').isString()"
+      },
+      "$command_id": {
+        ".validate": "newData.hasChildren(['action', 'timestamp']) && newData.child('action').isString() && newData.child('timestamp').isNumber()"
+      }
+    },
+    "schedules": {
+      ".read": "auth != null",
+      ".write": "auth != null",
+      "$schedule_id": {
+        ".validate": "newData.hasChildren(['label', 'hour', 'minute', 'targetGrams', 'isEnabled']) && newData.child('label').isString() && newData.child('label').val().length > 0 && newData.child('label').val().length <= 80 && newData.child('hour').isNumber() && newData.child('hour').val() >= 0 && newData.child('hour').val() <= 23 && newData.child('minute').isNumber() && newData.child('minute').val() >= 0 && newData.child('minute').val() <= 59 && newData.child('targetGrams').isNumber() && newData.child('targetGrams').val() >= 1 && newData.child('targetGrams').val() <= 2000 && newData.child('isEnabled').isBoolean() && (!newData.hasChild('durationSeconds') || (newData.child('durationSeconds').isNumber() && newData.child('durationSeconds').val() >= 1 && newData.child('durationSeconds').val() <= 60))"
+      }
+    },
+    "logs": {
+      ".read": "auth != null",
+      ".write": "auth != null",
+      ".indexOn": ["timestamp", "triggerType", "isSuccess"],
+      "$log_id": {
+        ".validate": "newData.hasChildren(['timestamp', 'targetGrams', 'actualGrams', 'triggerType', 'isSuccess']) && newData.child('timestamp').isNumber() && newData.child('timestamp').val() > 0 && newData.child('targetGrams').isNumber() && newData.child('targetGrams').val() >= 0 && newData.child('actualGrams').isNumber() && newData.child('actualGrams').val() >= 0 && newData.child('triggerType').isString() && newData.child('isSuccess').isBoolean()"
+      }
+    },
+    "feeders": {
+      "$feeder_id": {
+        ".read": "auth != null",
+        ".write": "auth != null",
+        "telemetry": {
+          ".validate": "newData.hasChildren(['feedLevelPercent', 'batteryVolts', 'status']) && newData.child('feedLevelPercent').isNumber() && newData.child('batteryVolts').isNumber() && newData.child('status').isString()"
+        },
+        "commands": {
+          "dispense": {
+            ".validate": "newData.hasChildren(['action', 'timestamp']) && newData.child('action').isString() && newData.child('timestamp').isNumber()"
+          }
+        },
+        "schedules": {
+          "$schedule_id": {
+            ".validate": "newData.hasChildren(['label', 'hour', 'minute', 'targetGrams', 'isEnabled'])"
+          }
+        },
+        "logs": {
+          ".indexOn": ["timestamp", "triggerType", "isSuccess"]
+        }
+      }
+    },
+    "$other": {
+      ".validate": false
+    }
+  }
+}
+

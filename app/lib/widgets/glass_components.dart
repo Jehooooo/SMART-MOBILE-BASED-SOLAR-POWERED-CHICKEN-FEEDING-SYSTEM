@@ -1147,65 +1147,39 @@ class _LiquidGlassButtonState extends State<LiquidGlassButton> {
                               ],
                       ),
                     ),
-                    child: Stack(
-                      alignment: Alignment.center,
+                    child: Row(
+                      mainAxisSize: widget.width != null
+                          ? MainAxisSize.max
+                          : MainAxisSize.min,
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      crossAxisAlignment: CrossAxisAlignment.center,
                       children: [
-                        // Top specular meniscus shine
-                        Positioned(
-                          top: 0,
-                          left: 0,
-                          right: 0,
-                          height: widget.height * 0.42,
-                          child: Container(
-                            decoration: BoxDecoration(
-                              gradient: LinearGradient(
-                                begin: Alignment.topCenter,
-                                end: Alignment.bottomCenter,
-                                colors: [
-                                  Colors.white.withValues(alpha: isDark ? 0.28 : 0.52),
-                                  Colors.white.withValues(alpha: 0.0),
-                                ],
-                              ),
+                        if (widget.icon != null) ...[
+                          IconTheme(
+                            data: IconThemeData(
+                              color: isEnabled
+                                  ? fgColor
+                                  : (isDark ? Colors.white38 : Colors.black38),
+                              size: 18,
                             ),
+                            child: widget.icon!,
                           ),
-                        ),
-
-                        // Child content
-                        Row(
-                          mainAxisSize: widget.width != null
-                              ? MainAxisSize.max
-                              : MainAxisSize.min,
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          crossAxisAlignment: CrossAxisAlignment.center,
-                          children: [
-                            if (widget.icon != null) ...[
-                              IconTheme(
-                                data: IconThemeData(
-                                  color: isEnabled
-                                      ? fgColor
-                                      : (isDark ? Colors.white38 : Colors.black38),
-                                  size: 18,
-                                ),
-                                child: widget.icon!,
-                              ),
-                              const SizedBox(width: 8),
-                            ],
-                            Flexible(
-                              child: DefaultTextStyle(
-                                overflow: TextOverflow.ellipsis,
-                                maxLines: 1,
-                                style: TextStyle(
-                                  color: isEnabled
-                                      ? fgColor
-                                      : (isDark ? Colors.white38 : Colors.black38),
-                                  fontWeight: FontWeight.w800,
-                                  fontSize: 14,
-                                  letterSpacing: 0.3,
-                                ),
-                                child: widget.child,
-                              ),
+                          const SizedBox(width: 8),
+                        ],
+                        Flexible(
+                          child: DefaultTextStyle(
+                            overflow: TextOverflow.ellipsis,
+                            maxLines: 1,
+                            style: TextStyle(
+                              color: isEnabled
+                                  ? fgColor
+                                  : (isDark ? Colors.white38 : Colors.black38),
+                              fontWeight: FontWeight.w800,
+                              fontSize: 14,
+                              letterSpacing: 0.3,
                             ),
-                          ],
+                            child: widget.child,
+                          ),
                         ),
                       ],
                     ),
@@ -1557,35 +1531,12 @@ class _LiquidGlassFABState extends State<LiquidGlassFAB> {
                       ),
                     ),
                     alignment: Alignment.center,
-                    child: Stack(
-                      alignment: Alignment.center,
-                      children: [
-                        Positioned(
-                          top: 0,
-                          left: 0,
-                          right: 0,
-                          height: widget.size * 0.45,
-                          child: Container(
-                            decoration: BoxDecoration(
-                              gradient: LinearGradient(
-                                begin: Alignment.topCenter,
-                                end: Alignment.bottomCenter,
-                                colors: [
-                                  Colors.white.withValues(alpha: isDark ? 0.35 : 0.55),
-                                  Colors.white.withValues(alpha: 0.0),
-                                ],
-                              ),
-                            ),
-                          ),
-                        ),
-                        IconTheme(
-                          data: IconThemeData(
-                            color: fgColor,
-                            size: 24,
-                          ),
-                          child: widget.child,
-                        ),
-                      ],
+                    child: IconTheme(
+                      data: IconThemeData(
+                        color: fgColor,
+                        size: 24,
+                      ),
+                      child: widget.child,
                     ),
                   ),
                 ),

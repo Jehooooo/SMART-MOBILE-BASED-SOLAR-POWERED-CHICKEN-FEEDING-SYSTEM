@@ -90,7 +90,7 @@ class _DiagnosticsScreenState extends State<DiagnosticsScreen> {
       builder: (context, _) {
         final c = context.colors;
         final telemetry = widget.feederService.telemetry;
-        final isOnline = widget.feederService.isConnected;
+        final isOnline = widget.feederService.isDeviceOnline;
 
         return Scaffold(
           backgroundColor: Colors.transparent,

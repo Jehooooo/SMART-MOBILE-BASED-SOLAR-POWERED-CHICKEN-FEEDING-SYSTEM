@@ -2,12 +2,13 @@ import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/telemetry.dart';
 import '../models/schedule.dart';
 import '../models/feeding_log.dart';
 import '../models/feeder_command.dart';
+import 'alert_notification_service.dart';
+import 'hardware/firebase_hardware_adapter.dart';
 import 'hardware/hardware_adapter.dart';
 import 'hardware/mock_hardware_adapter.dart';
 
@@ -19,7 +20,11 @@ class FeederService extends ChangeNotifier {
   static const _kLogsPrefKey = 'cached_feeder_logs';
   static const _kInitializedPrefKey = 'feeder_schedules_initialized';
 
+  static const String defaultDatabaseUrl =
+      'https://smart-chicken-feeder-33bec-default-rtdb.asia-southeast1.firebasedatabase.app';
+
   FeederHardwareAdapter _adapter;
+  final AlertNotificationService alertService;
 
   FeederTelemetry _telemetry = FeederTelemetry.initial();
   List<FeedingSchedule> _schedules = [];
@@ -27,6 +32,12 @@ class FeederService extends ChangeNotifier {
   Timer? _scheduleWatchTimer;
   final Set<String> _executedScheduleMinutes = {};
   bool _isDispensing = false;
+  bool _isCommandInFlight = false;
+  int _scheduleMutationEpoch = 0;
+
+  double _lowFeedThreshold;
+  double _lowBatteryThreshold;
+  String? _lastErrorMessage;
 
   FeederConnection _connection = FeederConnection.offline;
   bool _isInitialLoading = true;
@@ -41,11 +52,27 @@ class FeederService extends ChangeNotifier {
   List<FeedingSchedule> get schedules => List.unmodifiable(_schedules);
   List<FeedingLog> get history => List.unmodifiable(_history);
   bool get isDispensing => _isDispensing;
+  bool get isCommandInFlight => _isCommandInFlight;
 
   FeederConnection get connection => _connection;
   bool get isConnected => _connection == FeederConnection.online;
+
+  /// True only when both the transport link is active AND the feeder controller
+  /// has reported a live heartbeat within the last 3 minutes (or is in mock mode).
+  /// Prevents queuing stale commands in Firebase while the ESP32 is powered off.
+  bool get isDeviceOnline => isConnected && (_adapter.isMock || _telemetry.isOnline);
+
   bool get isInitialLoading => _isInitialLoading;
   DateTime? get lastSyncedAt => _lastSyncedAt;
+
+  /// Latest user-facing error from hardware transport or Firebase sync.
+  String? get lastErrorMessage {
+    if (_lastErrorMessage != null) return _lastErrorMessage;
+    if (_adapter is FirebaseHardwareAdapter) {
+      return (_adapter as FirebaseHardwareAdapter).lastErrorMessage;
+    }
+    return null;
+  }
 
   FeederHardwareAdapter get adapter => _adapter;
   String get hardwareSourceLabel => _adapter.hardwareSourceLabel;
@@ -81,19 +108,53 @@ class FeederService extends ChangeNotifier {
     FeederHardwareAdapter? adapter,
     Duration connectDelay = const Duration(milliseconds: 600),
     bool simulateOffline = true,
-  }) : _adapter = adapter ?? MockHardwareAdapter(connectDelay: connectDelay, simulateOffline: simulateOffline) {
+    AlertNotificationService? alertService,
+    double lowFeedThreshold = 20.0,
+    double lowBatteryThreshold = 20.0,
+    bool enableOsNotifications = true,
+  })  : _adapter = adapter ?? MockHardwareAdapter(connectDelay: connectDelay, simulateOffline: simulateOffline),
+        _lowFeedThreshold = lowFeedThreshold.clamp(5.0, 90.0),
+        _lowBatteryThreshold = lowBatteryThreshold.clamp(5.0, 90.0),
+        alertService = alertService ?? AlertNotificationService(enableOsNotifications: enableOsNotifications) {
     if (!simulateOffline) {
       _connection = FeederConnection.online;
       _isInitialLoading = false;
       _lastSyncedAt = DateTime.now();
     }
     _initSampleData();
-    loadLocalData();
-    _bindAdapter(_adapter);
+    this.alertService.seedHistoricalLogIds(_history.map((l) => l.id));
+    unawaited(this.alertService.initialize());
+    _bindAdapter(_adapter, syncCloudImmediately: false);
+    unawaited(_initialLoadSequence());
     _initScheduleWatcher();
   }
 
-  void _bindAdapter(FeederHardwareAdapter adapter) {
+  Future<void> _initialLoadSequence() async {
+    await _loadLocalDataInternal(preserveConcurrentMutations: true);
+    if (_disposed) return;
+    alertService.seedHistoricalLogIds(_history.map((l) => l.id));
+    if (_adapter is FirebaseHardwareAdapter) {
+      await syncWithFirebaseCloud();
+    }
+  }
+
+  /// Updates alert evaluation thresholds from user settings at runtime.
+  void updateAlertThresholds({
+    required double lowFeedThreshold,
+    required double lowBatteryThreshold,
+  }) {
+    _lowFeedThreshold = lowFeedThreshold;
+    _lowBatteryThreshold = lowBatteryThreshold;
+    if (_telemetry.isOnline) {
+      unawaited(alertService.evaluateTelemetry(
+        _telemetry,
+        lowFeedThreshold: _lowFeedThreshold,
+        lowBatteryThreshold: _lowBatteryThreshold,
+      ));
+    }
+  }
+
+  void _bindAdapter(FeederHardwareAdapter adapter, {bool syncCloudImmediately = true}) {
     _telemetrySub?.cancel();
     _connectionSub?.cancel();
     _logSub?.cancel();
@@ -105,12 +166,17 @@ class FeederService extends ChangeNotifier {
         _lastSyncedAt = DateTime.now();
       }
       _isInitialLoading = false;
+      unawaited(alertService.evaluateTelemetry(
+        t,
+        lowFeedThreshold: _lowFeedThreshold,
+        lowBatteryThreshold: _lowBatteryThreshold,
+      ));
       notifyListeners();
     });
 
     _connectionSub = adapter.connectionStream.listen((c) {
       _connection = c;
-      if (c == FeederConnection.online) {
+      if (c == FeederConnection.online && (adapter.isMock || _telemetry.isOnline)) {
         _lastSyncedAt = DateTime.now();
       }
       _isInitialLoading = false;
@@ -121,13 +187,19 @@ class FeederService extends ChangeNotifier {
       if (!_history.any((l) => l.id == log.id)) {
         _history.insert(0, log);
         _saveLocalLogs();
-        _syncLogToCloud(log);
+        unawaited(alertService.evaluateFeedingLog(log));
+        if (adapter is! FirebaseHardwareAdapter) {
+          // Logs emitted directly by FirebaseHardwareAdapter already exist in RTDB;
+          // only mirror when an external/local adapter emits a fresh record into cloud mode.
+        }
         notifyListeners();
       }
     });
 
     adapter.initialize();
-    syncWithFirebaseCloud();
+    if (syncCloudImmediately && adapter is FirebaseHardwareAdapter) {
+      unawaited(syncWithFirebaseCloud());
+    }
   }
 
   /// Seamlessly switches the hardware communication transport at runtime.
@@ -135,10 +207,13 @@ class FeederService extends ChangeNotifier {
     if (_disposed) return;
     _adapter.dispose();
     _adapter = newAdapter;
+    _isDispensing = false;
+    _isCommandInFlight = false;
+    _lastErrorMessage = null;
     _connection = FeederConnection.connecting;
     _isInitialLoading = true;
     notifyListeners();
-    _bindAdapter(_adapter);
+    _bindAdapter(_adapter, syncCloudImmediately: true);
   }
 
   /// Testing helper: toggles simulated offline in mock mode.
@@ -187,34 +262,56 @@ class FeederService extends ChangeNotifier {
 
   /// Sends a zero/tare calibration command to the scale.
   Future<bool> tareScale() async {
-    final cmd = FeederCommand.tareScale();
-    final res = await _adapter.sendCommand(cmd);
-    return res.status == CommandStatus.completed;
+    if (_isDispensing || _isCommandInFlight || !isDeviceOnline) {
+      _lastErrorMessage = 'Cannot tare scale while feeder is offline or busy.';
+      return false;
+    }
+    _isCommandInFlight = true;
+    try {
+      final cmd = FeederCommand.tareScale();
+      final res = await _adapter.sendCommand(cmd);
+      return res.status == CommandStatus.completed;
+    } finally {
+      _isCommandInFlight = false;
+    }
   }
 
   /// Sends a known weight calibration command to the scale.
   Future<bool> calibrateScale(double knownGrams) async {
-    final cmd = FeederCommand(
-      id: 'cmd_cal_${DateTime.now().millisecondsSinceEpoch}',
-      action: FeederAction.calibrateScale,
-      targetGrams: knownGrams,
-      timestamp: DateTime.now(),
-    );
-    final res = await _adapter.sendCommand(cmd);
-    return res.status == CommandStatus.completed;
+    if (_isDispensing || _isCommandInFlight || !isDeviceOnline || knownGrams <= 0) {
+      _lastErrorMessage = 'Cannot calibrate scale while feeder is offline or busy.';
+      return false;
+    }
+    _isCommandInFlight = true;
+    try {
+      final cmd = FeederCommand(
+        id: 'cmd_cal_${DateTime.now().millisecondsSinceEpoch}',
+        action: FeederAction.calibrateScale,
+        targetGrams: knownGrams,
+        timestamp: DateTime.now(),
+      );
+      final res = await _adapter.sendCommand(cmd);
+      return res.status == CommandStatus.completed;
+    } finally {
+      _isCommandInFlight = false;
+    }
   }
 
-  /// Tests the dispenser servo gate by commanding position [degrees] (0 closed, 90 open).
+  /// Tests the dispenser servo gate by commanding position [degrees] (0 closed, 90 open)
+  /// via dedicated `SERVO_TEST` action (distinct from feed dispensing).
   Future<bool> testServoGate(int degrees) async {
-    final cmd = FeederCommand(
-      id: 'cmd_servo_${DateTime.now().millisecondsSinceEpoch}',
-      action: FeederAction.dispense,
-      durationSeconds: 1,
-      targetGrams: degrees.toDouble(),
-      timestamp: DateTime.now(),
-    );
-    final res = await _adapter.sendCommand(cmd);
-    return res.status == CommandStatus.completed;
+    if (_isDispensing || _isCommandInFlight || !isDeviceOnline) {
+      _lastErrorMessage = 'Cannot actuate servo gate while feeder is offline or busy.';
+      return false;
+    }
+    _isCommandInFlight = true;
+    try {
+      final cmd = FeederCommand.servoTest(degrees.clamp(0, 90));
+      final res = await _adapter.sendCommand(cmd);
+      return res.status == CommandStatus.completed;
+    } finally {
+      _isCommandInFlight = false;
+    }
   }
 
   void _initSampleData() {
@@ -322,36 +419,73 @@ class FeederService extends ChangeNotifier {
 
   int get activeScheduleCount => _schedules.where((s) => s.isEnabled).length;
 
-  /// Attempts to re-establish the connection.
+  /// Attempts to re-establish the connection and verify live controller heartbeat.
   Future<bool> retryConnection() async {
     _connection = FeederConnection.connecting;
     notifyListeners();
-    return _adapter.refreshTelemetry();
+    final linkOk = await _adapter.refreshTelemetry();
+    return linkOk && isDeviceOnline;
   }
 
   /// Pulls the latest telemetry from the hardware adapter.
   Future<bool> refreshTelemetry() async {
-    return _adapter.refreshTelemetry();
+    final linkOk = await _adapter.refreshTelemetry();
+    return linkOk && (_adapter.isMock || _telemetry.isOnline);
   }
 
-  /// Triggers emergency stop on the hardware.
+  /// Triggers emergency stop on the hardware immediately (always allowed even if command in flight).
   void cancelDispensing() {
+    _isDispensing = false;
+    notifyListeners();
     _adapter.cancelDispense();
   }
 
   /// Triggers timed manual feeding on the hardware.
+  /// Blocks duplicate rapid taps and blocks queuing commands when the controller is offline.
   Future<bool> triggerManualFeed({int durationSeconds = 5, double targetGrams = 0.0}) async {
-    if (_isDispensing || !isConnected) return false;
-    return _adapter.triggerManualDispense(
-      durationSeconds: durationSeconds,
-      targetGrams: targetGrams,
-    );
+    if (_isDispensing || _isCommandInFlight || !isDeviceOnline) {
+      _lastErrorMessage = !isDeviceOnline
+          ? 'Feeder controller is offline. Command not queued.'
+          : 'Dispense already in progress.';
+      return false;
+    }
+    if (_telemetry.status == FeederStatus.error) {
+      _lastErrorMessage = 'Resolve active hardware/sensor fault before dispensing.';
+      return false;
+    }
+
+    _isCommandInFlight = true;
+    try {
+      _lastErrorMessage = null;
+      return await _adapter.triggerManualDispense(
+        durationSeconds: durationSeconds.clamp(1, 60),
+        targetGrams: targetGrams,
+      );
+    } finally {
+      _isCommandInFlight = false;
+    }
   }
 
   /// Triggers execution of a specific scheduled routine on the hardware.
   Future<bool> triggerSchedule(FeedingSchedule schedule) async {
-    if (_isDispensing || !isConnected) return false;
-    return _adapter.triggerScheduleDispense(schedule);
+    if (_isDispensing || _isCommandInFlight || !isDeviceOnline) {
+      _lastErrorMessage = !isDeviceOnline
+          ? 'Feeder controller is offline. Schedule test run blocked.'
+          : 'Dispense already in progress.';
+      return false;
+    }
+    if (_telemetry.status == FeederStatus.error) {
+      _lastErrorMessage = 'Resolve active hardware/sensor fault before dispensing.';
+      return false;
+    }
+
+    _isCommandInFlight = true;
+    try {
+      _lastErrorMessage = null;
+      return await _adapter.triggerScheduleDispense(schedule);
+    } finally {
+      _isCommandInFlight = false;
+    }
   }
 
   void _initScheduleWatcher() {
@@ -360,7 +494,12 @@ class FeederService extends ChangeNotifier {
   }
 
   void _checkScheduledFeedings() {
-    if (_schedules.isEmpty || _isDispensing) return;
+    // Autonomous schedule execution runs directly on the ESP32 controller (or cloud simulator)
+    // when using Firebase Cloud or Local REST HTTP, preventing duplicate double-dispensing
+    // when the mobile app is open at the scheduled minute.
+    if (!_adapter.isMock) return;
+    if (_schedules.isEmpty || _isDispensing || _isCommandInFlight || !isDeviceOnline) return;
+
     final now = DateTime.now();
     for (final s in _schedules) {
       if (!s.isEnabled) continue;
@@ -369,7 +508,7 @@ class FeederService extends ChangeNotifier {
         final key = '${now.year}-${now.month}-${now.day}_${now.hour}:${now.minute}_${s.id}';
         if (!_executedScheduleMinutes.contains(key)) {
           _executedScheduleMinutes.add(key);
-          debugPrint('[FeederService] Schedule execution triggered: ${s.label} (${s.timeFormatted})');
+          debugPrint('[FeederService] Mock schedule execution triggered: ${s.label} (${s.timeFormatted})');
           triggerSchedule(s);
         }
       }
@@ -377,32 +516,32 @@ class FeederService extends ChangeNotifier {
   }
 
   void addSchedule(FeedingSchedule schedule) {
+    _scheduleMutationEpoch++;
     _schedules.add(schedule);
     _saveLocalSchedules();
-    _adapter.syncSchedules(_schedules);
-    _syncSchedulesToCloud(_schedules);
+    unawaited(_syncSchedulesViaAdapter(_schedules));
     notifyListeners();
   }
 
   void insertScheduleAt(int index, FeedingSchedule schedule) {
+    _scheduleMutationEpoch++;
     if (index >= 0 && index <= _schedules.length) {
       _schedules.insert(index, schedule);
     } else {
       _schedules.add(schedule);
     }
     _saveLocalSchedules();
-    _adapter.syncSchedules(_schedules);
-    _syncSchedulesToCloud(_schedules);
+    unawaited(_syncSchedulesViaAdapter(_schedules));
     notifyListeners();
   }
 
   void updateSchedule(FeedingSchedule updated) {
     final idx = _schedules.indexWhere((s) => s.id == updated.id);
     if (idx != -1) {
+      _scheduleMutationEpoch++;
       _schedules[idx] = updated;
       _saveLocalSchedules();
-      _adapter.syncSchedules(_schedules);
-      _syncSchedulesToCloud(_schedules);
+      unawaited(_syncSchedulesViaAdapter(_schedules));
       notifyListeners();
     }
   }
@@ -410,141 +549,140 @@ class FeederService extends ChangeNotifier {
   void toggleSchedule(String id, bool enabled) {
     final idx = _schedules.indexWhere((s) => s.id == id);
     if (idx != -1) {
+      _scheduleMutationEpoch++;
       _schedules[idx] = _schedules[idx].copyWith(isEnabled: enabled);
       _saveLocalSchedules();
-      _adapter.syncSchedules(_schedules);
-      _syncSchedulesToCloud(_schedules);
+      unawaited(_syncSchedulesViaAdapter(_schedules));
       notifyListeners();
     }
   }
 
   void deleteSchedule(String id) {
+    _scheduleMutationEpoch++;
     _schedules.removeWhere((s) => s.id == id);
     _saveLocalSchedules();
-    _adapter.syncSchedules(_schedules);
-    _syncSchedulesToCloud(_schedules);
+    unawaited(_syncSchedulesViaAdapter(_schedules));
     notifyListeners();
   }
 
-  static const String defaultDatabaseUrl =
-      'https://smart-chicken-feeder-33bec-default-rtdb.asia-southeast1.firebasedatabase.app';
+  Future<bool> _syncSchedulesViaAdapter(List<FeedingSchedule> list) async {
+    final ok = await _adapter.syncSchedules(List<FeedingSchedule>.unmodifiable(list));
+    if (!ok && !_adapter.isMock) {
+      _lastErrorMessage = lastErrorMessage ?? 'Failed to sync schedules to feeder backend.';
+      notifyListeners();
+    } else if (ok) {
+      _lastErrorMessage = null;
+    }
+    return ok;
+  }
 
-  /// Synchronizes schedules and history logs directly with Firebase Realtime Database.
+  /// Synchronizes schedules and history logs with Firebase Realtime Database
+  /// when operating in Firebase Cloud mode.
   Future<void> syncWithFirebaseCloud() async {
+    if (_adapter is! FirebaseHardwareAdapter || _disposed) return;
+
     final hasSched = await refreshSchedulesFromCloud();
-    if (!hasSched) {
+    if (!hasSched && _adapter is FirebaseHardwareAdapter) {
       try {
         final prefs = await SharedPreferences.getInstance();
         final isInitialized = prefs.getBool(_kInitializedPrefKey) ?? false;
         if (!isInitialized && _schedules.isEmpty) {
           _initSampleData();
           await _saveLocalSchedules();
-          await _syncSchedulesToCloud(_schedules);
+          await _syncSchedulesViaAdapter(_schedules);
         }
       } catch (_) {}
     }
     await refreshLogsFromCloud();
   }
 
-  /// Pulls the latest schedules from Firebase RTDB `/schedules.json`.
+  /// Pulls the latest schedules from Firebase RTDB `/schedules.json` when using `FirebaseHardwareAdapter`.
   Future<bool> refreshSchedulesFromCloud() async {
-    try {
-      final resp = await http
-          .get(Uri.parse('$defaultDatabaseUrl/schedules.json'))
-          .timeout(const Duration(seconds: 4));
-      if (resp.statusCode == 200) {
-        if (resp.body.isEmpty || resp.body == 'null') {
-          // Cloud node is null / empty
-          final prefs = await SharedPreferences.getInstance();
-          final isInitialized = prefs.getBool(_kInitializedPrefKey) ?? false;
-          if (isInitialized && _schedules.isNotEmpty) {
-            // Local edits created offline, push them to cloud
-            await _syncSchedulesToCloud(_schedules);
-            return true;
-          } else if (isInitialized && _schedules.isEmpty) {
-            // User intentionally cleared all schedules; preserve empty state
-            return true;
-          }
-          return false;
-        }
+    if (_adapter is! FirebaseHardwareAdapter) {
+      // Local/mock mode: reload from local persistence
+      await loadLocalData();
+      return _adapter.isMock;
+    }
 
-        final data = jsonDecode(resp.body);
-        final list = <FeedingSchedule>[];
-        if (data is Map) {
-          for (final entry in data.entries) {
-            if (entry.value is Map) {
-              list.add(FeedingSchedule.fromMap(entry.key.toString(), entry.value as Map));
-            }
-          }
-        } else if (data is List) {
-          for (int i = 0; i < data.length; i++) {
-            if (data[i] is Map) {
-              final id = data[i]['id']?.toString() ?? 'sch_$i';
-              list.add(FeedingSchedule.fromMap(id, data[i] as Map));
-            }
-          }
-        }
-        _schedules = list;
-        await _saveLocalSchedules();
-        notifyListeners();
+    final fb = _adapter as FirebaseHardwareAdapter;
+    final remoteList = await fb.fetchSchedulesSnapshot();
+    if (remoteList == null) {
+      _lastErrorMessage = fb.lastErrorMessage ?? 'Could not sync schedules from Firebase.';
+      notifyListeners();
+      return false;
+    }
+
+    _lastErrorMessage = null;
+    if (remoteList.isEmpty) {
+      final prefs = await SharedPreferences.getInstance();
+      final isInitialized = prefs.getBool(_kInitializedPrefKey) ?? false;
+      if (isInitialized && _schedules.isNotEmpty) {
+        return fb.syncSchedules(_schedules);
+      } else if (isInitialized && _schedules.isEmpty) {
         return true;
       }
-    } catch (e) {
-      debugPrint('refreshSchedulesFromCloud error: $e');
+      return false;
     }
-    return false;
+
+    _schedules = remoteList;
+    await _saveLocalSchedules();
+    notifyListeners();
+    return true;
   }
 
-  /// Pulls the latest feeding logs from Firebase RTDB `/logs.json`.
+  /// Pulls the latest feeding logs from Firebase RTDB `/logs.json` when using `FirebaseHardwareAdapter`.
   Future<bool> refreshLogsFromCloud() async {
-    try {
-      final resp = await http
-          .get(Uri.parse('$defaultDatabaseUrl/logs.json'))
-          .timeout(const Duration(seconds: 4));
-      if (resp.statusCode == 200 && resp.body.isNotEmpty && resp.body != 'null') {
-        final data = jsonDecode(resp.body);
-        if (data is Map) {
-          final list = <FeedingLog>[];
-          for (final entry in data.entries) {
-            if (entry.value is Map) {
-              list.add(FeedingLog.fromMap(entry.key.toString(), entry.value as Map));
-            }
-          }
-          if (list.isNotEmpty) {
-            list.sort((a, b) => b.timestamp.compareTo(a.timestamp));
-            _history = list;
-            await _saveLocalLogs();
-            notifyListeners();
-            return true;
-          }
-        }
-      }
-    } catch (e) {
-      debugPrint('refreshLogsFromCloud error: $e');
+    if (_adapter is! FirebaseHardwareAdapter) {
+      await loadLocalData();
+      return _adapter.isMock;
     }
-    return false;
+
+    final fb = _adapter as FirebaseHardwareAdapter;
+    final remoteLogs = await fb.fetchLogsSnapshot();
+    if (remoteLogs == null) {
+      _lastErrorMessage = fb.lastErrorMessage ?? 'Could not sync feeding logs from Firebase.';
+      notifyListeners();
+      return false;
+    }
+
+    _lastErrorMessage = null;
+    if (remoteLogs.isNotEmpty) {
+      alertService.seedHistoricalLogIds(remoteLogs.map((l) => l.id));
+      _history = remoteLogs;
+      await _saveLocalLogs();
+      notifyListeners();
+    }
+    return true;
   }
 
   /// Loads cached schedules and logs from SharedPreferences.
   Future<void> loadLocalData() async {
+    await _loadLocalDataInternal(preserveConcurrentMutations: false);
+  }
+
+  Future<void> _loadLocalDataInternal({required bool preserveConcurrentMutations}) async {
+    final startEpoch = _scheduleMutationEpoch;
     try {
       final prefs = await SharedPreferences.getInstance();
+      if (_disposed) return;
 
-      // 1. Load cached schedules
-      final isInitialized = prefs.getBool(_kInitializedPrefKey) ?? false;
-      final schedJson = prefs.getString(_kSchedulesPrefKey);
-      if (schedJson != null && schedJson.isNotEmpty) {
-        final List<dynamic> decoded = jsonDecode(schedJson);
-        final list = <FeedingSchedule>[];
-        for (final item in decoded) {
-          if (item is Map) {
-            final id = item['id']?.toString() ?? 'sch_${list.length}';
-            list.add(FeedingSchedule.fromMap(id, item));
+      // 1. Load cached schedules (unless mutated synchronously after constructor start)
+      if (!preserveConcurrentMutations || _scheduleMutationEpoch == startEpoch) {
+        final isInitialized = prefs.getBool(_kInitializedPrefKey) ?? false;
+        final schedJson = prefs.getString(_kSchedulesPrefKey);
+        if (schedJson != null && schedJson.isNotEmpty) {
+          final List<dynamic> decoded = jsonDecode(schedJson);
+          final list = <FeedingSchedule>[];
+          for (final item in decoded) {
+            if (item is Map) {
+              final id = item['id']?.toString() ?? 'sch_${list.length}';
+              list.add(FeedingSchedule.fromMap(id, item));
+            }
           }
+          _schedules = list;
+        } else if (isInitialized) {
+          _schedules = [];
         }
-        _schedules = list;
-      } else if (isInitialized) {
-        _schedules = [];
       }
 
       // 2. Load cached logs
@@ -560,6 +698,7 @@ class FeederService extends ChangeNotifier {
         }
         if (list.isNotEmpty) {
           list.sort((a, b) => b.timestamp.compareTo(a.timestamp));
+          alertService.seedHistoricalLogIds(list.map((l) => l.id));
           _history = list;
         }
       }
@@ -600,46 +739,6 @@ class FeederService extends ChangeNotifier {
       await prefs.setString(_kLogsPrefKey, jsonEncode(mapList));
     } catch (e) {
       debugPrint('Error saving local logs: $e');
-    }
-  }
-
-  Future<void> _syncSchedulesToCloud(List<FeedingSchedule> list) async {
-    try {
-      if (list.isEmpty) {
-        await http.delete(
-          Uri.parse('$defaultDatabaseUrl/schedules.json'),
-        ).timeout(const Duration(seconds: 4));
-        return;
-      }
-      final map = {
-        for (final s in list)
-          s.id: {
-            'id': s.id,
-            ...s.toMap(),
-          },
-      };
-      await http.put(
-        Uri.parse('$defaultDatabaseUrl/schedules.json'),
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode(map),
-      ).timeout(const Duration(seconds: 4));
-    } catch (e) {
-      debugPrint('Error syncing schedules to Firebase: $e');
-    }
-  }
-
-  Future<void> _syncLogToCloud(FeedingLog log) async {
-    try {
-      await http.put(
-        Uri.parse('$defaultDatabaseUrl/logs/${log.id}.json'),
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({
-          'id': log.id,
-          ...log.toMap(),
-        }),
-      ).timeout(const Duration(seconds: 4));
-    } catch (e) {
-      debugPrint('Error syncing log to Firebase: $e');
     }
   }
 
@@ -734,6 +833,7 @@ class FeederService extends ChangeNotifier {
     _telemetrySub?.cancel();
     _connectionSub?.cancel();
     _logSub?.cancel();
+    alertService.dispose();
     _adapter.dispose();
     super.dispose();
   }

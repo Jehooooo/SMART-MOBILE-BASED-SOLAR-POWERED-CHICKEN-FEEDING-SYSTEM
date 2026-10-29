@@ -1,3 +1,6 @@
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'services/feeder_service.dart';
 import 'services/settings_service.dart';
@@ -16,9 +19,12 @@ import 'widgets/glass_components.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await SmartChickenFeederApp.initializeFirebaseBackend();
   final settings = await SettingsService.load();
   final feederService = FeederService(
     adapter: SmartChickenFeederApp.resolveAdapter(settings.hardwareTransport),
+    lowFeedThreshold: settings.lowFeedThreshold,
+    lowBatteryThreshold: settings.lowBatteryThreshold,
   );
   await feederService.loadLocalData();
   runApp(SmartChickenFeederApp(
@@ -34,6 +40,74 @@ class SmartChickenFeederApp extends StatefulWidget {
   final FeederService? feederService;
 
   const SmartChickenFeederApp({super.key, required this.settingsService, this.feederService});
+
+  /// Initializes Firebase Core and Anonymous/Session Auth on supported platforms.
+  /// Reports missing native configuration clearly via diagnostic logs and falls back
+  /// gracefully to the cross-platform REST synchronization engine when unavailable.
+  static Future<bool> initializeFirebaseBackend() async {
+    if (Firebase.apps.isNotEmpty) return true;
+
+    const envApiKey = String.fromEnvironment('FIREBASE_API_KEY');
+    const envAppId = String.fromEnvironment('FIREBASE_APP_ID');
+    const envMessagingSenderId = String.fromEnvironment('FIREBASE_MESSAGING_SENDER_ID');
+    const envProjectId = String.fromEnvironment(
+      'FIREBASE_PROJECT_ID',
+      defaultValue: 'smart-chicken-feeder-33bec',
+    );
+    const envDatabaseUrl = String.fromEnvironment(
+      'FIREBASE_DATABASE_URL',
+      defaultValue: FeederService.defaultDatabaseUrl,
+    );
+
+    final supportsNativeFirebase = kIsWeb ||
+        defaultTargetPlatform == TargetPlatform.android ||
+        defaultTargetPlatform == TargetPlatform.iOS ||
+        defaultTargetPlatform == TargetPlatform.macOS;
+
+    if (!supportsNativeFirebase) {
+      debugPrint(
+        '[FirebaseInit] Desktop platform (${defaultTargetPlatform.name}) uses authenticated REST RTDB engine.',
+      );
+      return false;
+    }
+
+    try {
+      if (envApiKey.isNotEmpty && envAppId.isNotEmpty && envMessagingSenderId.isNotEmpty) {
+        await Firebase.initializeApp(
+          options: const FirebaseOptions(
+            apiKey: envApiKey,
+            appId: envAppId,
+            messagingSenderId: envMessagingSenderId,
+            projectId: envProjectId,
+            databaseURL: envDatabaseUrl,
+          ),
+        );
+      } else if (!kIsWeb) {
+        await Firebase.initializeApp();
+      } else {
+        debugPrint(
+          '[FirebaseInit] Web FirebaseOptions not passed via --dart-define; using REST RTDB fallback.',
+        );
+        return false;
+      }
+
+      try {
+        if (FirebaseAuth.instance.currentUser == null) {
+          await FirebaseAuth.instance.signInAnonymously();
+        }
+      } catch (authErr) {
+        debugPrint(
+          '[FirebaseInit] Anonymous sign-in unavailable ($authErr). Enable Anonymous Auth in Firebase Console before enforcing strict RTDB rules.',
+        );
+      }
+      return true;
+    } catch (e) {
+      debugPrint(
+        '[FirebaseInit] Native Firebase initialization skipped ($e). Falling back to REST RTDB adapter.',
+      );
+      return false;
+    }
+  }
 
   static FeederHardwareAdapter resolveAdapter(HardwareTransportType type) {
     switch (type) {
@@ -59,17 +133,29 @@ class SmartChickenFeederApp extends StatefulWidget {
 class _SmartChickenFeederAppState extends State<SmartChickenFeederApp> {
   late final FeederService _feederService;
 
+  void _syncSettingsThresholds() {
+    _feederService.updateAlertThresholds(
+      lowFeedThreshold: widget.settingsService.lowFeedThreshold,
+      lowBatteryThreshold: widget.settingsService.lowBatteryThreshold,
+    );
+  }
+
   @override
   void initState() {
     super.initState();
     _feederService = widget.feederService ??
         FeederService(
           adapter: SmartChickenFeederApp.resolveAdapter(widget.settingsService.hardwareTransport),
+          lowFeedThreshold: widget.settingsService.lowFeedThreshold,
+          lowBatteryThreshold: widget.settingsService.lowBatteryThreshold,
         );
+    _syncSettingsThresholds();
+    widget.settingsService.addListener(_syncSettingsThresholds);
   }
 
   @override
   void dispose() {
+    widget.settingsService.removeListener(_syncSettingsThresholds);
     if (widget.feederService == null) {
       _feederService.dispose();
     }

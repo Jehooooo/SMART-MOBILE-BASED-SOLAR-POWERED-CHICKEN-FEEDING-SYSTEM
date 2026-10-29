@@ -63,7 +63,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         final dailyTarget = widget.feederService.totalDailyTargetGrams;
         final connection = widget.feederService.connection;
         final isLoading = widget.feederService.isInitialLoading;
-        final isOnline = widget.feederService.isConnected && telemetry.isOnline;
+        final isOnline = widget.feederService.isDeviceOnline;
 
         final String chipLabel;
         final Color chipDot;
@@ -371,23 +371,38 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final lowFeed = _settings.lowFeedThreshold;
     final lowBattery = _settings.lowBatteryThreshold;
     if (isDispensing) return [_buildDispensingBanner(telemetry)];
-    if (telemetry.feedLevelPercent < lowFeed) {
-      return [
+
+    final banners = <Widget>[];
+    final hasSensorError = telemetry.status == FeederStatus.error ||
+        (telemetry.sensorError != null && telemetry.sensorError!.isNotEmpty);
+
+    if (hasSensorError) {
+      final errCode = telemetry.sensorError != null ? ' (${telemetry.sensorError})' : '';
+      banners.add(
+        _buildWarningBanner(
+          'Hardware / Sensor Error$errCode: Dispenser gate locked closed for safety. Inspect load cell, ultrasonic sensor, and auger chute.',
+          c.danger,
+        ),
+      );
+    } else if (telemetry.feedLevelPercent < lowFeed) {
+      banners.add(
         _buildWarningBanner(
           'Low Feed Warning: Hopper below ${lowFeed.toInt()}% capacity. Refill feed pellets to ensure regular feeding routines.',
           c.warning,
         ),
-      ];
+      );
     }
+
     if (telemetry.batteryPercent < lowBattery) {
-      return [
+      banners.add(
         _buildWarningBanner(
           'Low Battery Warning: Battery below ${lowBattery.toInt()}%. Verify solar panel orientation and sun exposure.',
           c.danger,
         ),
-      ];
+      );
     }
-    return const [];
+
+    return banners;
   }
 
   Widget _buildWarningBanner(String message, Color color) {
@@ -725,9 +740,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   Widget _buildManualFeedSection(bool isDispensing, FeederTelemetry telemetry, bool isOnline) {
     final c = context.colors;
-    final bool isHopperEmpty = telemetry.feedLevelPercent < 5;
+    final bool hasHardwareError = telemetry.status == FeederStatus.error ||
+        (telemetry.sensorError != null && telemetry.sensorError!.isNotEmpty);
+    final bool isHopperEmpty = !hasHardwareError && telemetry.feedLevelPercent < 5;
     final bool isOffline = !isOnline;
-    final bool canDispense = !isDispensing && !isHopperEmpty && !isOffline;
+    final bool canDispense = !isDispensing && !hasHardwareError && !isHopperEmpty && !isOffline && !widget.feederService.isCommandInFlight;
 
     final durationOptions = [
       {'seconds': 3, 'name': '3s', 'desc': 'Quick (~60g)'},
@@ -841,7 +858,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
           const SizedBox(height: 12),
 
-          if (isHopperEmpty)
+          if (hasHardwareError)
+            _buildBlockedReason(
+              Icons.report_problem_rounded,
+              'Dispense blocked: Hardware/sensor fault active. Resolve fault before feeding.',
+              c.danger,
+            )
+          else if (isHopperEmpty)
             _buildBlockedReason(Icons.error_outline, 'Dispense blocked: Hopper is empty. Refill feed first.', c.danger)
           else if (isOffline && !isDispensing) ...[
             _buildBlockedReason(
@@ -1000,13 +1023,21 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 durationSeconds: _selectedDurationSeconds,
               );
               if (context.mounted) {
+                final String statusMsg;
+                if (!success) {
+                  statusMsg = widget.feederService.lastErrorMessage ??
+                      'Dispense failed or feeder is offline. Check hardware connection.';
+                } else if (widget.feederService.isMock) {
+                  statusMsg = 'Dispense cycle completed! Scale weight and feeding log updated.';
+                } else {
+                  statusMsg =
+                      'Dispense command dispatched to feeder — awaiting live scale & log confirmation...';
+                }
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
                     backgroundColor: success ? c.brand : c.danger,
                     content: Text(
-                      success
-                          ? 'Dispense command executed successfully! Scale weight and feeding log updated.'
-                          : 'Dispense failed or feeder is offline. Check hardware connection.',
+                      statusMsg,
                       style: const TextStyle(fontWeight: FontWeight.bold),
                     ),
                     duration: const Duration(seconds: 3),

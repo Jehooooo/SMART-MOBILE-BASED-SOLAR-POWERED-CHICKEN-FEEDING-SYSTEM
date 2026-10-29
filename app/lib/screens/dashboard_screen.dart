@@ -9,7 +9,6 @@ import '../widgets/skeleton.dart';
 import '../widgets/hardware_guide_dialog.dart';
 import '../widgets/app_logo.dart';
 import '../widgets/glass_components.dart';
-import 'diagnostics_screen.dart';
 
 export '../widgets/hardware_guide_dialog.dart' show showHardwareGuideDialog;
 
@@ -139,19 +138,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
               ],
             ),
             actions: [
-              LiquidGlassIconButton(
-                size: 38,
-                icon: Icon(Icons.tune_rounded, color: c.brand),
-                tooltip: 'Hardware Diagnostics & Actuator Test',
-                onPressed: () {
-                  Navigator.of(context).push(
-                    MaterialPageRoute(
-                      builder: (_) => DiagnosticsScreen(feederService: widget.feederService),
-                    ),
-                  );
-                },
-              ),
-              const SizedBox(width: 8),
               LiquidGlassIconButton(
                 size: 38,
                 icon: Icon(Icons.info_outline, color: c.brand),

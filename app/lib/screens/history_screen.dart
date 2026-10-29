@@ -71,13 +71,23 @@ class _HistoryScreenState extends State<HistoryScreen> {
                 icon: const Icon(Icons.sync_rounded),
                 tooltip: 'Sync with Firebase',
                 onPressed: () async {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Syncing logs with Firebase...'),
-                      duration: Duration(seconds: 1),
-                    ),
-                  );
-                  await widget.feederService.refreshLogsFromCloud();
+                  final ok = await widget.feederService.refreshLogsFromCloud();
+                  if (!context.mounted) return;
+                  final msg = ok
+                      ? (widget.feederService.isMock
+                          ? 'Feeding logs verified in local simulator cache.'
+                          : 'Feeding logs synchronized from Firebase.')
+                      : (widget.feederService.lastErrorMessage ??
+                          'Could not sync logs from Firebase. Showing cached logs.');
+                  ScaffoldMessenger.of(context)
+                    ..clearSnackBars()
+                    ..showSnackBar(
+                      SnackBar(
+                        backgroundColor: ok ? c.brand : c.danger,
+                        content: Text(msg),
+                        duration: const Duration(seconds: 2),
+                      ),
+                    );
                 },
               ),
               const SizedBox(width: 8),

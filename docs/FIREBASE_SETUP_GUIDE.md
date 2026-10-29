@@ -64,51 +64,52 @@ The system uses **Google Firebase Realtime Database (RTDB)** as the low-latency,
 
 In Firebase Console, click on the **Rules** tab under **Realtime Database**. Replace the default rules with the configuration below and click **Publish**.
 
-### Recommended Production Rules
+### Recommended Production Rules (`database.rules.json`)
 These rules ensure that:
-1. Only valid feeder paths can be modified.
-2. Telemetry and commands have appropriate data-type validation.
-3. Indexing on `timestamp` and `triggerType` optimizes data queries for CSV/Excel export.
+1. Unauthenticated callers cannot read, modify, delete, or inject feeding commands (`auth != null`).
+2. Both Anonymous Authentication (for frictionless single-farm mobile app sessions) and Email/Password Authentication (for the ESP32 device account in `firmware/include/secrets.h`) are supported out of the box.
+3. Strict `.validate` constraints enforce safe dispenser bounds (`durationSeconds <= 60`, `targetGrams <= 2000`, valid `action` enum, and valid `0..23` / `0..59` schedule times) and block arbitrary root keys.
+4. Indexing on `timestamp`, `triggerType`, and `isSuccess` optimizes log queries for CSV/Excel export.
+
+> [!IMPORTANT]
+> **Safe Deployment Sequence (Preventing ESP32 Lockout):**
+> Before publishing `auth != null` rules in Firebase Console:
+> 1. In Firebase Console → **Build** → **Authentication** → **Sign-in method**, enable **Anonymous** and **Email/Password** providers.
+> 2. Create the device account matching `FIREBASE_USER_EMAIL` and `FIREBASE_USER_PASSWORD` in `firmware/include/secrets.h`, and flash the updated ESP32 firmware.
+> 3. Publish the full rules from [`database.rules.json`](../database.rules.json) (or run `firebase deploy --only database`).
 
 ```json
 {
   "rules": {
-    ".read": true,
-    ".write": true,
-    "feeders": {
-      "$feeder_id": {
-        "telemetry": {
-          ".read": true,
-          ".write": true,
-          ".validate": "newData.hasChildren(['feedLevelPercent', 'batteryVolts', 'status'])"
-        },
-        "commands": {
-          ".read": true,
-          ".write": true
-        },
-        "schedules": {
-          ".read": true,
-          ".write": true
-        },
-        "logs": {
-          ".read": true,
-          ".write": true,
-          ".indexOn": ["timestamp", "triggerType", "isSuccess"]
-        }
-      }
-    },
     "telemetry": {
-      ".read": true,
-      ".write": true
+      ".read": "auth != null",
+      ".write": "auth != null",
+      ".validate": "newData.hasChildren(['feedLevelPercent', 'batteryVolts', 'batteryPercent', 'currentWeightGrams', 'status'])"
     },
     "commands": {
-      ".read": true,
-      ".write": true
+      ".read": "auth != null",
+      ".write": "auth != null",
+      "dispense": {
+        ".validate": "newData.hasChildren(['action', 'timestamp']) && (!newData.hasChild('durationSeconds') || (newData.child('durationSeconds').val() >= 0 && newData.child('durationSeconds').val() <= 60))"
+      }
+    },
+    "schedules": {
+      ".read": "auth != null",
+      ".write": "auth != null"
     },
     "logs": {
-      ".read": true,
-      ".write": true,
+      ".read": "auth != null",
+      ".write": "auth != null",
       ".indexOn": ["timestamp", "triggerType", "isSuccess"]
+    },
+    "feeders": {
+      "$feeder_id": {
+        ".read": "auth != null",
+        ".write": "auth != null"
+      }
+    },
+    "$other": {
+      ".validate": false
     }
   }
 }

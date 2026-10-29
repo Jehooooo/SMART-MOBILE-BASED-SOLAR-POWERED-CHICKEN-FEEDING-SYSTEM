@@ -6,8 +6,8 @@ import '../theme/app_theme.dart';
 import 'glass_components.dart';
 
 /// Slide-down banner that tells the user when the cloud link to the feeder
-/// is lost or reconnecting (Nielsen #1: Visibility of system status, and
-/// #9: Help users recognize, diagnose, and recover from errors).
+/// is lost, reconnecting, or when the cloud database is reachable while the
+/// physical ESP32 controller's heartbeat is stale/offline.
 ///
 /// It stays hidden while online and during the first load (skeletons cover
 /// that state instead).
@@ -22,7 +22,9 @@ class ConnectionBanner extends StatelessWidget {
       listenable: feederService,
       builder: (context, _) {
         final state = feederService.connection;
-        final visible = !feederService.isInitialLoading && state != FeederConnection.online;
+        final deviceOnline = feederService.isDeviceOnline;
+        final visible = !feederService.isInitialLoading &&
+            (state != FeederConnection.online || !deviceOnline);
 
         return AnimatedSize(
           duration: const Duration(milliseconds: 260),
@@ -32,9 +34,11 @@ class ConnectionBanner extends StatelessWidget {
             duration: const Duration(milliseconds: 220),
             child: visible
                 ? _BannerBody(
-                    key: ValueKey(state),
+                    key: ValueKey('${state.name}_$deviceOnline'),
                     state: state,
-                    lastSyncedAt: feederService.lastSyncedAt,
+                    isControllerHeartbeatStale: state == FeederConnection.online && !deviceOnline,
+                    lastSyncedAt: feederService.telemetry.lastHeartbeat ?? feederService.lastSyncedAt,
+                    errorDetail: feederService.lastErrorMessage,
                     onRetry: () async {
                       if (feederService.isMock) {
                         feederService.setSimulatedOffline(false);
@@ -65,10 +69,19 @@ class ConnectionBanner extends StatelessWidget {
 
 class _BannerBody extends StatelessWidget {
   final FeederConnection state;
+  final bool isControllerHeartbeatStale;
   final DateTime? lastSyncedAt;
+  final String? errorDetail;
   final VoidCallback onRetry;
 
-  const _BannerBody({super.key, required this.state, required this.lastSyncedAt, required this.onRetry});
+  const _BannerBody({
+    super.key,
+    required this.state,
+    required this.isControllerHeartbeatStale,
+    required this.lastSyncedAt,
+    required this.errorDetail,
+    required this.onRetry,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -78,12 +91,27 @@ class _BannerBody extends StatelessWidget {
     final bg = isConnecting ? c.infoSoft : c.dangerSoft;
     final borderColor = isConnecting ? c.infoBorder : c.dangerBorder;
 
-    final lastSeen = lastSyncedAt != null ? DateFormat('h:mm a').format(lastSyncedAt!) : null;
-    final title = isConnecting ? 'Reconnecting to feeder…' : 'Feeder connection lost';
-    final detail = isConnecting
-        ? 'Trying to reach the cloud database. This usually takes a few seconds.'
-        : 'Showing last known data${lastSeen != null ? ' from $lastSeen' : ''}. '
-            'Manual feeding is paused until the connection returns. Saved schedules keep running on the feeder.';
+    final lastSeen = lastSyncedAt != null
+        ? DateFormat('MMM d, h:mm a').format(lastSyncedAt!)
+        : null;
+
+    final String title;
+    final String detail;
+    if (isConnecting) {
+      title = 'Reconnecting to feeder…';
+      detail = 'Trying to reach the feeder controller. This usually takes a few seconds.';
+    } else if (isControllerHeartbeatStale) {
+      title = 'Feeder controller offline';
+      detail = 'Cloud database is reachable, but ESP32 has not sent a live heartbeat'
+          '${lastSeen != null ? ' since $lastSeen' : ''}. '
+          'Manual feeding is paused until the controller reconnects; onboard RTC schedules continue locally.';
+    } else {
+      title = 'Feeder connection lost';
+      detail = (errorDetail != null && errorDetail!.contains('permission denied'))
+          ? errorDetail!
+          : 'Showing last known data${lastSeen != null ? ' from $lastSeen' : ''}. '
+              'Manual feeding is paused until the connection returns. Saved schedules keep running on the feeder.';
+    }
 
     return Semantics(
       liveRegion: true,

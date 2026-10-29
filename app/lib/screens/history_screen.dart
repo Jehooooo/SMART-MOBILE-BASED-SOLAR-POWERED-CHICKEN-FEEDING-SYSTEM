@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import '../services/feeder_service.dart';
 import '../services/file_export/file_exporter.dart';
@@ -608,28 +607,14 @@ class _HistoryScreenState extends State<HistoryScreen> {
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
-                    'Feeding logs dataset in CSV format:',
-                    style: TextStyle(fontSize: 13, height: 1.3),
+                  Text(
+                    'Export all $logCount feeding records with timestamps, targets, dispensed weights, variances, battery voltages, and hopper levels.',
+                    style: TextStyle(fontSize: 13, color: c.textSecondary, height: 1.4),
                   ),
-                  const SizedBox(height: 10),
-
-                  // Data Preview Box
-                  Container(
-                    height: 140,
-                    width: double.maxFinite,
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: c.surfaceMuted.withValues(alpha: 0.6),
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: c.border.withValues(alpha: 0.8)),
-                    ),
-                    child: SingleChildScrollView(
-                      child: SelectableText(
-                        csvData,
-                        style: TextStyle(fontFamily: 'monospace', fontSize: 11, color: c.textSecondary),
-                      ),
-                    ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'The exported file is compatible with Microsoft Excel, Google Sheets, SPSS, and thesis documentation.',
+                    style: TextStyle(fontSize: 12, color: c.textMuted, height: 1.4),
                   ),
                 ],
               ),
@@ -638,29 +623,13 @@ class _HistoryScreenState extends State<HistoryScreen> {
               LiquidGlassButton(
                 isSecondary: true,
                 height: 38,
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                 onPressed: () => Navigator.pop(ctx),
                 child: const Text('Close'),
               ),
               LiquidGlassButton(
-                isSecondary: true,
                 height: 38,
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                icon: const Icon(Icons.copy_rounded, size: 16),
-                onPressed: () {
-                  Clipboard.setData(ClipboardData(text: csvData));
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: const Text('CSV copied to clipboard! Paste directly into Excel or Google Sheets.'),
-                      backgroundColor: c.brand,
-                    ),
-                  );
-                },
-                child: const Text('Copy CSV'),
-              ),
-              LiquidGlassButton(
-                height: 38,
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                 icon: const Icon(Icons.download_rounded, size: 16),
                 onPressed: isExporting ? null : () => handleExport(),
                 child: const Text('Download CSV'),

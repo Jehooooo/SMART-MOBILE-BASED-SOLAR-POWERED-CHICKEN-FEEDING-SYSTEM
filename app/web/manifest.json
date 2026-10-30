@@ -1,11 +1,11 @@
 {
-    "name": "smart_chicken_feeder",
-    "short_name": "smart_chicken_feeder",
+    "name": "Smart Chicken Feeder",
+    "short_name": "Smart Feeder",
     "start_url": ".",
     "display": "standalone",
-    "background_color": "#0175C2",
-    "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
+    "background_color": "#0E1813",
+    "theme_color": "#19D38C",
+    "description": "Smart Mobile-Based Solar-Powered Chicken Feeding System",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [

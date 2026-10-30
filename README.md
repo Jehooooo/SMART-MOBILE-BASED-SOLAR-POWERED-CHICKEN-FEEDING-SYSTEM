@@ -1,6 +1,6 @@
 # Smart Mobile-Based Solar-Powered Chicken Feeding System
 
-[![Flutter Test Suite](https://img.shields.io/badge/Flutter_Tests-13%2F13_Passed-success.svg?logo=flutter)](app/test/widget_test.dart)
+[![Flutter Test Suite](https://img.shields.io/badge/Flutter_Tests-24%2F24_Passed-success.svg?logo=flutter)](app/test/integration_audit_test.dart)
 [![PlatformIO Build](https://img.shields.io/badge/PlatformIO_ESP32-Compiled_100%25-blue.svg?logo=espressif)](firmware/platformio.ini)
 [![Firebase RTDB](https://img.shields.io/badge/Cloud-Firebase_RTDB-orange.svg?logo=firebase)](docs/FIREBASE_SETUP_GUIDE.md)
 [![Direct Wi-Fi](https://img.shields.io/badge/Off--Grid-SoftAP_REST_192.168.4.1-green.svg)](docs/HARDWARE_INTEGRATION_SPECIFICATION.md)
@@ -150,13 +150,13 @@ AutomaticDispensing/
 | Peripheral Component | Module Signal | ESP32 GPIO | Operating Voltage | Notes |
 |:---|:---|:---|:---|:---|
 | **HX711 Load Cell Amp** | Data Out (DOUT) | `GPIO 16` | 3.3V or 5.0V | 24-bit ADC; shielded wiring recommended |
-| | Serial Clock (SCK) | `GPIO 4` | 3.3V or 5.0V | Clock line driven by ESP32 |
-| **MG996R Servo Gate** | PWM Signal | `GPIO 18` | 5.0V (High Current) | Power from LM2596 buck; NOT from ESP32 pin! |
+| | Serial Clock (SCK) | `GPIO 17` | 3.3V or 5.0V | Clock line driven by ESP32 |
+| **MG996R Servo Gate** | PWM Signal | `GPIO 13` | 5.0V (High Current) | Power from LM2596 buck; NOT from ESP32 pin! |
 | **HC-SR04 Ultrasonic** | Trigger (TRIG) | `GPIO 5` | 5.0V | 10µs trigger pulse |
-| | Echo (ECHO) | `GPIO 17` | 3.3V (Divided) | Use 1kΩ / 2kΩ divider to protect 3.3V GPIO |
+| | Echo (ECHO) | `GPIO 18` | 3.3V (Divided) | Use 5V → 3.3V resistor divider to protect GPIO |
 | **DS3231 RTC Module** | I2C SDA | `GPIO 21` | 3.3V | Includes backup coin cell battery (CR2032) |
 | | I2C SCL | `GPIO 22` | 3.3V | Fast-mode 400kHz I2C bus |
-| **Battery Monitor** | Analog Sense | `GPIO 34` | ADC (0 – 3.3V) | Connect through 100kΩ / 20kΩ divider from 12V battery |
+| **Battery Monitor** | Analog Sense | `GPIO 34` | ADC (0 – 3.3V) | Connect through 40kΩ / 10kΩ (5.0x) divider from 12V battery |
 | **System Status LED** | Anode | `GPIO 2` | 3.3V | Onboard indicator (Wi-Fi / Dispense status) |
 
 > [!CAUTION]
@@ -339,6 +339,7 @@ flutter test --no-pub
 
 | Document | Purpose |
 |:---|:---|
+| [docs/MVP_PLAN.md](docs/MVP_PLAN.md) | Lean MVP scope guardrails, verified baseline, and 5-step pre-defense bench runbook |
 | [docs/AUDIT_REPORT.md](docs/AUDIT_REPORT.md) | Comprehensive full-stack and Firebase communication audit report |
 | [docs/BENCH_TESTING_GUIDE.md](docs/BENCH_TESTING_GUIDE.md) | Step-by-step bench testing, LM2596 buck tuning & wiring checklist |
 | [docs/FIREBASE_SETUP_GUIDE.md](docs/FIREBASE_SETUP_GUIDE.md) | Firebase Realtime Database setup, indexing, and security rules |

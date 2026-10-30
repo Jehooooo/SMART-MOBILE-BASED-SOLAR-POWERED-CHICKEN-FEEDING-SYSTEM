@@ -254,7 +254,7 @@ class _HardwareGuideModalState extends State<_HardwareGuideModal> {
           color: c.brand,
           title: 'Decoupled Hardware Integration Layer',
           message:
-              'The mobile application communicates through the FeederHardwareAdapter. You can switch between Mock Simulator, Firebase Realtime Cloud, and Local Wi-Fi HTTP at any time in Settings.',
+              'The mobile application communicates through the FeederHardwareAdapter. You can select between Firebase Realtime Cloud and Direct Wi-Fi HTTP (SoftAP) at any time in Settings.',
         ),
         const SizedBox(height: 16),
         _buildSectionTitle(context, '1. Communication Transports'),
@@ -274,15 +274,6 @@ class _HardwareGuideModalState extends State<_HardwareGuideModal> {
           title: 'Local Farm Wi-Fi HTTP (SoftAP)',
           desc:
               'For remote farms without internet. The ESP32 broadcasts a local hotspot (SSID: "PoultryFeeder-AP"). Connect your phone directly to Wi-Fi at http://192.168.4.1 for zero-internet controls.',
-        ),
-        const SizedBox(height: 10),
-        _buildTransportCard(
-          context,
-          badge: 'DEVELOPMENT',
-          badgeColor: c.warning,
-          title: 'Mock Simulator (Physics & Fault Emulation)',
-          desc:
-              'Runs in-memory simulation with realistic battery decay, ultrasonic depth physics, servo runtimes, and motor stall jam testing for academic presentations and development.',
         ),
         const SizedBox(height: 18),
         _buildSectionTitle(context, '2. Backend Data Contracts & Queues'),

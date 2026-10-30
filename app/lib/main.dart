@@ -5,7 +5,6 @@ import 'package:flutter/material.dart';
 import 'services/feeder_service.dart';
 import 'services/settings_service.dart';
 import 'services/hardware/hardware_adapter.dart';
-import 'services/hardware/mock_hardware_adapter.dart';
 import 'services/hardware/firebase_hardware_adapter.dart';
 import 'services/hardware/rest_hardware_adapter.dart';
 import 'theme/app_theme.dart';
@@ -111,18 +110,10 @@ class SmartChickenFeederApp extends StatefulWidget {
 
   static FeederHardwareAdapter resolveAdapter(HardwareTransportType type) {
     switch (type) {
-      case HardwareTransportType.mockSimulator:
-        return MockHardwareAdapter(simulateOffline: false);
       case HardwareTransportType.firebaseCloud:
         return FirebaseHardwareAdapter();
       case HardwareTransportType.localRestHttp:
         return RestHardwareAdapter();
-      case HardwareTransportType.bluetoothLowEnergy:
-        return MockHardwareAdapter(
-          simulateOffline: false,
-          sourceLabel: 'Bluetooth Low Energy (Direct BLE)',
-          transportType: HardwareTransportType.bluetoothLowEnergy,
-        );
     }
   }
 

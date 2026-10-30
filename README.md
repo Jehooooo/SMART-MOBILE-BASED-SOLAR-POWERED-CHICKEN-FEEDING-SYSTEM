@@ -1,4 +1,4 @@
-# Smart Mobile-Based Solar-Powered Chicken Feeding System
+﻿# Smart Mobile-Based Solar-Powered Chicken Feeding System
 
 [![Flutter Test Suite](https://img.shields.io/badge/Flutter_Tests-24%2F24_Passed-success.svg?logo=flutter)](app/test/integration_audit_test.dart)
 [![PlatformIO Build](https://img.shields.io/badge/PlatformIO_ESP32-Compiled_100%25-blue.svg?logo=espressif)](firmware/platformio.ini)
@@ -7,6 +7,18 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 An intelligent, solar-powered agricultural automation system that provides automated poultry feed dispensing based on precision weight measurements, real-time hopper level sensing, battery solar telemetry, and dual-mode mobile connectivity (Firebase Cloud + Direct Wi-Fi SoftAP).
+
+---
+
+## 📲 App Download & Installation (Android & iOS)
+
+| Platform | Recommended Method | Link & Instructions |
+|---|---|---|
+| **Android** (Modern 64-bit) | Direct APK Download | 👉 **[Download app-arm64-v8a-release.apk](https://github.com/Jehooooo/SMART-MOBILE-BASED-SOLAR-POWERED-CHICKEN-FEEDING-SYSTEM/releases/download/v1.0.0/app-arm64-v8a-release.apk)** (Samsung, Xiaomi, Oppo, Vivo, Realme, Pixel) |
+| **Android** (Legacy 32-bit) | Direct APK Download | 👉 **[Download app-armeabi-v7a-release.apk](https://github.com/Jehooooo/SMART-MOBILE-BASED-SOLAR-POWERED-CHICKEN-FEEDING-SYSTEM/releases/download/v1.0.0/app-armeabi-v7a-release.apk)** |
+| **iPhone / iPad (iOS)** | Safari PWA (Zero Fee) | 👉 Open **[Smart Feeder Web App](https://jehooooo.github.io/SMART-MOBILE-BASED-SOLAR-POWERED-CHICKEN-FEEDING-SYSTEM/)** in Safari $\rightarrow$ Tap **Share** $\rightarrow$ **"Add to Home Screen"** |
+
+> **Android Installation Tip:** When prompted with *"For your security, your phone is not allowed to install unknown apps from this source"*, tap **Settings** $\rightarrow$ toggle **Allow from this source** $\rightarrow$ tap **Install**.
 
 ---
 
@@ -354,3 +366,4 @@ flutter test --no-pub
 - **Strict Secret Hygiene:** Never commit sensitive credentials. `secrets.h`, `.env`, and `firebase_options.dart` are excluded by `.gitignore`.
 - **Per-File Commits:** Maintain clean version history by creating isolated, descriptive commits per file.
 - **Automated Verification:** Ensure `flutter test --no-pub` and `pio run` pass cleanly before submitting changes, Stay tune.
+

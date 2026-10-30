@@ -10,7 +10,6 @@ import '../models/feeder_command.dart';
 import 'alert_notification_service.dart';
 import 'hardware/firebase_hardware_adapter.dart';
 import 'hardware/hardware_adapter.dart';
-import 'hardware/mock_hardware_adapter.dart';
 
 /// Link state between the mobile app and the cloud database / feeder.
 enum FeederConnection { connecting, online, offline }
@@ -29,8 +28,6 @@ class FeederService extends ChangeNotifier {
   FeederTelemetry _telemetry = FeederTelemetry.initial();
   List<FeedingSchedule> _schedules = [];
   List<FeedingLog> _history = [];
-  Timer? _scheduleWatchTimer;
-  final Set<String> _executedScheduleMinutes = {};
   bool _isDispensing = false;
   bool _isCommandInFlight = false;
   int _scheduleMutationEpoch = 0;
@@ -79,54 +76,20 @@ class FeederService extends ChangeNotifier {
   HardwareTransportType get transportType => _adapter.transportType;
   bool get isMock => _adapter.isMock;
 
-  /// Checks if the mock adapter currently has simulated offline mode enabled.
-  bool get isSimulatingOffline {
-    if (_adapter is MockHardwareAdapter) {
-      return (_adapter as MockHardwareAdapter).simulateOffline;
-    }
-    return false;
-  }
-
-  /// Checks if the mock adapter has motor jam simulation enabled.
-  bool get isSimulatingMotorJam {
-    if (_adapter is MockHardwareAdapter) {
-      return (_adapter as MockHardwareAdapter).simulateMotorJam;
-    }
-    return false;
-  }
-
-  /// Checks if the mock adapter has sensor error simulation enabled.
-  bool get isSimulatingSensorError {
-    if (_adapter is MockHardwareAdapter) {
-      return (_adapter as MockHardwareAdapter).simulateSensorError;
-    }
-    return false;
-  }
-
-  /// Optional injected adapter (defaults to MockHardwareAdapter with offline default for pre-fabrication testing).
+  /// FeederService connects to the physical feeder hardware via Firebase Cloud or Local REST HTTP.
   FeederService({
     FeederHardwareAdapter? adapter,
-    Duration connectDelay = const Duration(milliseconds: 600),
-    bool simulateOffline = true,
     AlertNotificationService? alertService,
     double lowFeedThreshold = 20.0,
     double lowBatteryThreshold = 20.0,
     bool enableOsNotifications = true,
-  })  : _adapter = adapter ?? MockHardwareAdapter(connectDelay: connectDelay, simulateOffline: simulateOffline),
+  })  : _adapter = adapter ?? FirebaseHardwareAdapter(),
         _lowFeedThreshold = lowFeedThreshold.clamp(5.0, 90.0),
         _lowBatteryThreshold = lowBatteryThreshold.clamp(5.0, 90.0),
         alertService = alertService ?? AlertNotificationService(enableOsNotifications: enableOsNotifications) {
-    if (!simulateOffline) {
-      _connection = FeederConnection.online;
-      _isInitialLoading = false;
-      _lastSyncedAt = DateTime.now();
-    }
-    _initSampleData();
-    this.alertService.seedHistoricalLogIds(_history.map((l) => l.id));
     unawaited(this.alertService.initialize());
     _bindAdapter(_adapter, syncCloudImmediately: false);
     unawaited(_initialLoadSequence());
-    _initScheduleWatcher();
   }
 
   Future<void> _initialLoadSequence() async {
@@ -216,50 +179,6 @@ class FeederService extends ChangeNotifier {
     _bindAdapter(_adapter, syncCloudImmediately: true);
   }
 
-  /// Testing helper: toggles simulated offline in mock mode.
-  void setSimulatedOffline(bool value) {
-    if (_adapter is MockHardwareAdapter) {
-      final mock = _adapter as MockHardwareAdapter;
-      mock.simulateOffline = value;
-      if (value) {
-        _connection = FeederConnection.offline;
-        _telemetry = _telemetry.copyWith(clearHeartbeat: true);
-      } else {
-        _connection = FeederConnection.online;
-        _telemetry = _telemetry.copyWith(lastHeartbeat: DateTime.now());
-        mock.refreshTelemetry();
-      }
-      notifyListeners();
-    }
-  }
-
-  /// Testing helper: toggles simulated motor jam / auger stall in mock mode.
-  void setSimulatedMotorJam(bool value) {
-    if (_adapter is MockHardwareAdapter) {
-      final mock = _adapter as MockHardwareAdapter;
-      mock.simulateMotorJam = value;
-      notifyListeners();
-    }
-  }
-
-  /// Testing helper: toggles simulated ultrasonic / sensor error in mock mode.
-  void setSimulatedSensorError(bool value) {
-    if (_adapter is MockHardwareAdapter) {
-      final mock = _adapter as MockHardwareAdapter;
-      mock.simulateSensorError = value;
-      mock.refreshTelemetry();
-      notifyListeners();
-    }
-  }
-
-  /// Restores simulated hopper level to 100%.
-  void refillHopper() {
-    if (_adapter is MockHardwareAdapter) {
-      (_adapter as MockHardwareAdapter).refillHopper();
-      notifyListeners();
-    }
-  }
-
   /// Sends a zero/tare calibration command to the scale.
   Future<bool> tareScale() async {
     if (_isDispensing || _isCommandInFlight || !isDeviceOnline) {
@@ -312,84 +231,6 @@ class FeederService extends ChangeNotifier {
     } finally {
       _isCommandInFlight = false;
     }
-  }
-
-  void _initSampleData() {
-    // Standard default poultry feeding times (Morning, Mid-day, Afternoon)
-    _schedules = [
-      const FeedingSchedule(
-        id: 'sch_1',
-        label: 'Morning Feeding',
-        hour: 6,
-        minute: 30,
-        targetGrams: 180.0,
-        isEnabled: true,
-      ),
-      const FeedingSchedule(
-        id: 'sch_2',
-        label: 'Midday Feeding',
-        hour: 12,
-        minute: 0,
-        targetGrams: 150.0,
-        isEnabled: true,
-      ),
-      const FeedingSchedule(
-        id: 'sch_3',
-        label: 'Afternoon Feeding',
-        hour: 17,
-        minute: 30,
-        targetGrams: 200.0,
-        isEnabled: true,
-      ),
-    ];
-
-    final now = DateTime.now();
-    _history = [
-      FeedingLog(
-        id: 'log_101',
-        timestamp: now.subtract(const Duration(hours: 4)),
-        targetGrams: 180.0,
-        actualGrams: 181.4,
-        durationSeconds: 12,
-        triggerType: 'Schedule',
-        isSuccess: true,
-        batteryVolts: 12.6,
-        feedLevelPercent: 78.0,
-      ),
-      FeedingLog(
-        id: 'log_102',
-        timestamp: now.subtract(const Duration(hours: 9)),
-        targetGrams: 150.0,
-        actualGrams: 149.2,
-        durationSeconds: 10,
-        triggerType: 'Schedule',
-        isSuccess: true,
-        batteryVolts: 12.7,
-        feedLevelPercent: 84.0,
-      ),
-      FeedingLog(
-        id: 'log_103',
-        timestamp: now.subtract(const Duration(hours: 22)),
-        targetGrams: 200.0,
-        actualGrams: 198.8,
-        durationSeconds: 14,
-        triggerType: 'Schedule',
-        isSuccess: true,
-        batteryVolts: 12.4,
-        feedLevelPercent: 91.0,
-      ),
-      FeedingLog(
-        id: 'log_104',
-        timestamp: now.subtract(const Duration(days: 1, hours: 5)),
-        targetGrams: 100.0,
-        actualGrams: 101.1,
-        durationSeconds: 8,
-        triggerType: 'Manual',
-        isSuccess: true,
-        batteryVolts: 12.5,
-        feedLevelPercent: 95.0,
-      ),
-    ];
   }
 
   FeedingSchedule? get nextSchedule {
@@ -488,33 +329,6 @@ class FeederService extends ChangeNotifier {
     }
   }
 
-  void _initScheduleWatcher() {
-    _scheduleWatchTimer?.cancel();
-    _scheduleWatchTimer = Timer.periodic(const Duration(seconds: 5), (_) => _checkScheduledFeedings());
-  }
-
-  void _checkScheduledFeedings() {
-    // Autonomous schedule execution runs directly on the ESP32 controller (or cloud simulator)
-    // when using Firebase Cloud or Local REST HTTP, preventing duplicate double-dispensing
-    // when the mobile app is open at the scheduled minute.
-    if (!_adapter.isMock) return;
-    if (_schedules.isEmpty || _isDispensing || _isCommandInFlight || !isDeviceOnline) return;
-
-    final now = DateTime.now();
-    for (final s in _schedules) {
-      if (!s.isEnabled) continue;
-      if (s.daysOfWeek.isNotEmpty && !s.daysOfWeek.contains(now.weekday)) continue;
-      if (s.hour == now.hour && s.minute == now.minute) {
-        final key = '${now.year}-${now.month}-${now.day}_${now.hour}:${now.minute}_${s.id}';
-        if (!_executedScheduleMinutes.contains(key)) {
-          _executedScheduleMinutes.add(key);
-          debugPrint('[FeederService] Mock schedule execution triggered: ${s.label} (${s.timeFormatted})');
-          triggerSchedule(s);
-        }
-      }
-    }
-  }
-
   void addSchedule(FeedingSchedule schedule) {
     _scheduleMutationEpoch++;
     _schedules.add(schedule);
@@ -580,19 +394,7 @@ class FeederService extends ChangeNotifier {
   /// when operating in Firebase Cloud mode.
   Future<void> syncWithFirebaseCloud() async {
     if (_adapter is! FirebaseHardwareAdapter || _disposed) return;
-
-    final hasSched = await refreshSchedulesFromCloud();
-    if (!hasSched && _adapter is FirebaseHardwareAdapter) {
-      try {
-        final prefs = await SharedPreferences.getInstance();
-        final isInitialized = prefs.getBool(_kInitializedPrefKey) ?? false;
-        if (!isInitialized && _schedules.isEmpty) {
-          _initSampleData();
-          await _saveLocalSchedules();
-          await _syncSchedulesViaAdapter(_schedules);
-        }
-      } catch (_) {}
-    }
+    await refreshSchedulesFromCloud();
     await refreshLogsFromCloud();
   }
 
@@ -829,7 +631,6 @@ class FeederService extends ChangeNotifier {
   @override
   void dispose() {
     _disposed = true;
-    _scheduleWatchTimer?.cancel();
     _telemetrySub?.cancel();
     _connectionSub?.cancel();
     _logSub?.cancel();

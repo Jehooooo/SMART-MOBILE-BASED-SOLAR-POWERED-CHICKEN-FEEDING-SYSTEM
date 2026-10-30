@@ -6,54 +6,6 @@ on:
   workflow_dispatch:
 
 jobs:
-  build-ios:
-    name: Build iOS App (.app / Payload)
-    runs-on: macos-14
-    steps:
-      - name: Checkout Code
-        uses: actions/checkout@v4
-
-      - name: Set up Java 17
-        uses: actions/setup-java@v4
-        with:
-          distribution: 'temurin'
-          java-version: '17'
-
-      - name: Set up Flutter
-        uses: subosito/flutter-action@v2
-        with:
-          flutter-version: '3.24.x'
-          channel: 'stable'
-          cache: true
-
-      - name: Install Dependencies
-        working-directory: app
-        run: flutter pub get
-
-      - name: Build iOS (No Codesign)
-        working-directory: app
-        run: flutter build ios --release --no-codesign
-
-      - name: Create Payload Directory & Package .ipa (Ad-Hoc / Sideloading)
-        working-directory: app
-        run: |
-          mkdir -p Payload
-          cp -r build/ios/iphoneos/Runner.app Payload/
-          zip -r SmartFeeder-iOS-unsigned.ipa Payload
-          zip -r SmartFeeder-Runner-app.zip build/ios/iphoneos/Runner.app
-
-      - name: Upload iOS IPA Artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: SmartFeeder-iOS-unsigned
-          path: app/SmartFeeder-iOS-unsigned.ipa
-
-      - name: Upload Runner.app Archive
-        uses: actions/upload-artifact@v4
-        with:
-          name: SmartFeeder-Runner-app
-          path: app/SmartFeeder-Runner-app.zip
-
   build-android:
     name: Build Android Release APKs
     runs-on: ubuntu-latest
@@ -70,7 +22,6 @@ jobs:
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.24.x'
           channel: 'stable'
           cache: true
 
@@ -93,3 +44,44 @@ jobs:
         with:
           name: app-armeabi-v7a-release
           path: app/build/app/outputs/flutter-apk/app-armeabi-v7a-release.apk
+
+  build-ios:
+    name: Build iOS App (.app / Payload)
+    runs-on: macos-14
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+          cache: true
+
+      - name: Install Dependencies
+        working-directory: app
+        run: flutter pub get
+
+      - name: Build iOS (No Codesign)
+        working-directory: app
+        run: flutter build ios --release --no-codesign
+
+      - name: Package .ipa and Runner.app
+        working-directory: app
+        run: |
+          mkdir -p Payload
+          cp -r build/ios/iphoneos/Runner.app Payload/
+          zip -r SmartFeeder-iOS-unsigned.ipa Payload
+          zip -r SmartFeeder-Runner-app.zip build/ios/iphoneos/Runner.app
+
+      - name: Upload iOS IPA Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: SmartFeeder-iOS-unsigned
+          path: app/SmartFeeder-iOS-unsigned.ipa
+
+      - name: Upload Runner.app Archive
+        uses: actions/upload-artifact@v4
+        with:
+          name: SmartFeeder-Runner-app
+          path: app/SmartFeeder-Runner-app.zip

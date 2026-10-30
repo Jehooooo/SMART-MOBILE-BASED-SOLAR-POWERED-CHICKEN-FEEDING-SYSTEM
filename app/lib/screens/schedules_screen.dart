@@ -43,9 +43,7 @@ class _SchedulesScreenState extends State<SchedulesScreen> {
                   final ok = await widget.feederService.refreshSchedulesFromCloud();
                   if (!context.mounted) return;
                   final msg = ok
-                      ? (widget.feederService.isMock
-                          ? 'Schedules verified in local simulator cache.'
-                          : 'Schedules synchronized from Firebase.')
+                      ? 'Schedules synchronized from Firebase.'
                       : (widget.feederService.lastErrorMessage ??
                           'Could not sync schedules from Firebase. Showing cached schedules.');
                   ScaffoldMessenger.of(context)

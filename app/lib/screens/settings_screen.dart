@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import '../services/feeder_service.dart';
 import '../services/settings_service.dart';
 import '../services/hardware/hardware_adapter.dart';
-import '../services/hardware/mock_hardware_adapter.dart';
 import '../services/hardware/firebase_hardware_adapter.dart';
 import '../services/hardware/rest_hardware_adapter.dart';
 import '../theme/app_theme.dart';
@@ -209,16 +208,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                 Container(
                                   padding: const EdgeInsets.all(8),
                                   decoration: BoxDecoration(
-                                    color: _feeder.isMock ? c.manualSoft : c.brandSoft,
+                                    color: c.brandSoft,
                                     borderRadius: BorderRadius.circular(10),
                                     border: Border.all(
-                                      color: (_feeder.isMock ? c.warning : c.brand).withValues(alpha: 0.25),
+                                      color: c.brand.withValues(alpha: 0.25),
                                     ),
                                   ),
                                   child: Icon(
-                                    _feeder.isMock ? Icons.developer_mode : Icons.hub_outlined,
+                                    Icons.hub_outlined,
                                     size: 18,
-                                    color: _feeder.isMock ? c.warning : c.brand,
+                                    color: c.brand,
                                   ),
                                 ),
                                 const SizedBox(width: 10),
@@ -230,20 +229,18 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                 Container(
                                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                                   decoration: BoxDecoration(
-                                    color: _feeder.isMock
-                                        ? c.warning.withValues(alpha: 0.15)
-                                        : c.brand.withValues(alpha: 0.15),
+                                    color: c.brand.withValues(alpha: 0.15),
                                     borderRadius: BorderRadius.circular(6),
                                     border: Border.all(
-                                      color: (_feeder.isMock ? c.warning : c.brand).withValues(alpha: 0.3),
+                                      color: c.brand.withValues(alpha: 0.3),
                                     ),
                                   ),
                                   child: Text(
-                                    _feeder.isMock ? 'SIMULATOR' : 'LIVE HW',
+                                    'LIVE HW',
                                     style: TextStyle(
                                       fontSize: 10,
                                       fontWeight: FontWeight.w800,
-                                      color: _feeder.isMock ? c.warning : c.brand,
+                                      color: c.brand,
                                     ),
                                   ),
                                 ),
@@ -268,20 +265,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                   value: _feeder.transportType,
                                   items: const [
                                     DropdownMenuItem(
-                                      value: HardwareTransportType.mockSimulator,
-                                      child: Text('Mock Simulator (Off-Grid Emulation)'),
-                                    ),
-                                    DropdownMenuItem(
                                       value: HardwareTransportType.firebaseCloud,
                                       child: Text('Firebase Realtime Cloud (ESP32)'),
                                     ),
                                     DropdownMenuItem(
                                       value: HardwareTransportType.localRestHttp,
-                                      child: Text('Local Farm Wi-Fi HTTP (SoftAP)'),
-                                    ),
-                                    DropdownMenuItem(
-                                      value: HardwareTransportType.bluetoothLowEnergy,
-                                      child: Text('Bluetooth Low Energy (Direct BLE)'),
+                                      child: Text('Direct Wi-Fi HTTP (SoftAP 192.168.4.1)'),
                                     ),
                                   ],
                                   onChanged: (val) {
@@ -468,140 +457,43 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           ),
                         ),
                         Divider(height: 22, color: c.border.withValues(alpha: 0.4)),
-                        if (_feeder.isMock) ...[
-                          SwitchListTile(
-                            contentPadding: EdgeInsets.zero,
-                            secondary: Container(
-                              padding: const EdgeInsets.all(10),
-                              decoration: BoxDecoration(
-                                color: _feeder.isSimulatingOffline ? c.dangerSoft : c.brandSoft,
-                                borderRadius: BorderRadius.circular(12),
-                                border: Border.all(
-                                  color: (_feeder.isSimulatingOffline ? c.danger : c.brand).withValues(alpha: 0.25),
-                                ),
-                              ),
-                              child: Icon(
-                                _feeder.isSimulatingOffline ? Icons.cloud_off_rounded : Icons.cloud_done_rounded,
-                                color: _feeder.isSimulatingOffline ? c.danger : c.brand,
-                                size: 20,
-                              ),
+                        ListTile(
+                          contentPadding: EdgeInsets.zero,
+                          leading: Container(
+                            padding: const EdgeInsets.all(10),
+                            decoration: BoxDecoration(
+                              color: c.brandSoft,
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(color: c.brand.withValues(alpha: 0.2)),
                             ),
-                            title: Text(
-                              'Simulate Offline Connection',
-                              style: TextStyle(fontWeight: FontWeight.w800, color: c.textPrimary),
-                            ),
-                            subtitle: Text(
-                              _feeder.isSimulatingOffline
-                                  ? 'Feeder is offline by default in development. Turn OFF to test simulated online telemetry.'
-                                  : 'Simulated online connection active. Turn ON to return to development offline mode.',
-                              style: TextStyle(fontSize: 12, color: c.textMuted),
-                            ),
-                            value: _feeder.isSimulatingOffline,
-                            onChanged: (val) {
-                              _feeder.setSimulatedOffline(val);
+                            child: Icon(Icons.scale_rounded, color: c.brand, size: 20),
+                          ),
+                          title: Text(
+                            'Zero / Tare Scale Sensor',
+                            style: TextStyle(fontWeight: FontWeight.w800, color: c.textPrimary),
+                          ),
+                          subtitle: Text(
+                            'Sends hardware calibration command to HX711 load cell.',
+                            style: TextStyle(fontSize: 12, color: c.textMuted),
+                          ),
+                          trailing: LiquidGlassButton(
+                            height: 38,
+                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                            onPressed: () async {
+                              final ok = await _feeder.tareScale();
+                              if (context.mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text(ok
+                                        ? 'Tare command sent to hardware successfully.'
+                                        : 'Failed to send tare command. Check connection.'),
+                                  ),
+                                );
+                              }
                             },
+                            child: const Text('Tare (0.0g)'),
                           ),
-                          Divider(height: 20, color: c.border.withValues(alpha: 0.4)),
-                          SwitchListTile(
-                            contentPadding: EdgeInsets.zero,
-                            secondary: Container(
-                              padding: const EdgeInsets.all(10),
-                              decoration: BoxDecoration(
-                                color: _feeder.isSimulatingMotorJam ? c.dangerSoft : c.manualSoft,
-                                borderRadius: BorderRadius.circular(12),
-                                border: Border.all(
-                                  color: (_feeder.isSimulatingMotorJam ? c.danger : c.warning).withValues(alpha: 0.25),
-                                ),
-                              ),
-                              child: Icon(
-                                Icons.lock_clock_rounded,
-                                color: _feeder.isSimulatingMotorJam ? c.danger : c.warning,
-                                size: 20,
-                              ),
-                            ),
-                            title: Text(
-                              'Simulate Motor Jam (Servo Stall)',
-                              style: TextStyle(fontWeight: FontWeight.w800, color: c.textPrimary),
-                            ),
-                            subtitle: Text(
-                              'Simulates auger physical blockage during dispensing cycle.',
-                              style: TextStyle(fontSize: 12, color: c.textMuted),
-                            ),
-                            value: _feeder.isSimulatingMotorJam,
-                            onChanged: (val) {
-                              _feeder.setSimulatedMotorJam(val);
-                            },
-                          ),
-                          Divider(height: 20, color: c.border.withValues(alpha: 0.4)),
-                          SwitchListTile(
-                            contentPadding: EdgeInsets.zero,
-                            secondary: Container(
-                              padding: const EdgeInsets.all(10),
-                              decoration: BoxDecoration(
-                                color: _feeder.isSimulatingSensorError ? c.dangerSoft : c.infoSoft,
-                                borderRadius: BorderRadius.circular(12),
-                                border: Border.all(
-                                  color: (_feeder.isSimulatingSensorError ? c.danger : c.info).withValues(alpha: 0.25),
-                                ),
-                              ),
-                              child: Icon(
-                                Icons.error_outline_rounded,
-                                color: _feeder.isSimulatingSensorError ? c.danger : c.info,
-                                size: 20,
-                              ),
-                            ),
-                            title: Text(
-                              'Simulate Sensor Failure',
-                              style: TextStyle(fontWeight: FontWeight.w800, color: c.textPrimary),
-                            ),
-                            subtitle: Text(
-                              'Simulates HC-SR04 ultrasonic echo loss or HX711 disconnection.',
-                              style: TextStyle(fontSize: 12, color: c.textMuted),
-                            ),
-                            value: _feeder.isSimulatingSensorError,
-                            onChanged: (val) {
-                              _feeder.setSimulatedSensorError(val);
-                            },
-                          ),
-                        ] else ...[
-                          ListTile(
-                            contentPadding: EdgeInsets.zero,
-                            leading: Container(
-                              padding: const EdgeInsets.all(10),
-                              decoration: BoxDecoration(
-                                color: c.brandSoft,
-                                borderRadius: BorderRadius.circular(12),
-                                border: Border.all(color: c.brand.withValues(alpha: 0.2)),
-                              ),
-                              child: Icon(Icons.scale_rounded, color: c.brand, size: 20),
-                            ),
-                            title: Text(
-                              'Zero / Tare Scale Sensor',
-                              style: TextStyle(fontWeight: FontWeight.w800, color: c.textPrimary),
-                            ),
-                            subtitle: Text(
-                              'Sends hardware calibration command to HX711 load cell.',
-                              style: TextStyle(fontSize: 12, color: c.textMuted),
-                            ),
-                            trailing: LiquidGlassButton(
-                              height: 38,
-                              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                              onPressed: () async {
-                                final ok = await _feeder.tareScale();
-                                if (context.mounted) {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(
-                                      content: Text(ok
-                                          ? 'Tare command sent to hardware successfully.'
-                                          : 'Failed to send tare command. Check connection.'),
-                                    ),
-                                  );
-                                }
-                              },
-                              child: const Text('Tare (0.0g)'),
-                            ),
-                          ),
-                        ],
+                        ),
                         Divider(height: 24, color: c.border.withValues(alpha: 0.4)),
                         ListTile(
                           contentPadding: EdgeInsets.zero,
@@ -806,21 +698,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
   void _switchHardwareTransport(HardwareTransportType type) {
     FeederHardwareAdapter newAdapter;
     switch (type) {
-      case HardwareTransportType.mockSimulator:
-        newAdapter = MockHardwareAdapter(simulateOffline: false);
-        break;
       case HardwareTransportType.firebaseCloud:
         newAdapter = FirebaseHardwareAdapter();
         break;
       case HardwareTransportType.localRestHttp:
         newAdapter = RestHardwareAdapter();
-        break;
-      case HardwareTransportType.bluetoothLowEnergy:
-        newAdapter = MockHardwareAdapter(
-          simulateOffline: false,
-          sourceLabel: 'Bluetooth Low Energy (Direct BLE)',
-          transportType: HardwareTransportType.bluetoothLowEnergy,
-        );
         break;
     }
     _settings.setHardwareTransport(type);

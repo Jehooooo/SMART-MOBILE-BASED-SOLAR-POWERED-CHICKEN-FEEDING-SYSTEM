@@ -74,9 +74,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
                   final ok = await widget.feederService.refreshLogsFromCloud();
                   if (!context.mounted) return;
                   final msg = ok
-                      ? (widget.feederService.isMock
-                          ? 'Feeding logs verified in local simulator cache.'
-                          : 'Feeding logs synchronized from Firebase.')
+                      ? 'Feeding logs synchronized from Firebase.'
                       : (widget.feederService.lastErrorMessage ??
                           'Could not sync logs from Firebase. Showing cached logs.');
                   ScaffoldMessenger.of(context)

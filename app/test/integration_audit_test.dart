@@ -13,7 +13,7 @@ import 'package:smart_chicken_feeder/services/alert_notification_service.dart';
 import 'package:smart_chicken_feeder/services/feeder_service.dart';
 import 'package:smart_chicken_feeder/services/hardware/firebase_hardware_adapter.dart';
 import 'package:smart_chicken_feeder/services/hardware/hardware_adapter.dart';
-import 'package:smart_chicken_feeder/services/hardware/mock_hardware_adapter.dart';
+import 'mocks/mock_hardware_adapter.dart';
 import 'package:smart_chicken_feeder/services/settings_service.dart';
 import 'package:smart_chicken_feeder/theme/app_theme.dart';
 

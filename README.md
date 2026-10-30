@@ -351,12 +351,14 @@ flutter test --no-pub
 
 | Document | Purpose |
 |:---|:---|
+| [docs/PROJECT_DOCUMENTATION.md](docs/PROJECT_DOCUMENTATION.md) | **Master Technical Documentation & User Manual** (14 chapters, architecture, Firebase, ESP32 setup, operation, troubleshooting & FAQ) |
+| [docs/PROJECT_DOCUMENTATION.docx](docs/PROJECT_DOCUMENTATION.docx) | **Academic Presentation Edition (.docx)** formatted for printing, defense review, and thesis appendices |
+| [docs/SYSTEM_FLOWCHART.md](docs/SYSTEM_FLOWCHART.md) | **Complete 11-Workflow Mermaid Diagram Suite** (architecture, app, ESP32 boot, Firebase sync, feeding, alerts, error recovery) |
 | [docs/MVP_PLAN.md](docs/MVP_PLAN.md) | Lean MVP scope guardrails, verified baseline, and 5-step pre-defense bench runbook |
 | [docs/AUDIT_REPORT.md](docs/AUDIT_REPORT.md) | Comprehensive full-stack and Firebase communication audit report |
 | [docs/BENCH_TESTING_GUIDE.md](docs/BENCH_TESTING_GUIDE.md) | Step-by-step bench testing, LM2596 buck tuning & wiring checklist |
 | [docs/FIREBASE_SETUP_GUIDE.md](docs/FIREBASE_SETUP_GUIDE.md) | Firebase Realtime Database setup, indexing, and security rules |
 | [docs/HARDWARE_INTEGRATION_SPECIFICATION.md](docs/HARDWARE_INTEGRATION_SPECIFICATION.md) | Electrical schematics, pinout tables, and voltage regulation specs |
-| [docs/SYSTEM_FLOWCHART.md](docs/SYSTEM_FLOWCHART.md) | Comprehensive system architecture and operational dataflow diagram |
 | [docs/methodology_analysis.md](docs/methodology_analysis.md) | Research methodology, theoretical equations, and empirical analysis |
 
 ---

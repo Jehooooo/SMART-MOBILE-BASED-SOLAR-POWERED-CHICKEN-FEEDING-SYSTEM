@@ -101,3 +101,15 @@ Deliver a **rock-solid, defense-ready automated solar chicken feeder** that exec
 - [ ] **Safety Interlock Check:** Trigger a dispense and tap **STOP DISPENSING** mid-cycle — confirm immediate `0°` gate closure and `failed/cancelled` acknowledgment.
 - [ ] **Off-Grid Fallback Rehearsal:** Turn off venue/router Wi-Fi → connect phone Wi-Fi to **`SmartFeeder-AP`** → switch app **Settings → Connection Mode → Direct Wi-Fi (`192.168.4.1`)** → confirm live telemetry and manual dispense still work instantaneously.
 - [ ] **Thesis Chapter IV Export:** Open **History & Logs → Export Excel (`.xlsx`)** and save the empirical trial sheet.
+
+---
+
+## Production Cleanup & Mock Removal Milestone (Completed Oct 30, 2026)
+
+- [x] **Live Firebase RTDB Sanitized:** Backed up and pruned stale development nodes (`/logs.json`, `/commands.json`, `/feeders.json`, `/telemetry.json`, `sch_1/2/3`). Verified live cloud state retains only real user routine (`sch_1792859304899`, 00:29, 100g).
+- [x] **Zero Mock/Simulation Code in Production App:** Removed in-app simulator toggles, bottom sheets, simulated motor jam/sensor error switches, and fake BLE options. Production app strictly operates on **Firebase Cloud** and **Direct Wi-Fi SoftAP (`192.168.4.1`)**.
+- [x] **Automated Test Decoupling:** Relocated `MockHardwareAdapter` to `app/test/mocks/` for test-only harnesses; all 24 automated unit and integration tests passing (`flutter test --no-pub`).
+- [x] **Clean Initial State Preserved:** Removed `_initSampleData()` bug in `FeederService` to prevent dummy records from resurrecting on empty cloud databases.
+- [x] **Firmware Build Health:** Confirmed `firmware/src/main.cpp` compiles cleanly (`pio run`) utilizing only 15.3% RAM and 53.4% Flash.
+
+

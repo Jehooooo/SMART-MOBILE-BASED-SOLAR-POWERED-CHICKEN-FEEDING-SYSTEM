@@ -7,21 +7,15 @@ import '../feeder_service.dart';
 
 /// Communication protocol / transport used to connect to the physical feeder.
 enum HardwareTransportType {
-  mockSimulator,
   firebaseCloud,
-  localRestHttp,
-  bluetoothLowEnergy;
+  localRestHttp;
 
   String get displayName {
     switch (this) {
-      case HardwareTransportType.mockSimulator:
-        return 'Mock Simulator (Development)';
       case HardwareTransportType.firebaseCloud:
         return 'ESP32 Cloud (Firebase RTDB)';
       case HardwareTransportType.localRestHttp:
         return 'ESP32 Local Wi-Fi (REST HTTP)';
-      case HardwareTransportType.bluetoothLowEnergy:
-        return 'Bluetooth Low Energy (BLE)';
     }
   }
 }
@@ -29,8 +23,8 @@ enum HardwareTransportType {
 /// Abstract Hardware Integration Layer.
 ///
 /// Decouples the Flutter UI and state management from the underlying physical
-/// machine transport. Whether the machine connects via Firebase Cloud, local Wi-Fi
-/// REST API, or Bluetooth Low Energy, the app interacts with this uniform interface.
+/// machine transport. The app interacts with this uniform interface across
+/// Firebase Cloud and Direct SoftAP REST API.
 abstract class FeederHardwareAdapter {
   /// Stream emitting live telemetry updates received from the hardware.
   Stream<FeederTelemetry> get telemetryStream;
@@ -47,8 +41,8 @@ abstract class FeederHardwareAdapter {
   /// Type of transport currently in use.
   HardwareTransportType get transportType;
 
-  /// True if running against simulated/mock hardware.
-  bool get isMock;
+  /// True if running against simulated/mock test hardware.
+  bool get isMock => false;
 
   /// Connects to the hardware or cloud transport.
   Future<void> initialize();

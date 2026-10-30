@@ -14,12 +14,26 @@ import 'package:smart_chicken_feeder/models/schedule.dart';
 import 'package:smart_chicken_feeder/models/feeding_log.dart';
 import 'package:smart_chicken_feeder/services/hardware/hardware_adapter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'mocks/mock_hardware_adapter.dart';
+
+FeederService createTestFeeder({
+  Duration connectDelay = Duration.zero,
+  bool simulateOffline = false,
+  MockHardwareAdapter? adapter,
+}) {
+  final mockAdapter = adapter ??
+      MockHardwareAdapter(
+        connectDelay: connectDelay,
+        simulateOffline: simulateOffline,
+      );
+  return FeederService(adapter: mockAdapter);
+}
 
 void main() {
   group('SmartChickenFeeder App Smoke & Usability Tests', () {
     testWidgets('App renders onboarding first, completes it, then lands on dashboard', (WidgetTester tester) async {
       final settings = SettingsService(onboardingComplete: false);
-      final feeder = FeederService(connectDelay: Duration.zero);
+      final feeder = createTestFeeder();
 
       await tester.pumpWidget(SmartChickenFeederApp(
         settingsService: settings,
@@ -50,7 +64,7 @@ void main() {
 
     testWidgets('App renders dashboard, navigation tabs, and Settings screen', (WidgetTester tester) async {
       final settings = SettingsService(onboardingComplete: true);
-      final feeder = FeederService(connectDelay: Duration.zero);
+      final feeder = createTestFeeder();
 
       await tester.pumpWidget(SmartChickenFeederApp(
         settingsService: settings,
@@ -70,13 +84,13 @@ void main() {
       await tester.tap(find.text('Schedules'));
       await tester.pumpAndSettle();
       expect(find.text('Feeding Schedules'), findsOneWidget);
-      expect(find.textContaining('Active Daily'), findsOneWidget);
+      expect(find.text('No Feeding Schedules Set'), findsOneWidget);
 
       // Tap History & Logs tab
       await tester.tap(find.text('History & Logs'));
       await tester.pumpAndSettle();
       expect(find.text('Feeding Logs & Analytics'), findsOneWidget);
-      expect(find.text('Performance Metrics'), findsOneWidget);
+      expect(find.text('No Feeding Logs Yet'), findsOneWidget);
 
       // Tap Settings tab
       await tester.tap(find.text('Settings'));
@@ -93,15 +107,16 @@ void main() {
       await tester.scrollUntilVisible(find.text('Low Feed Warning Level'), 100);
       expect(find.text('Low Feed Warning Level'), findsOneWidget);
 
-      await tester.scrollUntilVisible(find.text('Simulate Offline Connection'), 100);
-      expect(find.text('Simulate Offline Connection'), findsOneWidget);
+      await tester.scrollUntilVisible(find.text('Zero / Tare Scale Sensor'), 100);
+      expect(find.text('Zero / Tare Scale Sensor'), findsOneWidget);
 
       feeder.dispose();
     });
 
     testWidgets('Offline banner shows and disables manual feed when connection lost', (WidgetTester tester) async {
       final settings = SettingsService(onboardingComplete: true);
-      final feeder = FeederService(connectDelay: Duration.zero);
+      final mock = MockHardwareAdapter(connectDelay: Duration.zero, simulateOffline: false);
+      final feeder = createTestFeeder(adapter: mock);
 
       await tester.pumpWidget(SmartChickenFeederApp(
         settingsService: settings,
@@ -110,7 +125,7 @@ void main() {
       await tester.pumpAndSettle();
 
       // Simulate offline state
-      feeder.setSimulatedOffline(true);
+      mock.simulateOffline = true;
       await tester.pumpAndSettle();
 
       // Banner should be visible
@@ -119,7 +134,7 @@ void main() {
       expect(find.textContaining('Manual feeding is unavailable'), findsOneWidget);
 
       // Reconnect
-      feeder.setSimulatedOffline(false);
+      mock.simulateOffline = false;
       await tester.tap(find.text('Retry'));
       await tester.pumpAndSettle();
 
@@ -137,7 +152,7 @@ void main() {
       });
 
       final settings = SettingsService(onboardingComplete: true);
-      final feeder = FeederService(connectDelay: Duration.zero);
+      final feeder = createTestFeeder();
 
       await tester.pumpWidget(SmartChickenFeederApp(
         settingsService: settings,
@@ -156,18 +171,21 @@ void main() {
     });
 
     test('FeederService defaults to offline during development until hardware connects', () async {
-      final service = FeederService(connectDelay: Duration.zero);
+      final service = createTestFeeder(simulateOffline: true);
       expect(service.connection, FeederConnection.offline);
       expect(service.telemetry.isOnline, false);
       service.dispose();
     });
 
     test('FeederService data logic and heuristic operations test', () async {
-      final service = FeederService(connectDelay: Duration.zero, simulateOffline: false);
+      final service = createTestFeeder(simulateOffline: false);
       await service.refreshTelemetry();
 
+      service.addSchedule(const FeedingSchedule(id: 'sch_1', label: 'Morning Feeding', hour: 6, minute: 30, targetGrams: 180.0));
+      service.addSchedule(const FeedingSchedule(id: 'sch_2', label: 'Midday Feeding', hour: 12, minute: 0, targetGrams: 150.0));
+      service.addSchedule(const FeedingSchedule(id: 'sch_3', label: 'Afternoon Feeding', hour: 17, minute: 30, targetGrams: 200.0));
+
       expect(service.schedules.length, 3);
-      expect(service.history.isNotEmpty, true);
       expect(service.telemetry.isOnline, true);
       expect(service.totalDailyTargetGrams, greaterThan(0));
 
@@ -199,8 +217,9 @@ void main() {
     });
 
     test('FeederService manual dispense and command duration seconds test', () async {
-      final service = FeederService(connectDelay: Duration.zero, simulateOffline: false);
+      final service = createTestFeeder(simulateOffline: false);
       await service.refreshTelemetry();
+      service.addSchedule(const FeedingSchedule(id: 'sch_test', label: 'Test Feeding', hour: 7, minute: 0, targetGrams: 120.0));
 
       expect(service.totalDailyDurationSeconds, greaterThan(0));
 
@@ -212,7 +231,7 @@ void main() {
     });
 
     test('FeederService exportExcelXml formats valid Excel workbook XML with styles and headers', () {
-      final service = FeederService(connectDelay: Duration.zero);
+      final service = createTestFeeder();
       final xml = service.exportExcelXml();
 
       expect(xml.contains('<?xml version="1.0"?>'), true);
@@ -252,7 +271,7 @@ void main() {
 
     testWidgets('Tapping Export on History Screen opens modal with Download CSV and Download Excel buttons', (WidgetTester tester) async {
       final settings = SettingsService(onboardingComplete: true);
-      final feeder = FeederService(connectDelay: Duration.zero);
+      final feeder = createTestFeeder();
 
       await tester.pumpWidget(SmartChickenFeederApp(
         settingsService: settings,
@@ -292,7 +311,7 @@ void main() {
     });
 
     testWidgets('Diagnostics screen renders live sensors and executes tare and servo test', (WidgetTester tester) async {
-      final feeder = FeederService(connectDelay: Duration.zero, simulateOffline: false);
+      final feeder = createTestFeeder(simulateOffline: false);
 
       await tester.pumpWidget(MaterialApp(
         theme: AppTheme.light(),
@@ -489,7 +508,7 @@ void main() {
       SharedPreferences.setMockInitialValues({});
 
       // 1. Initial run: load service and add a custom schedule
-      final service1 = FeederService(connectDelay: Duration.zero, simulateOffline: false);
+      final service1 = createTestFeeder(simulateOffline: false);
       await service1.loadLocalData();
 
       const customRoutine = FeedingSchedule(
@@ -505,7 +524,7 @@ void main() {
       service1.dispose();
 
       // 2. Simulate application restart: load in a new service instance
-      final service2 = FeederService(connectDelay: Duration.zero, simulateOffline: false);
+      final service2 = createTestFeeder(simulateOffline: false);
       await service2.loadLocalData();
 
       final restoredRoutine = service2.schedules.firstWhere((s) => s.id == 'sch_custom_99');
@@ -524,7 +543,7 @@ void main() {
       service2.dispose();
 
       // 4. Simulate second restart: verify edited values persist
-      final service3 = FeederService(connectDelay: Duration.zero, simulateOffline: false);
+      final service3 = createTestFeeder(simulateOffline: false);
       await service3.loadLocalData();
 
       final recheckedRoutine = service3.schedules.firstWhere((s) => s.id == 'sch_custom_99');
@@ -540,7 +559,7 @@ void main() {
       service3.dispose();
 
       // 6. Simulate third restart: verify schedules remain empty and default data is not resurrected
-      final service4 = FeederService(connectDelay: Duration.zero, simulateOffline: false);
+      final service4 = createTestFeeder(simulateOffline: false);
       await service4.loadLocalData();
       expect(service4.schedules, isEmpty);
       service4.dispose();
@@ -549,7 +568,7 @@ void main() {
     test('FeederService feeding logs persistence across application restart', () async {
       SharedPreferences.setMockInitialValues({});
 
-      final service1 = FeederService(connectDelay: Duration.zero, simulateOffline: false);
+      final service1 = createTestFeeder(simulateOffline: false);
       await service1.loadLocalData();
 
       // Add a distinct log to history
@@ -578,7 +597,7 @@ void main() {
       service1.dispose();
 
       // Simulate restart
-      final service2 = FeederService(connectDelay: Duration.zero, simulateOffline: false);
+      final service2 = createTestFeeder(simulateOffline: false);
       await service2.loadLocalData();
 
       expect(service2.history.any((l) => l.id == 'log_persisted_test_1'), isTrue);

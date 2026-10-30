@@ -1,9 +1,14 @@
-name: iOS & Android Build Automation
+name: Build, Release & Deploy
 
 on:
   push:
     branches: [ main ]
   workflow_dispatch:
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
 
 jobs:
   build-android:
@@ -23,7 +28,6 @@ jobs:
         uses: subosito/flutter-action@v2
         with:
           channel: 'stable'
-          cache: true
 
       - name: Install Dependencies
         working-directory: app
@@ -46,17 +50,23 @@ jobs:
           path: app/build/app/outputs/flutter-apk/app-armeabi-v7a-release.apk
 
   build-ios:
-    name: Build iOS App (.app / Payload)
+    name: Build iOS App (.ipa / Payload)
     runs-on: macos-14
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
 
+      - name: Remove Brew rsync (fixes Flutter SPM copy bug)
+        run: brew uninstall rsync || true
+
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
         with:
           channel: 'stable'
-          cache: true
+
+      - name: Pre-create SourcePackages Directory
+        working-directory: app
+        run: mkdir -p build/ios/SourcePackages
 
       - name: Install Dependencies
         working-directory: app
@@ -64,7 +74,9 @@ jobs:
 
       - name: Build iOS (No Codesign)
         working-directory: app
-        run: flutter build ios --release --no-codesign
+        run: |
+          mkdir -p build/ios/SourcePackages
+          flutter build ios --release --no-codesign
 
       - name: Package .ipa and Runner.app
         working-directory: app
@@ -80,8 +92,81 @@ jobs:
           name: SmartFeeder-iOS-unsigned
           path: app/SmartFeeder-iOS-unsigned.ipa
 
-      - name: Upload Runner.app Archive
-        uses: actions/upload-artifact@v4
+  deploy-web:
+    name: Deploy Web App to GitHub Pages (iOS & Android PWA)
+    runs-on: ubuntu-latest
+    needs: [build-android]
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
         with:
-          name: SmartFeeder-Runner-app
-          path: app/SmartFeeder-Runner-app.zip
+          channel: 'stable'
+
+      - name: Install Dependencies
+        working-directory: app
+        run: flutter pub get
+
+      - name: Build Web with Base Href
+        working-directory: app
+        run: flutter build web --release --base-href "/SMART-MOBILE-BASED-SOLAR-POWERED-CHICKEN-FEEDING-SYSTEM/"
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload Pages Artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: app/build/web
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
+
+  publish-release:
+    name: Publish GitHub Release with Direct APK Downloads
+    runs-on: ubuntu-latest
+    needs: [build-android]
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Download arm64 APK
+        uses: actions/download-artifact@v4
+        with:
+          name: app-arm64-v8a-release
+          path: release-assets
+
+      - name: Download armeabi APK
+        uses: actions/download-artifact@v4
+        with:
+          name: app-armeabi-v7a-release
+          path: release-assets
+
+      - name: Create or Update GitHub Release
+        uses: softprops/action-gh-release@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: v1.0.0
+          name: "Smart Chicken Feeder v1.0.0 Release"
+          body: |
+            ## 🐔 Smart Mobile-Based Solar-Powered Chicken Feeding System (v1.0.0)
+
+            ### 📱 Android Direct Download
+            - **[Download app-arm64-v8a-release.apk (Recommended)](https://github.com/Jehooooo/SMART-MOBILE-BASED-SOLAR-POWERED-CHICKEN-FEEDING-SYSTEM/releases/download/v1.0.0/app-arm64-v8a-release.apk)** (Optimized for 99% of modern Android devices: Samsung, Xiaomi, Oppo, Vivo, Realme, Pixel, etc.)
+            - **[Download app-armeabi-v7a-release.apk](https://github.com/Jehooooo/SMART-MOBILE-BASED-SOLAR-POWERED-CHICKEN-FEEDING-SYSTEM/releases/download/v1.0.0/app-armeabi-v7a-release.apk)** (For older 32-bit devices)
+
+            ### 🍎 iOS (iPhone / iPad) Installation
+            Apple blocks downloading and running raw binaries from web links without enterprise profiles. Install the official PWA web app:
+            1. Open **[Smart Feeder Web App](https://jehooooo.github.io/SMART-MOBILE-BASED-SOLAR-POWERED-CHICKEN-FEEDING-SYSTEM/)** in Safari on your iPhone.
+            2. Tap the **Share** button (box with upward arrow) $\rightarrow$ scroll down and select **"Add to Home Screen"**.
+            3. Tap **Add**. The Smart Feeder app icon will appear on your home screen and run in standalone full-screen mode!
+          files: |
+            release-assets/app-arm64-v8a-release.apk
+            release-assets/app-armeabi-v7a-release.apk

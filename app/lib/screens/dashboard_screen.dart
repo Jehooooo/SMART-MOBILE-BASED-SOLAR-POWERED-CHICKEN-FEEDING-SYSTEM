@@ -97,43 +97,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   'Smart Chicken Feeder',
                   style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
                 ),
-                Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Flexible(
-                      child: Text(
-                        '${_settings.feederName} • Solar-Powered',
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(fontSize: 12, color: c.textMuted),
-                      ),
-                    ),
-                    const SizedBox(width: 6),
-                    Tooltip(
-                      message: widget.feederService.isMock
-                          ? 'Operating in simulated mock mode for pre-fabrication testing'
-                          : 'Connected to physical ESP32 hardware',
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
-                        decoration: BoxDecoration(
-                          color: widget.feederService.isMock ? c.manualSoft : c.brandSoft,
-                          borderRadius: BorderRadius.circular(20),
-                          border: Border.all(
-                            color: widget.feederService.isMock ? c.manual.withValues(alpha: 0.4) : c.brandBorder,
-                            width: 0.8,
-                          ),
-                        ),
-                        child: Text(
-                          widget.feederService.isMock ? 'SIMULATOR' : 'LIVE HW',
-                          style: TextStyle(
-                            fontSize: 9,
-                            fontWeight: FontWeight.bold,
-                            letterSpacing: 0.3,
-                            color: widget.feederService.isMock ? c.manual : c.brand,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
+                Text(
+                  '${_settings.feederName} • Solar-Powered',
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(fontSize: 12, color: c.textMuted),
                 ),
               ],
             ),
@@ -170,18 +137,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 padding: const EdgeInsets.only(right: 12.0),
                 child: Tooltip(
                   message: isOnline
-                      ? (widget.feederService.isMock
-                          ? 'Simulator: Online emulation active'
-                          : 'Feeder is online and connected via 2.4GHz Wi-Fi')
-                      : (widget.feederService.isMock
-                          ? 'Feeder is offline (Development Default). Tap to toggle online simulation.'
-                          : 'Feeder is offline. Check solar battery and Wi-Fi signal.'),
-                  child: InkWell(
-                    borderRadius: BorderRadius.circular(20),
-                    onTap: widget.feederService.isMock
-                        ? () => _showSimulatorConnectionSheet(context)
-                        : null,
-                    child: LiquidGlassContainer(
+                      ? 'Feeder is online and connected'
+                      : 'Feeder is offline. Check solar battery and Wi-Fi signal.',
+                  child: LiquidGlassContainer(
                       borderRadius: BorderRadius.circular(20),
                       blurSigma: 12,
                       tintColor: chipDot.withValues(alpha: 0.08),
@@ -220,7 +178,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     ),
                   ),
                 ),
-              ),
             ],
           ),
           body: Column(
@@ -866,24 +823,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
             )
           else if (isHopperEmpty)
             _buildBlockedReason(Icons.error_outline, 'Dispense blocked: Hopper is empty. Refill feed first.', c.danger)
-          else if (isOffline && !isDispensing) ...[
+          else if (isOffline && !isDispensing)
             _buildBlockedReason(
               Icons.cloud_off_rounded,
               'Manual feeding is unavailable while the feeder is offline.',
               c.danger,
             ),
-            if (widget.feederService.isMock)
-              Padding(
-                padding: const EdgeInsets.only(bottom: 10.0),
-                child: LiquidGlassButton(
-                  width: double.infinity,
-                  height: 44,
-                  onPressed: () => widget.feederService.setSimulatedOffline(false),
-                  icon: const Icon(Icons.bolt, size: 18),
-                  child: const Text('Enable Online Simulator (Click to Test Dispensing)'),
-                ),
-              ),
-          ],
 
           const SizedBox(height: 6),
 
@@ -1023,16 +968,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 durationSeconds: _selectedDurationSeconds,
               );
               if (context.mounted) {
-                final String statusMsg;
-                if (!success) {
-                  statusMsg = widget.feederService.lastErrorMessage ??
-                      'Dispense failed or feeder is offline. Check hardware connection.';
-                } else if (widget.feederService.isMock) {
-                  statusMsg = 'Dispense cycle completed! Scale weight and feeding log updated.';
-                } else {
-                  statusMsg =
-                      'Dispense command dispatched to feeder — awaiting live scale & log confirmation...';
-                }
+                final String statusMsg = success
+                    ? 'Dispense command dispatched to feeder — awaiting live scale & log confirmation...'
+                    : (widget.feederService.lastErrorMessage ??
+                        'Dispense failed or feeder is offline. Check hardware connection.');
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
                     backgroundColor: success ? c.brand : c.danger,
@@ -1049,103 +988,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
           ),
         ],
       ),
-    );
-  }
-
-  void _showSimulatorConnectionSheet(BuildContext context) {
-    final c = context.colors;
-    final feeder = widget.feederService;
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.transparent,
-      isScrollControlled: true,
-      builder: (ctx) {
-        return StatefulBuilder(
-          builder: (ctx, setSheetState) {
-            final isSimOffline = feeder.isSimulatingOffline;
-            return SafeArea(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                child: LiquidGlassContainer(
-                  borderRadius: BorderRadius.circular(28),
-                  blurSigma: 24,
-                  padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Center(
-                        child: Container(
-                          width: 40,
-                          height: 4,
-                          decoration: BoxDecoration(
-                            color: c.border.withValues(alpha: 0.8),
-                            borderRadius: BorderRadius.circular(2),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-                      Row(
-                        children: [
-                          CircleAvatar(
-                            backgroundColor: isSimOffline ? c.dangerSoft : c.brandSoft,
-                            child: Icon(
-                              isSimOffline ? Icons.cloud_off : Icons.cloud_done,
-                              color: isSimOffline ? c.danger : c.brand,
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  'Hardware Simulator',
-                                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: c.textPrimary),
-                                ),
-                                Text(
-                                  isSimOffline
-                                      ? 'Offline (Development Default)'
-                                      : 'Simulating Live Hardware Connection',
-                                  style: TextStyle(fontSize: 12, color: c.textMuted),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 14),
-                      Text(
-                        'Because the physical feeder is still in development, the app defaults to Offline. You can toggle simulated online telemetry below to test dispensing.',
-                        style: TextStyle(fontSize: 13, color: c.textMuted, height: 1.4),
-                      ),
-                      const SizedBox(height: 12),
-                      SwitchListTile(
-                        contentPadding: EdgeInsets.zero,
-                        title: Text(
-                          'Simulate Online Feeder',
-                          style: TextStyle(fontWeight: FontWeight.bold, color: c.textPrimary),
-                        ),
-                        subtitle: Text(
-                          isSimOffline
-                              ? 'Toggle ON to test dispensing and live telemetry'
-                              : 'Toggle OFF to return to offline development default',
-                          style: TextStyle(fontSize: 12, color: c.textMuted),
-                        ),
-                        value: !isSimOffline,
-                        onChanged: (val) {
-                          feeder.setSimulatedOffline(!val);
-                          setSheetState(() {});
-                        },
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            );
-          },
-        );
-      },
     );
   }
 }

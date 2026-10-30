@@ -1,54 +1,18 @@
 {
   "telemetry": {
-    "feedLevelPercent": 85.0,
-    "batteryVolts": 12.65,
-    "batteryPercent": 92,
+    "feedLevelPercent": 0.0,
+    "batteryVolts": 12.6,
+    "batteryPercent": 90,
     "currentWeightGrams": 0.0,
     "status": "idle",
-    "lastHeartbeat": 1729440000000,
-    "lastFedTimestamp": 1729425600000,
-    "lastFedGrams": 180.5,
-    "isSolarCharging": true
+    "lastHeartbeat": 0,
+    "lastFedTimestamp": 0,
+    "lastFedGrams": 0.0,
+    "isSolarCharging": false
   },
   "commands": {
     "dispense": null
   },
-  "schedules": [
-    {
-      "id": "sch_1",
-      "label": "Morning Feeding",
-      "hour": 6,
-      "minute": 30,
-      "targetGrams": 180.0,
-      "isEnabled": true
-    },
-    {
-      "id": "sch_2",
-      "label": "Midday Feeding",
-      "hour": 12,
-      "minute": 0,
-      "targetGrams": 150.0,
-      "isEnabled": true
-    },
-    {
-      "id": "sch_3",
-      "label": "Afternoon Feeding",
-      "hour": 17,
-      "minute": 30,
-      "targetGrams": 200.0,
-      "isEnabled": true
-    }
-  ],
-  "logs": {
-    "log_sample_01": {
-      "timestamp": 1729425600000,
-      "targetGrams": 180.0,
-      "actualGrams": 181.2,
-      "durationSeconds": 11,
-      "triggerType": "Schedule",
-      "isSuccess": true,
-      "batteryVolts": 12.65,
-      "feedLevelPercent": 85.0
-    }
-  }
+  "schedules": {},
+  "logs": {}
 }

@@ -737,7 +737,11 @@ void main() {
 
       final rest = RestHardwareAdapter(host: '127.0.0.1', port: server.port);
       final service = FeederService(adapter: rest, enableOsNotifications: false);
-      await Future.delayed(const Duration(milliseconds: 120));
+      for (int i = 0;
+          i < 40 && (!service.isDeviceOnline || syncedEpochMs == 0 || service.history.isEmpty);
+          i++) {
+        await Future.delayed(const Duration(milliseconds: 50));
+      }
 
       // 1. Even though ESP32 started with lastHeartbeat == 0, live HTTP 200 marks device online AND auto-syncs clock!
       expect(service.isDeviceOnline, isTrue);

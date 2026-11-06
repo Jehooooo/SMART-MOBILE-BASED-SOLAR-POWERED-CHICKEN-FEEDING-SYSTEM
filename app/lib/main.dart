@@ -57,6 +57,11 @@ class SmartChickenFeederApp extends StatefulWidget {
       'FIREBASE_DATABASE_URL',
       defaultValue: FeederService.defaultDatabaseUrl,
     );
+    const envAuthDomain = String.fromEnvironment('FIREBASE_AUTH_DOMAIN');
+    const envStorageBucket = String.fromEnvironment('FIREBASE_STORAGE_BUCKET');
+    const envMeasurementId = String.fromEnvironment('FIREBASE_MEASUREMENT_ID');
+    const envAuthEmail = String.fromEnvironment('FIREBASE_USER_EMAIL');
+    const envAuthPassword = String.fromEnvironment('FIREBASE_USER_PASSWORD');
 
     final supportsNativeFirebase = kIsWeb ||
         defaultTargetPlatform == TargetPlatform.android ||
@@ -73,12 +78,15 @@ class SmartChickenFeederApp extends StatefulWidget {
     try {
       if (envApiKey.isNotEmpty && envAppId.isNotEmpty && envMessagingSenderId.isNotEmpty) {
         await Firebase.initializeApp(
-          options: const FirebaseOptions(
+          options: FirebaseOptions(
             apiKey: envApiKey,
             appId: envAppId,
             messagingSenderId: envMessagingSenderId,
             projectId: envProjectId,
             databaseURL: envDatabaseUrl,
+            authDomain: envAuthDomain.isNotEmpty ? envAuthDomain : null,
+            storageBucket: envStorageBucket.isNotEmpty ? envStorageBucket : null,
+            measurementId: envMeasurementId.isNotEmpty ? envMeasurementId : null,
           ),
         );
       } else if (!kIsWeb) {
@@ -92,11 +100,18 @@ class SmartChickenFeederApp extends StatefulWidget {
 
       try {
         if (FirebaseAuth.instance.currentUser == null) {
-          await FirebaseAuth.instance.signInAnonymously();
+          if (envAuthEmail.isNotEmpty && envAuthPassword.isNotEmpty) {
+            await FirebaseAuth.instance.signInWithEmailAndPassword(
+              email: envAuthEmail,
+              password: envAuthPassword,
+            );
+          } else {
+            await FirebaseAuth.instance.signInAnonymously();
+          }
         }
       } catch (authErr) {
         debugPrint(
-          '[FirebaseInit] Anonymous sign-in unavailable ($authErr). Enable Anonymous Auth in Firebase Console before enforcing strict RTDB rules.',
+          '[FirebaseInit] Firebase sign-in warning ($authErr); falling back to REST/open RTDB rules if needed.',
         );
       }
       return true;

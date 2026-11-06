@@ -269,7 +269,7 @@ Follow this exact sequence upon arrival at the client's site:
 ### Phase 5: Client Device Installation & Handover Walkthrough (Minutes 50–60)
 12. **Install App on Client's Phone(s) (5 min):**
     - **Android Client:** Send `app-arm64-v8a-release.apk` via QuickShare/Bluetooth or open the GitHub Release link $\rightarrow$ install $\rightarrow$ allow Notifications $\rightarrow$ complete 3-slide onboarding.
-    - **iPhone Client:** Open `https://jehooooo.github.io/SMART-MOBILE-BASED-SOLAR-POWERED-CHICKEN-FEEDING-SYSTEM/` in **Safari** $\rightarrow$ **Share** $\rightarrow$ **Add to Home Screen**.
+    - **iPhone Client:** Open `https://smart-chicken-feeder-33bec.web.app` in **Safari** $\rightarrow$ **Share** $\rightarrow$ **Add to Home Screen**.
     - *Expected Result:* Client's phone immediately displays the same live Hopper %, Battery %, Schedules, and Feeding History!
 13. **Client Hands-On Trial & Excel Export Demo (5 min):**
     - Let the client trigger one `3s` manual feed from **their own phone**, edit one schedule time, and tap **Export $\rightarrow$ Excel (`.xls`)** in **History & Logs**.
@@ -401,4 +401,4 @@ Use this sign-off sheet with your client at the conclusion of tomorrow's 60-minu
 - [ ] **8. Documentation & Download Links Handed Over:**
   - **Repository & Manuals:** `https://github.com/Jehooooo/SMART-MOBILE-BASED-SOLAR-POWERED-CHICKEN-FEEDING-SYSTEM` (`docs/PROJECT_DOCUMENTATION.docx` & `docs/FINAL_PROJECT_READINESS_REPORT.md`)
   - **Android APK Download:** `https://github.com/Jehooooo/SMART-MOBILE-BASED-SOLAR-POWERED-CHICKEN-FEEDING-SYSTEM/releases/tag/v1.0.0`
-  - **iPhone Web App (PWA):** `https://jehooooo.github.io/SMART-MOBILE-BASED-SOLAR-POWERED-CHICKEN-FEEDING-SYSTEM/`
+  - **iPhone Web App (PWA):** `https://smart-chicken-feeder-33bec.web.app`

@@ -19,7 +19,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Set up Java 17
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           distribution: 'temurin'
           java-version: '17'
@@ -88,45 +88,6 @@ jobs:
           name: SmartFeeder-iOS-unsigned
           path: app/SmartFeeder-iOS-unsigned.ipa
 
-  deploy-web:
-    name: Deploy Web App to GitHub Pages (iOS & Android PWA)
-    runs-on: ubuntu-latest
-    needs: [build-android]
-    continue-on-error: true
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    steps:
-      - name: Checkout Code
-        uses: actions/checkout@v4
-
-      - name: Set up Flutter
-        uses: subosito/flutter-action@v2
-        with:
-          channel: 'stable'
-
-      - name: Install Dependencies
-        working-directory: app
-        run: flutter pub get
-
-      - name: Build Web with Base Href
-        working-directory: app
-        run: flutter build web --release --base-href "/SMART-MOBILE-BASED-SOLAR-POWERED-CHICKEN-FEEDING-SYSTEM/"
-
-      - name: Setup Pages
-        uses: actions/configure-pages@v5
-        with:
-          enablement: true
-
-      - name: Upload Pages Artifact
-        uses: actions/upload-pages-artifact@v3
-        with:
-          path: app/build/web
-
-      - name: Deploy to GitHub Pages
-        id: deployment
-        uses: actions/deploy-pages@v4
-
   publish-release:
     name: Publish GitHub Release with Direct APK Downloads
     runs-on: ubuntu-latest
@@ -163,7 +124,7 @@ jobs:
 
             ### 🍎 iOS (iPhone / iPad) Installation
             Apple blocks downloading and running raw binaries from web links without enterprise profiles. Install the official PWA web app:
-            1. Open **[Smart Feeder Web App](https://jehooooo.github.io/SMART-MOBILE-BASED-SOLAR-POWERED-CHICKEN-FEEDING-SYSTEM/)** in Safari on your iPhone.
+            1. Open **[Smart Feeder Web App](https://smart-chicken-feeder-33bec.web.app)** in Safari on your iPhone.
             2. Tap the **Share** button (box with upward arrow) $\rightarrow$ scroll down and select **"Add to Home Screen"**.
             3. Tap **Add**. The Smart Feeder app icon will appear on your home screen and run in standalone full-screen mode!
           files: |

@@ -1,6 +1,6 @@
 ﻿# Smart Mobile-Based Solar-Powered Chicken Feeding System
 
-[![Flutter Test Suite](https://img.shields.io/badge/Flutter_Tests-24%2F24_Passed-success.svg?logo=flutter)](app/test/integration_audit_test.dart)
+[![Flutter Test Suite](https://img.shields.io/badge/Flutter_Tests-26%2F26_Passed-success.svg?logo=flutter)](app/test/integration_audit_test.dart)
 [![PlatformIO Build](https://img.shields.io/badge/PlatformIO_ESP32-Compiled_100%25-blue.svg?logo=espressif)](firmware/platformio.ini)
 [![Firebase RTDB](https://img.shields.io/badge/Cloud-Firebase_RTDB-orange.svg?logo=firebase)](docs/FIREBASE_SETUP_GUIDE.md)
 [![Direct Wi-Fi](https://img.shields.io/badge/Off--Grid-SoftAP_REST_192.168.4.1-green.svg)](docs/HARDWARE_INTEGRATION_SPECIFICATION.md)
@@ -351,6 +351,7 @@ flutter test --no-pub
 
 | Document | Purpose |
 |:---|:---|
+| [docs/FINAL_PROJECT_READINESS_REPORT.md](docs/FINAL_PROJECT_READINESS_REPORT.md) | **Final Pre-Deployment Audit & 60-Minute Onsite Integration Runbook** (16 sections, live probe results, 12-scenario field troubleshooting & handover checklist) |
 | [docs/PROJECT_DOCUMENTATION.md](docs/PROJECT_DOCUMENTATION.md) | **Master Technical Documentation & User Manual** (14 chapters, architecture, Firebase, ESP32 setup, operation, troubleshooting & FAQ) |
 | [docs/PROJECT_DOCUMENTATION.docx](docs/PROJECT_DOCUMENTATION.docx) | **Academic Presentation Edition (.docx)** formatted for printing, defense review, and thesis appendices |
 | [docs/SYSTEM_FLOWCHART.md](docs/SYSTEM_FLOWCHART.md) | **Complete 11-Workflow Mermaid Diagram Suite** (architecture, app, ESP32 boot, Firebase sync, feeding, alerts, error recovery) |

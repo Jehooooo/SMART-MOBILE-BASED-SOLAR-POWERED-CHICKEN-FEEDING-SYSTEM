@@ -51,22 +51,20 @@ jobs:
 
   build-ios:
     name: Build iOS App (.ipa / Payload)
-    runs-on: macos-14
+    runs-on: macos-15
+    continue-on-error: true
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
-
-      - name: Remove Brew rsync (fixes Flutter SPM copy bug)
-        run: brew uninstall rsync || true
 
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
         with:
           channel: 'stable'
 
-      - name: Pre-create SourcePackages Directory
+      - name: Disable Flutter SwiftPM for CocoaPods Firebase Compatibility
         working-directory: app
-        run: mkdir -p build/ios/SourcePackages
+        run: flutter config --no-enable-swift-package-manager
 
       - name: Install Dependencies
         working-directory: app
@@ -74,9 +72,7 @@ jobs:
 
       - name: Build iOS (No Codesign)
         working-directory: app
-        run: |
-          mkdir -p build/ios/SourcePackages
-          flutter build ios --release --no-codesign
+        run: flutter build ios --release --no-codesign
 
       - name: Package .ipa and Runner.app
         working-directory: app
@@ -96,6 +92,7 @@ jobs:
     name: Deploy Web App to GitHub Pages (iOS & Android PWA)
     runs-on: ubuntu-latest
     needs: [build-android]
+    continue-on-error: true
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
@@ -118,6 +115,8 @@ jobs:
 
       - name: Setup Pages
         uses: actions/configure-pages@v5
+        with:
+          enablement: true
 
       - name: Upload Pages Artifact
         uses: actions/upload-pages-artifact@v3

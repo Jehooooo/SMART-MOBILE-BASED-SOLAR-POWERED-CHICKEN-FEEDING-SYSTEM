@@ -143,6 +143,12 @@ class FirebaseHardwareAdapter implements FeederHardwareAdapter {
               )
             : FirebaseDatabase.instance;
 
+        if (!kIsWeb) {
+          try {
+            db.setPersistenceEnabled(false);
+          } catch (_) {}
+        }
+
         _rootRef = (feederId.isEmpty || feederId == 'default' || feederId == 'root')
             ? db.ref()
             : db.ref('feeders/$feederId');
@@ -583,8 +589,19 @@ class FirebaseHardwareAdapter implements FeederHardwareAdapter {
     if (_rootRef != null) {
       try {
         final snap = await _rootRef!.child('telemetry').get();
-        if (snap.exists && snap.value is Map) {
-          final telemetry = FeederTelemetry.fromMap(snap.value as Map);
+        if (!snap.exists || snap.value == null) {
+          _lastErrorMessage = null;
+          _emitConnection(FeederConnection.online);
+          return true;
+        }
+        if (snap.value is Map) {
+          final map = snap.value as Map;
+          final rawHb = (map['lastHeartbeat'] as num?)?.toInt() ?? 0;
+          var telemetry = FeederTelemetry.fromMap(map);
+          if (rawHb == 0) {
+            telemetry = telemetry.copyWith(lastHeartbeat: DateTime.now());
+            _maybeAutoSyncCloudClock();
+          }
           _isDispensing = telemetry.status == FeederStatus.dispensing;
           _lastErrorMessage = null;
           _emitTelemetry(telemetry);

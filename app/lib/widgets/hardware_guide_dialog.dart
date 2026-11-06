@@ -273,29 +273,29 @@ class _HardwareGuideModalState extends State<_HardwareGuideModal> {
           badgeColor: c.solar,
           title: 'Local Farm Wi-Fi HTTP (SoftAP)',
           desc:
-              'For remote farms without internet. The ESP32 broadcasts a local hotspot (SSID: "PoultryFeeder-AP"). Connect your phone directly to Wi-Fi at http://192.168.4.1 for zero-internet controls.',
+              'For remote farms without internet. The ESP32 broadcasts a local hotspot (SSID: "SmartFeeder-AP", Password: "chickens123"). Connect your phone directly to Wi-Fi at http://192.168.4.1 for zero-internet controls and wireless Wi-Fi provisioning.',
         ),
         const SizedBox(height: 18),
         _buildSectionTitle(context, '2. Backend Data Contracts & Queues'),
         _buildDataContractPod(
           context,
-          title: 'Telemetry Stream (/feeder/telemetry)',
+          title: 'Telemetry Stream (/telemetry)',
           desc:
-              'ESP32 periodically publishes: feedLevelPercent (HC-SR04), batteryVolts (GPIO 34 ADC), currentWeightGrams (HX711), status ("idle", "dispensing", "lowFeed"), and isSolarCharging.',
+              'ESP32 periodically publishes: feedLevelPercent (HC-SR04), batteryVolts (GPIO 34 ADC), currentWeightGrams (HX711), status ("idle", "dispensing", "lowFeed", "lowBattery", "error"), and isSolarCharging.',
         ),
         const SizedBox(height: 8),
         _buildDataContractPod(
           context,
-          title: 'Command Ingestion Queue (/feeder/command)',
+          title: 'Command Ingestion Queue (/commands/dispense & /commands/stop)',
           desc:
-              'When you tap "DISPENSE NOW", the app pushes {action: "DISPENSE", durationSeconds: 5, targetGrams: 100}. The ESP32 listens via WebSocket stream, executes the servo gate, and records actual grams.',
+              'When you tap "DISPENSE NOW", the app pushes {action: "DISPENSE", durationSeconds: 5, targetGrams: 100}. The ESP32 consumes the command before actuation, executes the servo gate, and writes logs to /logs.',
         ),
         const SizedBox(height: 8),
         _buildDataContractPod(
           context,
-          title: 'Offline Fail-Safe Routine (DS3231 RTC)',
+          title: 'Offline Fail-Safe Routine (/schedules + DS3231 RTC)',
           desc:
-              'Feeding schedules configured in the app are synchronized to the ESP32\'s non-volatile EEPROM. Even if the farm Wi-Fi or phone goes offline, the DS3231 battery-backed clock triggers scheduled feeds automatically.',
+              'Feeding schedules configured in the app are synchronized to ESP32 NVS flash. Even if farm Wi-Fi or the phone goes offline, the DS3231 battery-backed clock triggers scheduled feeds automatically.',
         ),
       ],
     );
@@ -320,9 +320,9 @@ class _HardwareGuideModalState extends State<_HardwareGuideModal> {
         _buildChecklistStep(
           context,
           step: '2',
-          title: 'Flash ESP32 Firmware',
+          title: 'Flash ESP32 Firmware & Provision Wi-Fi',
           desc:
-              'Open the Arduino sketch in /firmware. Update your 2.4 GHz Wi-Fi SSID, password, and Firebase database credentials in config.h. Flash via USB at 115200 baud.',
+              'Flash /firmware via PlatformIO at 115200 baud with Firebase URL/API key in secrets.h. Onsite, connect phone to "SmartFeeder-AP" (chickens123) and configure the farm\'s 2.4 GHz Wi-Fi in Settings or http://192.168.4.1.',
         ),
         _buildChecklistStep(
           context,

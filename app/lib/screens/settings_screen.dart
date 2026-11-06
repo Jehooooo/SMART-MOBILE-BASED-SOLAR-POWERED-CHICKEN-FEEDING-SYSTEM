@@ -281,6 +281,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                 ),
                               ),
                             ),
+                            const SizedBox(height: 12),
+                            LiquidGlassButton(
+                              width: double.infinity,
+                              height: 42,
+                              isSecondary: true,
+                              icon: const Icon(Icons.wifi_protected_setup_rounded, size: 18),
+                              onPressed: () => _showProvisionWifiDialog(context),
+                              child: const Text('Configure Feeder 2.4 GHz Wi-Fi (SoftAP)'),
+                            ),
                           ],
                         ),
                       ],
@@ -712,6 +721,106 @@ class _SettingsScreenState extends State<SettingsScreen> {
         content: Text('Hardware transport switched to ${newAdapter.hardwareSourceLabel}'),
         duration: const Duration(seconds: 2),
       ),
+    );
+  }
+
+  Future<void> _showProvisionWifiDialog(BuildContext context) async {
+    final ssidCtrl = TextEditingController();
+    final passCtrl = TextEditingController();
+    final existing = await RestHardwareAdapter.querySoftApWifiStatus();
+    if (existing != null && existing['staSsid'] is String) {
+      ssidCtrl.text = existing['staSsid'] as String;
+    }
+    if (!context.mounted) return;
+
+    showDialog(
+      context: context,
+      builder: (ctx) {
+        bool saving = false;
+        return StatefulBuilder(
+          builder: (ctx, setDialogState) {
+            return LiquidGlassDialog(
+              maxWidth: 440,
+              title: const Text('Feeder 2.4 GHz Wi-Fi Setup', style: TextStyle(fontWeight: FontWeight.w800)),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    '1. Connect this phone to Wi-Fi "SmartFeeder-AP" (password: chickens123).\n'
+                    '2. Enter the farm/home 2.4 GHz Wi-Fi credentials below to link the ESP32 to Firebase Cloud.',
+                    style: TextStyle(fontSize: 12.5, height: 1.4),
+                  ),
+                  if (existing != null && existing['staConnected'] == true) ...[
+                    const SizedBox(height: 8),
+                    Text(
+                      'Current Feeder Link: Connected to ${existing['staSsid']} (${existing['staIp']})',
+                      style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: context.colors.brand),
+                    ),
+                  ],
+                  const SizedBox(height: 14),
+                  TextField(
+                    controller: ssidCtrl,
+                    decoration: const InputDecoration(
+                      labelText: '2.4 GHz Wi-Fi Name (SSID)',
+                      border: OutlineInputBorder(),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: passCtrl,
+                    obscureText: true,
+                    decoration: const InputDecoration(
+                      labelText: 'Wi-Fi Password',
+                      border: OutlineInputBorder(),
+                    ),
+                  ),
+                ],
+              ),
+              actions: [
+                LiquidGlassButton(
+                  isSecondary: true,
+                  height: 38,
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                  onPressed: saving ? null : () => Navigator.pop(ctx),
+                  child: const Text('Cancel'),
+                ),
+                LiquidGlassButton(
+                  height: 38,
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  onPressed: saving
+                      ? null
+                      : () async {
+                          if (ssidCtrl.text.trim().isEmpty) return;
+                          setDialogState(() => saving = true);
+                          final res = await RestHardwareAdapter.provisionSoftApWifi(
+                            ssid: ssidCtrl.text.trim(),
+                            password: passCtrl.text,
+                          );
+                          if (!ctx.mounted) return;
+                          Navigator.pop(ctx);
+                          if (!context.mounted) return;
+                          final connected = res != null && res['staConnected'] == true;
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(
+                                res == null
+                                    ? 'Could not reach 192.168.4.1. Connect phone to SmartFeeder-AP first.'
+                                    : connected
+                                        ? 'Feeder connected to "${res['staSsid']}" (${res['staIp']})! Switch back to your Wi-Fi/LTE for Cloud mode.'
+                                        : 'Saved "${ssidCtrl.text.trim()}" to ESP32 NVS. Verifying 2.4 GHz router link...',
+                              ),
+                              duration: const Duration(seconds: 4),
+                            ),
+                          );
+                        },
+                  child: Text(saving ? 'Connecting...' : 'Save & Connect'),
+                ),
+              ],
+            );
+          },
+        );
+      },
     );
   }
 }

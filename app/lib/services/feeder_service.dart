@@ -209,7 +209,7 @@ class FeederService extends ChangeNotifier {
       if (_adapter is RestHardwareAdapter) {
         cmdOk = await (_adapter as RestHardwareAdapter).clearFault();
       } else {
-        final res = await _adapter.sendCommand(FeederCommand.tareScale());
+        final res = await _adapter.sendCommand(FeederCommand.clearFault());
         cmdOk = res.status == CommandStatus.completed;
       }
       await _adapter.refreshTelemetry();

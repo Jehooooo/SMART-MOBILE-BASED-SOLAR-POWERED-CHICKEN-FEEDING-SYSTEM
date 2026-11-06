@@ -40,6 +40,21 @@
 #define FIREBASE_USER_PASSWORD ""
 #endif
 
+#if !defined(FIREBASE_DB_URL) && defined(FIREBASE_DATABASE_URL)
+#define FIREBASE_DB_URL FIREBASE_DATABASE_URL
+#endif
+#ifndef FIREBASE_DB_URL
+#define FIREBASE_DB_URL ""
+#endif
+#ifndef FIREBASE_API_KEY
+#define FIREBASE_API_KEY ""
+#endif
+#ifndef WIFI_SSID
+#define WIFI_SSID ""
+#endif
+#ifndef WIFI_PASSWORD
+#define WIFI_PASSWORD ""
+#endif
 #ifndef FIREBASE_USER_EMAIL
 #define FIREBASE_USER_EMAIL ""
 #endif
@@ -94,9 +109,15 @@ static unsigned long servoTestAutoCloseAtMs = 0UL;
 static String lastExecutedCommandId = "";
 static String lastExecutedScheduleSlot = "";
 
-// Firebase Authentication token cache
+// Firebase Authentication token cache & retry backoff
 static String firebaseIdToken = "";
 static unsigned long lastAuthRefreshMs = 0UL;
+static unsigned long lastAuthFailedMs = 0UL;
+static const unsigned long AUTH_RETRY_COOLDOWN_MS = 60000UL;
+
+// Station Wi-Fi credentials (provisionable via SoftAP NVS or secrets.h fallback)
+static String activeWifiSsid = "";
+static String activeWifiPass = "";
 
 // Forward declarations
 void handleCommand(const String& cmdJson, bool fromCloud);
@@ -111,6 +132,7 @@ void updateCommandAckInFirebase(
   const char* errorMessage
 );
 bool authenticateFirebase(bool forceRefresh = false);
+void purgeStaleCommandsOnBoot();
 void syncSchedulesFromFirebase();
 void checkAutonomousSchedules();
 
@@ -179,7 +201,11 @@ bool safeScaleTare(uint8_t times = 5) {
   }
   scale.tare(times);
   loadCellHealthy = true;
-  if (lastSensorError == "hx711_timeout") lastSensorError = "";
+  if (lastSensorError.startsWith("hx711") ||
+      lastSensorError == "dispense_flow_stall" ||
+      lastSensorError == "dispense_timeout") {
+    lastSensorError = "";
+  }
   return true;
 }
 
@@ -256,6 +282,19 @@ float readBatteryVolts() {
     mvSum += analogReadMilliVolts(PIN_BATTERY_ADC);
   }
   return (mvSum / 4.0f) / 1000.0f * BATTERY_DIVIDER_RATIO;
+}
+
+void clearTransientFaults() {
+  if (lastSensorError == "dispense_flow_stall" ||
+      lastSensorError == "dispense_timeout" ||
+      lastSensorError.startsWith("hx711")) {
+    lastSensorError = "";
+  }
+  if (lastSensorError == "low_battery_interlock" && readBatteryVolts() >= (BATTERY_CUTOFF_VOLTS + 0.1f)) {
+    lastSensorError = "";
+  }
+  safeScaleTare(5);
+  readFeedLevelPercent();
 }
 
 int calculateBatteryPercent(float volts) {
@@ -349,12 +388,23 @@ void emitFeedingLog(const char* triggerType, float targetGrams, float actualGram
 
 static bool isConfiguredValue(const char* val) {
   if (val == nullptr || strlen(val) == 0) return false;
-  if (strstr(val, "Your-") != nullptr || strstr(val, "YourGenerated") != nullptr) return false;
+  String lower = String(val);
+  lower.trim();
+  lower.toLowerCase();
+  if (lower.length() == 0) return false;
+  if (lower.indexOf("your-") >= 0 || lower.indexOf("yourgenerated") >= 0 ||
+      lower.indexOf("example.com") >= 0 || lower.indexOf("placeholder") >= 0) {
+    return false;
+  }
   return true;
 }
 
 String buildFirebaseUrl(const String& relativePath) {
   String url = String(FIREBASE_DB_URL);
+  url.trim();
+  if (url.length() > 0 && !url.startsWith("http://") && !url.startsWith("https://")) {
+    url = "https://" + url;
+  }
   if (!url.endsWith("/")) url += "/";
   url += relativePath;
   if (firebaseIdToken.length() > 0) {
@@ -370,6 +420,10 @@ bool authenticateFirebase(bool forceRefresh) {
   if (!forceRefresh && firebaseIdToken.length() > 0 &&
       (millis() - lastAuthRefreshMs < AUTH_REFRESH_INTERVAL_MS)) {
     return true;
+  }
+  if (!forceRefresh && firebaseIdToken.length() == 0 && lastAuthFailedMs > 0UL &&
+      (millis() - lastAuthFailedMs < AUTH_RETRY_COOLDOWN_MS)) {
+    return false;
   }
 
   WiFiClientSecure client;
@@ -431,6 +485,12 @@ bool authenticateFirebase(bool forceRefresh) {
       }
     }
     https.end();
+  }
+  if (ok) {
+    lastAuthFailedMs = 0UL;
+  } else {
+    lastAuthFailedMs = millis();
+    Serial.println("[AUTH WARN] Firebase Auth token unavailable (retrying in 60s); using direct RTDB URL.");
   }
   return ok;
 }
@@ -738,6 +798,9 @@ bool dispenseFeedDuration(int durationSec, const char* triggerType, float nomina
     dispensedWeight = 0.0f;
   }
   isDispensing = false;
+  if (lastSensorError == "dispense_flow_stall" || lastSensorError == "dispense_timeout") {
+    lastSensorError = "";
+  }
 
   lastFedTimestampMs = getEpochMillis();
   if (lastFedTimestampMs == 0ULL) lastFedTimestampMs = (uint64_t)millis();
@@ -838,6 +901,17 @@ void loadPersistentStateFromNvs() {
   }
   lastExecutedCommandId = prefs.getString("lastCmdId", "");
   lastExecutedScheduleSlot = prefs.getString("lastSchSlot", "");
+
+  String nvsSsid = prefs.getString("wifiSsid", "");
+  String nvsPass = prefs.getString("wifiPass", "");
+  if (isConfiguredValue(nvsSsid.c_str())) {
+    activeWifiSsid = nvsSsid;
+    activeWifiPass = nvsPass;
+    Serial.printf("[NVS] Loaded provisioned station Wi-Fi SSID: '%s'\n", activeWifiSsid.c_str());
+  } else if (isConfiguredValue(WIFI_SSID)) {
+    activeWifiSsid = String(WIFI_SSID);
+    activeWifiPass = String(WIFI_PASSWORD);
+  }
 
   String savedSchedules = prefs.getString("schedules", "");
   if (savedSchedules.length() > 0) {
@@ -1013,11 +1087,20 @@ void handleCommand(const String& cmdJson, bool fromCloud) {
       updateCommandAckInFirebase(cmdId, action, "completed", 0.0f, nullptr);
     }
   } else if (strcmp(action, "TARE_SCALE") == 0) {
+    clearTransientFaults();
     bool ok = safeScaleTare(8);
     printTelemetryJson();
     if (fromCloud && cmdId.length() > 0) {
       updateCommandAckInFirebase(cmdId, action, ok ? "completed" : "failed", 0.0f,
                                  ok ? nullptr : "HX711 load cell not responding");
+    }
+  } else if (strcmp(action, "CLEAR_FAULT") == 0) {
+    clearTransientFaults();
+    printTelemetryJson();
+    if (fromCloud && cmdId.length() > 0) {
+      bool clearOk = (lastSensorError.length() == 0);
+      updateCommandAckInFirebase(cmdId, action, clearOk ? "completed" : "failed", 0.0f,
+                                 clearOk ? nullptr : lastSensorError.c_str());
     }
   } else if (strcmp(action, "CALIBRATE_SCALE") == 0) {
     float knownGrams = doc["targetGrams"] | 500.0f;
@@ -1122,11 +1205,22 @@ void setupWebServer() {
   });
 
   server.on("/api/tare", HTTP_POST, []() {
+    clearTransientFaults();
     bool ok = safeScaleTare(8);
     server.sendHeader("Access-Control-Allow-Origin", "*");
     server.send(ok ? 200 : 503, "application/json",
                 ok ? "{\"status\":\"ok\",\"message\":\"Scale tared to 0.0g\"}"
                    : "{\"status\":\"error\",\"message\":\"HX711 load cell not responding\"}");
+  });
+
+  server.on("/api/clear-fault", HTTP_POST, []() {
+    clearTransientFaults();
+    printTelemetryJson();
+    bool ok = (lastSensorError.length() == 0);
+    server.sendHeader("Access-Control-Allow-Origin", "*");
+    server.send(200, "application/json",
+                "{\"status\":\"" + String(ok ? "ok" : "active_fault") +
+                "\",\"sensorError\":\"" + lastSensorError + "\"}");
   });
 
   server.on("/api/calibrate", HTTP_POST, []() {
@@ -1220,12 +1314,91 @@ void setupWebServer() {
     server.send(200, "application/json", out);
   });
 
+  server.on("/api/wifi", HTTP_GET, []() {
+    JsonDocument doc;
+    bool staOk = (WiFi.status() == WL_CONNECTED);
+    doc["staConnected"] = staOk;
+    doc["staSsid"] = activeWifiSsid;
+    doc["staIp"] = staOk ? WiFi.localIP().toString() : "";
+    doc["apSsid"] = SOFTAP_SSID;
+    doc["apIp"] = WiFi.softAPIP().toString();
+    doc["cloudConfigured"] = isConfiguredValue(FIREBASE_DB_URL);
+    String out;
+    serializeJson(doc, out);
+    server.sendHeader("Access-Control-Allow-Origin", "*");
+    server.send(200, "application/json", out);
+  });
+
+  server.on("/api/wifi", HTTP_POST, []() {
+    String newSsid = "";
+    String newPass = "";
+    bool isFormSubmit = false;
+    if (server.hasArg("ssid")) {
+      newSsid = server.arg("ssid");
+      newPass = server.arg("password");
+      isFormSubmit = true;
+    } else if (server.hasArg("plain")) {
+      JsonDocument doc;
+      if (!deserializeJson(doc, server.arg("plain"))) {
+        newSsid = String((const char*)(doc["ssid"] | ""));
+        newPass = String((const char*)(doc["password"] | ""));
+      }
+    }
+    newSsid.trim();
+    server.sendHeader("Access-Control-Allow-Origin", "*");
+    if (newSsid.length() == 0) {
+      server.send(400, "application/json", "{\"status\":\"error\",\"message\":\"SSID is required\"}");
+      return;
+    }
+
+    activeWifiSsid = newSsid;
+    activeWifiPass = newPass;
+    prefs.putString("wifiSsid", activeWifiSsid);
+    prefs.putString("wifiPass", activeWifiPass);
+
+    Serial.printf("[WIFI PROVISION] Connecting to new 2.4GHz SSID '%s'...\n", activeWifiSsid.c_str());
+    WiFi.disconnect(false);
+    WiFi.begin(activeWifiSsid.c_str(), activeWifiPass.c_str());
+    unsigned long waitStart = millis();
+    while (WiFi.status() != WL_CONNECTED && millis() - waitStart < 5500UL) {
+      delay(200);
+    }
+    bool connected = (WiFi.status() == WL_CONNECTED);
+    if (connected) {
+      Serial.printf("[WIFI PROVISION] Connected! Station IP: %s\n", WiFi.localIP().toString().c_str());
+      syncNtpAndRtcIfConnected();
+      authenticateFirebase(true);
+      purgeStaleCommandsOnBoot();
+      syncSchedulesFromFirebase();
+      printTelemetryJson();
+    }
+    if (isFormSubmit) {
+      server.sendHeader("Location", "/");
+      server.send(303, "text/plain", "Wi-Fi updated. Redirecting...");
+      return;
+    }
+    JsonDocument resp;
+    resp["status"] = connected ? "ok" : "connecting";
+    resp["staConnected"] = connected;
+    resp["staSsid"] = activeWifiSsid;
+    resp["staIp"] = connected ? WiFi.localIP().toString() : "";
+    String out;
+    serializeJson(resp, out);
+    server.send(200, "application/json", out);
+  });
+
   // Embedded mobile web dashboard for direct in-browser access
   server.on("/", HTTP_GET, []() {
     float vbat = readBatteryVolts();
     float level = readFeedLevelPercent();
     float weight = 0.0f;
     safeReadScaleGrams(&weight, 1);
+    bool staOk = (WiFi.status() == WL_CONNECTED);
+    String wifiBadge = staOk
+        ? ("Connected to <b>" + activeWifiSsid + "</b> (" + WiFi.localIP().toString() + ")")
+        : (activeWifiSsid.length() > 0
+            ? ("Reconnecting to <b>" + activeWifiSsid + "</b>... (SoftAP Active)")
+            : String("Off-Grid SoftAP Mode (No Farm Wi-Fi Set)"));
 
     String html = "<!DOCTYPE html><html><head><meta name='viewport' content='width=device-width,initial-scale=1'>"
       "<title>Smart Chicken Feeder</title>"
@@ -1234,18 +1407,25 @@ void setupWebServer() {
       ".card{background:#1e2422;border-radius:18px;padding:20px;margin-bottom:16px;border:1px solid #2e3834;box-shadow:0 4px 12px rgba(0,0,0,0.3)}"
       "h1{color:#4ade80;font-size:22px;margin-top:0}h2{font-size:14px;color:#8ba396;text-transform:uppercase;letter-spacing:1px}"
       ".val{font-size:32px;font-weight:900;font-family:monospace;margin:6px 0}"
+      "input{box-sizing:border-box;width:100%;max-width:320px;padding:12px;margin:6px 0;border-radius:10px;border:1px solid #3c4a44;background:#141716;color:#fff;font-size:15px}"
       "button{background:#15803d;color:#fff;border:none;padding:14px 24px;border-radius:12px;font-size:16px;font-weight:bold;margin:6px 0;cursor:pointer;width:100%;max-width:320px}"
       "button.stop{background:#dc2626}button.tare{background:#0284c7}"
       "</style></head><body>"
-      "<div class='card'><h1>Smart Chicken Feeder</h1><p style='color:#8ba396;font-size:12px'>Direct Local Wi-Fi Portal (192.168.4.1)</p></div>"
+      "<div class='card'><h1>Smart Chicken Feeder</h1><p style='color:#8ba396;font-size:12px'>Direct Local Wi-Fi Portal (192.168.4.1)<br>" + wifiBadge + "</p></div>"
       "<div class='card'><h2>Hopper Feed Level</h2><div class='val' style='color:#4ade80'>" + (level >= 0.0f ? String((int)round(level)) + "%" : String("SENSOR ERR")) + "</div></div>"
       "<div class='card'><h2>Scale Weight</h2><div class='val'>" + (loadCellHealthy ? String(max(0.0f, weight), 1) + " g" : String("HX711 N/A")) + "</div></div>"
       "<div class='card'><h2>Battery Voltage</h2><div class='val' style='color:#38bdf8'>" + String(vbat, 2) + " V</div></div>"
       "<div class='card'><h2>Manual Controls</h2>"
       "<form method='POST' action='/api/dispense'><button type='submit'>Dispense Feed (5s)</button></form>"
-      "<form method='POST' action='/api/tare'><button class='tare' type='submit'>Tare Scale (0.0g)</button></form>"
+      "<form method='POST' action='/api/tare'><button class='tare' type='submit'>Tare Scale &amp; Clear Fault</button></form>"
       "<form method='POST' action='/api/stop'><button class='stop' type='submit'>Emergency Stop</button></form>"
-      "</div></body></html>";
+      "</div>"
+      "<div class='card'><h2>Cloud Wi-Fi Setup (2.4 GHz)</h2>"
+      "<form method='POST' action='/api/wifi'>"
+      "<input name='ssid' placeholder='2.4 GHz Wi-Fi Name (SSID)' value='" + activeWifiSsid + "' required><br>"
+      "<input name='password' type='password' placeholder='Wi-Fi Password'><br>"
+      "<button class='tare' type='submit'>Save &amp; Connect Feeder to Wi-Fi</button>"
+      "</form></div></body></html>";
     server.send(200, "text/html", html);
   });
 
@@ -1305,9 +1485,9 @@ void initWiFi() {
     Serial.println("[SOFTAP ERROR] Failed to start SoftAP hotspot.");
   }
 
-  if (isConfiguredValue(WIFI_SSID)) {
-    Serial.printf("[WIFI STA] Connecting to station network '%s'...\n", WIFI_SSID);
-    WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
+  if (activeWifiSsid.length() > 0) {
+    Serial.printf("[WIFI STA] Connecting to station network '%s'...\n", activeWifiSsid.c_str());
+    WiFi.begin(activeWifiSsid.c_str(), activeWifiPass.c_str());
     unsigned long waitStart = millis();
     while (WiFi.status() != WL_CONNECTED && millis() - waitStart < 6000UL) {
       delay(200);
@@ -1322,14 +1502,14 @@ void initWiFi() {
       Serial.println("[WIFI STA] Initial connect timed out; continuing non-blocking in background.");
     }
   } else {
-    Serial.println("[WIFI STA] No station SSID set. Operating in pure direct SoftAP mode.");
+    Serial.println("[WIFI STA] No station SSID set. Operating in pure direct SoftAP mode (provision via http://192.168.4.1).");
   }
 
   setupWebServer();
 }
 
 void checkWiFiReconnect() {
-  if (!isConfiguredValue(WIFI_SSID)) return;
+  if (activeWifiSsid.length() == 0) return;
   static bool wasConnected = false;
   bool nowConnected = (WiFi.status() == WL_CONNECTED);
 
@@ -1460,7 +1640,11 @@ void setup() {
   Wire.begin(PIN_RTC_SDA, PIN_RTC_SCL);
   rtcOk = rtc.begin();
   if (rtcOk && rtc.lostPower()) {
-    rtc.adjust(DateTime(F(__DATE__), F(__TIME__)));
+    DateTime compileLocal(F(__DATE__), F(__TIME__));
+    uint32_t utcSec = compileLocal.unixtime() > (uint32_t)GMT_OFFSET_SEC
+        ? (compileLocal.unixtime() - (uint32_t)GMT_OFFSET_SEC)
+        : compileLocal.unixtime();
+    rtc.adjust(DateTime(utcSec));
   }
 
   Serial.println("=================================================");

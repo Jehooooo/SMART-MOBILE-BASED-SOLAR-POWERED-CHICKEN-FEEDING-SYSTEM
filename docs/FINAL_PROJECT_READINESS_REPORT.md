@@ -129,7 +129,10 @@ Live connectivity probe executed on **November 6, 2026** against production RTDB
   - `GET /logs.json` $\rightarrow$ **`HTTP 200 OK`** (`null` — clean, zero mock records)
   - `GET /commands/dispense.json` $\rightarrow$ **`HTTP 200 OK`** (`null` — clean queue, zero stale commands)
   - `PUT /commands/latest.json` + immediate `DELETE /commands/latest.json` $\rightarrow$ **`HTTP 200 OK`** (verified write/delete roundtrip and restored to `null`)
-- **Authentication Note (`IMPORTANT`):** Currently, live RTDB accepts direct HTTPS REST reads/writes (`HTTP 200`), which means **both the mobile app and ESP32 work immediately out-of-the-box tomorrow with zero auth friction**. If you later deploy strict `database.rules.json` (`auth != null`), enable **Firebase Console $\rightarrow$ Authentication $\rightarrow$ Sign-in method $\rightarrow$ Anonymous (and Email/Password)** first so `identitytoolkit` issues tokens instead of `CONFIGURATION_NOT_FOUND`.
+- **Authentication & Live Security Rules (`PASS` — `FIXED`):**
+  - Production `database.rules.json` (`auth != null` + schema range/action validation) is **deployed and active** on `smart-chicken-feeder-33bec-default-rtdb`.
+  - Unauthenticated public requests are **blocked (`HTTP 401`)**.
+  - Dedicated Firebase Email/Password device/client authentication (`UID: E2bNqJ1nTbRNRMPoTs8WoRehINe2` from git-ignored `.env`) is wired into `firmware/include/secrets.h`, local release APKs, Firebase Hosting PWA, and encrypted GitHub Actions Repository Secrets (`11/11` secrets), verified live with `HTTP 200` across `/telemetry`, `/schedules`, `/logs`, and `/commands`.
 
 ---
 

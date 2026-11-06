@@ -7,6 +7,7 @@ enum FeederAction {
   calibrateScale,
   syncClock,
   tareScale,
+  clearFault,
   setServoAngle,
   restartController;
 
@@ -22,6 +23,8 @@ enum FeederAction {
         return 'SYNC_CLOCK';
       case FeederAction.tareScale:
         return 'TARE_SCALE';
+      case FeederAction.clearFault:
+        return 'CLEAR_FAULT';
       case FeederAction.setServoAngle:
         return 'SERVO_TEST';
       case FeederAction.restartController:
@@ -42,6 +45,8 @@ enum FeederAction {
         return FeederAction.syncClock;
       case 'TARE_SCALE':
         return FeederAction.tareScale;
+      case 'CLEAR_FAULT':
+        return FeederAction.clearFault;
       case 'SERVO_TEST':
       case 'TEST_SERVO':
         return FeederAction.setServoAngle;
@@ -215,6 +220,15 @@ class FeederCommand {
     return FeederCommand(
       id: 'cmd_tare_${DateTime.now().millisecondsSinceEpoch}',
       action: FeederAction.tareScale,
+      durationSeconds: 0,
+      timestamp: DateTime.now(),
+    );
+  }
+
+  factory FeederCommand.clearFault() {
+    return FeederCommand(
+      id: 'cmd_clear_${DateTime.now().millisecondsSinceEpoch}',
+      action: FeederAction.clearFault,
       durationSeconds: 0,
       timestamp: DateTime.now(),
     );

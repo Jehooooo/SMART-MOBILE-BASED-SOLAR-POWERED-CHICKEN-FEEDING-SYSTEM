@@ -350,6 +350,13 @@ class MockHardwareAdapter implements FeederHardwareAdapter {
       case FeederAction.tareScale:
         tareScale();
         return command.copyWith(status: CommandStatus.completed);
+      case FeederAction.clearFault:
+        _currentTelemetry = _currentTelemetry.copyWith(
+          status: FeederStatus.idle,
+          clearSensorError: true,
+        );
+        _emitTelemetry(_currentTelemetry);
+        return command.copyWith(status: CommandStatus.completed);
       case FeederAction.setServoAngle:
         _lastServoAngle = (command.servoAngle ?? 0).clamp(0, 90);
         return command.copyWith(status: CommandStatus.completed);

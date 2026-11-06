@@ -13,6 +13,7 @@ import 'package:smart_chicken_feeder/services/alert_notification_service.dart';
 import 'package:smart_chicken_feeder/services/feeder_service.dart';
 import 'package:smart_chicken_feeder/services/hardware/firebase_hardware_adapter.dart';
 import 'package:smart_chicken_feeder/services/hardware/hardware_adapter.dart';
+import 'package:smart_chicken_feeder/services/hardware/rest_hardware_adapter.dart';
 import 'mocks/mock_hardware_adapter.dart';
 import 'package:smart_chicken_feeder/services/settings_service.dart';
 import 'package:smart_chicken_feeder/theme/app_theme.dart';
@@ -658,6 +659,133 @@ void main() {
       f2.dispose();
       await Future.delayed(const Duration(milliseconds: 50));
       await rtdb.close();
+    });
+
+    test('Test H: Direct Wi-Fi SoftAP (RestHardwareAdapter) auto clock sync, log/schedule sync, fault recovery, and Wi-Fi provisioning', () async {
+      HttpOverrides.global = null;
+      final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+      int syncedEpochMs = 0;
+      String sensorErr = 'dispense_flow_stall';
+      String provisionedSsid = '';
+      List<dynamic> storedSchedules = [];
+      final List<Map<String, dynamic>> storedLogs = [
+        {
+          'id': 'log_softap_1',
+          'timestamp': DateTime.now().millisecondsSinceEpoch,
+          'targetGrams': 100.0,
+          'actualGrams': 101.2,
+          'durationSeconds': 5,
+          'triggerType': 'Direct Local',
+          'isSuccess': true,
+          'batteryVolts': 12.55,
+          'feedLevelPercent': 78.0,
+        },
+      ];
+
+      server.listen((HttpRequest req) async {
+        req.response.headers.contentType = ContentType.json;
+        final body = await utf8.decodeStream(req);
+        if (req.uri.path == '/api/telemetry') {
+          req.response.write(jsonEncode({
+            'feedLevelPercent': 78.0,
+            'batteryVolts': 12.55,
+            'batteryPercent': 84,
+            'currentWeightGrams': 0.0,
+            'status': sensorErr.isEmpty ? 'idle' : 'error',
+            'sensorError': sensorErr,
+            'lastHeartbeat': syncedEpochMs, // starts at 0 before phone syncs clock!
+            'isSolarCharging': true,
+          }));
+        } else if (req.uri.path == '/api/sync-clock' && req.method == 'POST') {
+          final map = jsonDecode(body) as Map<String, dynamic>;
+          syncedEpochMs = (map['timestamp'] as num).toInt();
+          req.response.write(jsonEncode({'status': 'ok'}));
+        } else if (req.uri.path == '/api/clear-fault' && req.method == 'POST') {
+          sensorErr = '';
+          req.response.write(jsonEncode({'status': 'ok', 'sensorError': ''}));
+        } else if (req.uri.path == '/api/logs' && req.method == 'GET') {
+          req.response.write(jsonEncode(storedLogs));
+        } else if (req.uri.path == '/api/schedules') {
+          if (req.method == 'POST') {
+            storedSchedules = jsonDecode(body) as List<dynamic>;
+            req.response.write(jsonEncode({'status': 'ok', 'count': storedSchedules.length}));
+          } else {
+            req.response.write(jsonEncode(storedSchedules));
+          }
+        } else if (req.uri.path == '/api/wifi') {
+          if (req.method == 'POST') {
+            final map = jsonDecode(body) as Map<String, dynamic>;
+            provisionedSsid = map['ssid'] as String? ?? '';
+            req.response.write(jsonEncode({
+              'status': 'ok',
+              'staConnected': true,
+              'staSsid': provisionedSsid,
+              'staIp': '192.168.1.88',
+            }));
+          } else {
+            req.response.write(jsonEncode({
+              'staConnected': provisionedSsid.isNotEmpty,
+              'staSsid': provisionedSsid,
+              'staIp': provisionedSsid.isNotEmpty ? '192.168.1.88' : '',
+            }));
+          }
+        } else {
+          req.response.write(jsonEncode({'status': 'ok'}));
+        }
+        await req.response.close();
+      });
+
+      final rest = RestHardwareAdapter(host: '127.0.0.1', port: server.port);
+      final service = FeederService(adapter: rest, enableOsNotifications: false);
+      await Future.delayed(const Duration(milliseconds: 120));
+
+      // 1. Even though ESP32 started with lastHeartbeat == 0, live HTTP 200 marks device online AND auto-syncs clock!
+      expect(service.isDeviceOnline, isTrue);
+      expect(syncedEpochMs, greaterThan(1700000000000));
+
+      // 2. Onboard SoftAP logs automatically loaded into FeederService history!
+      expect(service.history.any((l) => l.id == 'log_softap_1'), isTrue);
+
+      // 3. Active stall fault blocks manual dispense until operator clears fault
+      expect(await service.triggerManualFeed(durationSeconds: 5), isFalse);
+      expect(await service.clearHardwareFault(), isTrue);
+      expect(service.telemetry.status, FeederStatus.idle);
+      expect(await service.triggerManualFeed(durationSeconds: 5), isTrue);
+
+      // 4. Wireless SoftAP Wi-Fi provisioning succeeds
+      final wifiRes = await RestHardwareAdapter.provisionSoftApWifi(
+        ssid: 'ClientFarm_2.4G',
+        password: 'farmpassword123',
+        host: '127.0.0.1',
+        port: server.port,
+      );
+      expect(wifiRes?['staConnected'], isTrue);
+      expect(wifiRes?['staIp'], '192.168.1.88');
+
+      service.dispose();
+      await server.close(force: true);
+    });
+
+    test('Test I: Empty /telemetry.json (null) before ESP32 first boot reports Cloud Online + Controller Offline', () async {
+      HttpOverrides.global = null;
+      final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+      server.listen((HttpRequest req) async {
+        req.response.headers.contentType = ContentType.json;
+        req.response.write('null');
+        await req.response.close();
+      });
+
+      final fb = FirebaseHardwareAdapter(databaseUrl: 'http://127.0.0.1:${server.port}');
+      final service = FeederService(adapter: fb, enableOsNotifications: false);
+      await service.refreshTelemetry();
+
+      // Cloud database link is online, while physical ESP32 controller is accurately reported offline
+      expect(service.isConnected, isTrue);
+      expect(service.isDeviceOnline, isFalse);
+      expect(await service.triggerManualFeed(durationSeconds: 5), isFalse);
+
+      service.dispose();
+      await server.close(force: true);
     });
   });
 }

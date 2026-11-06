@@ -219,4 +219,14 @@ class FeederCommand {
       timestamp: DateTime.now(),
     );
   }
+
+  factory FeederCommand.syncClock([DateTime? now]) {
+    final ts = now ?? DateTime.now();
+    return FeederCommand(
+      id: 'cmd_clock_${ts.millisecondsSinceEpoch}',
+      action: FeederAction.syncClock,
+      durationSeconds: 0,
+      timestamp: ts,
+    );
+  }
 }

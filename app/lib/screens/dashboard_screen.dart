@@ -339,6 +339,22 @@ class _DashboardScreenState extends State<DashboardScreen> {
         _buildWarningBanner(
           'Hardware / Sensor Error$errCode: Dispenser gate locked closed for safety. Inspect load cell, ultrasonic sensor, and auger chute.',
           c.danger,
+          actionLabel: widget.feederService.isDeviceOnline ? 'Clear Fault' : null,
+          onAction: widget.feederService.isDeviceOnline
+              ? () async {
+                  final cleared = await widget.feederService.clearHardwareFault();
+                  if (!mounted) return;
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(
+                        cleared
+                            ? 'Hardware fault cleared and scale re-checked.'
+                            : 'Fault remains active — check hopper pellets and sensor wiring.',
+                      ),
+                    ),
+                  );
+                }
+              : null,
         ),
       );
     } else if (telemetry.feedLevelPercent < lowFeed) {
@@ -362,7 +378,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
     return banners;
   }
 
-  Widget _buildWarningBanner(String message, Color color) {
+  Widget _buildWarningBanner(
+    String message,
+    Color color, {
+    String? actionLabel,
+    VoidCallback? onAction,
+  }) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
       child: LiquidGlassContainer(
@@ -373,7 +394,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         customBorder: Border.all(color: color.withValues(alpha: 0.45), width: 1.2),
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
         child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
+          crossAxisAlignment: CrossAxisAlignment.center,
           children: [
             Icon(Icons.warning_amber_rounded, color: color, size: 22),
             const SizedBox(width: 10),
@@ -383,6 +404,18 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 style: TextStyle(color: color, fontSize: 13, fontWeight: FontWeight.w600, height: 1.3),
               ),
             ),
+            if (actionLabel != null && onAction != null) ...[
+              const SizedBox(width: 8),
+              TextButton(
+                onPressed: onAction,
+                style: TextButton.styleFrom(
+                  foregroundColor: color,
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  visualDensity: VisualDensity.compact,
+                ),
+                child: Text(actionLabel, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 12)),
+              ),
+            ],
           ],
         ),
       ),

@@ -434,6 +434,9 @@ class RestHardwareAdapter implements FeederHardwareAdapter {
       case FeederAction.tareScale:
         final ok = await tareScale();
         return command.copyWith(status: ok ? CommandStatus.completed : CommandStatus.failed);
+      case FeederAction.clearFault:
+        final ok = await clearFault();
+        return command.copyWith(status: ok ? CommandStatus.completed : CommandStatus.failed);
       case FeederAction.calibrateScale:
         final ok = await calibrateScale(command.targetGrams);
         return command.copyWith(status: ok ? CommandStatus.completed : CommandStatus.failed);

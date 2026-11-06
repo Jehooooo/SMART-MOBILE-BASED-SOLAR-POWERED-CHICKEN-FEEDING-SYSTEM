@@ -48,6 +48,8 @@ class FirebaseHardwareAdapter implements FeederHardwareAdapter {
   String? _lastErrorMessage;
   String? _cachedIdToken;
   DateTime? _tokenExpiry;
+  DateTime? _lastAuthFailureAt;
+  DateTime? _lastAutoClockSyncAt;
   final Set<String> _seenLogIds = <String>{};
 
   FirebaseHardwareAdapter({
@@ -159,7 +161,12 @@ class FirebaseHardwareAdapter implements FeederHardwareAdapter {
         _telemetrySub = _rootRef!.child('telemetry').onValue.listen((event) {
           final val = event.snapshot.value;
           if (val is Map) {
-            final telemetry = FeederTelemetry.fromMap(val);
+            final rawHb = (val['lastHeartbeat'] as num?)?.toInt() ?? 0;
+            var telemetry = FeederTelemetry.fromMap(val);
+            if (rawHb == 0) {
+              telemetry = telemetry.copyWith(lastHeartbeat: DateTime.now());
+              _maybeAutoSyncCloudClock();
+            }
             _isDispensing = telemetry.status == FeederStatus.dispensing;
             _lastErrorMessage = null;
             _emitTelemetry(telemetry);
@@ -247,6 +254,13 @@ class FirebaseHardwareAdapter implements FeederHardwareAdapter {
       return _cachedIdToken;
     }
 
+    if (!forceRefresh &&
+        _cachedIdToken == null &&
+        _lastAuthFailureAt != null &&
+        DateTime.now().difference(_lastAuthFailureAt!) < const Duration(seconds: 60)) {
+      return null;
+    }
+
     final usePasswordAuth = authEmail.isNotEmpty && authPassword.isNotEmpty;
     final endpoint = usePasswordAuth
         ? 'https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=$apiKey'
@@ -271,14 +285,17 @@ class FirebaseHardwareAdapter implements FeederHardwareAdapter {
         final decoded = jsonDecode(resp.body);
         if (decoded is Map && decoded['idToken'] is String) {
           _cachedIdToken = decoded['idToken'] as String;
+          _lastAuthFailureAt = null;
           final expiresSec = int.tryParse('${decoded['expiresIn'] ?? '3600'}') ?? 3600;
           _tokenExpiry = DateTime.now().add(Duration(seconds: (expiresSec - 300).clamp(60, 3600)));
           return _cachedIdToken;
         }
       } else {
+        _lastAuthFailureAt = DateTime.now();
         debugPrint('IdentityToolkit auth failed (HTTP ${resp.statusCode})');
       }
     } catch (e) {
+      _lastAuthFailureAt = DateTime.now();
       debugPrint('IdentityToolkit auth network error: $e');
     }
     return null;
@@ -324,23 +341,39 @@ class FirebaseHardwareAdapter implements FeederHardwareAdapter {
       }
 
       if (!_recordHttpErrorIfDenied(response, 'telemetry read')) {
+        _emitConnection(FeederConnection.online);
         final body = response.body;
         if (body.isNotEmpty && body != 'null') {
           final map = jsonDecode(body);
           if (map is Map) {
-            final telemetry = FeederTelemetry.fromMap(map);
+            final rawHb = (map['lastHeartbeat'] as num?)?.toInt() ?? 0;
+            var telemetry = FeederTelemetry.fromMap(map);
+            if (rawHb == 0) {
+              telemetry = telemetry.copyWith(lastHeartbeat: DateTime.now());
+              _maybeAutoSyncCloudClock();
+            }
             _isDispensing = telemetry.status == FeederStatus.dispensing;
             _emitTelemetry(telemetry);
-            _emitConnection(FeederConnection.online);
-            return;
           }
         }
+        return;
       }
       _emitConnection(FeederConnection.offline);
     } catch (e) {
       _lastErrorMessage = 'Firebase network unreachable: $e';
       _emitConnection(FeederConnection.offline);
     }
+  }
+
+  void _maybeAutoSyncCloudClock() {
+    if (_disposed || _isCommandInFlight) return;
+    final now = DateTime.now();
+    if (_lastAutoClockSyncAt != null &&
+        now.difference(_lastAutoClockSyncAt!) < const Duration(seconds: 60)) {
+      return;
+    }
+    _lastAutoClockSyncAt = now;
+    unawaited(sendCommand(FeederCommand.syncClock(now)));
   }
 
   Future<void> _fetchRestLogs() async {

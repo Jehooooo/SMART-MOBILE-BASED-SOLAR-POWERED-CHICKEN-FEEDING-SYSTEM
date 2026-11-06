@@ -35,7 +35,21 @@ jobs:
 
       - name: Build Release APKs (Split per ABI)
         working-directory: app
-        run: flutter build apk --release --split-per-abi
+        env:
+          FIREBASE_API_KEY: ${{ secrets.FIREBASE_API_KEY }}
+          FIREBASE_AUTH_DOMAIN: ${{ secrets.FIREBASE_AUTH_DOMAIN }}
+          FIREBASE_DATABASE_URL: ${{ secrets.FIREBASE_DATABASE_URL }}
+          FIREBASE_PROJECT_ID: ${{ secrets.FIREBASE_PROJECT_ID }}
+          FIREBASE_STORAGE_BUCKET: ${{ secrets.FIREBASE_STORAGE_BUCKET }}
+          FIREBASE_MESSAGING_SENDER_ID: ${{ secrets.FIREBASE_MESSAGING_SENDER_ID }}
+          FIREBASE_APP_ID: ${{ secrets.FIREBASE_APP_ID }}
+          FIREBASE_MEASUREMENT_ID: ${{ secrets.FIREBASE_MEASUREMENT_ID }}
+          FIREBASE_USER_EMAIL: ${{ secrets.FIREBASE_USER_EMAIL }}
+          FIREBASE_USER_PASSWORD: ${{ secrets.FIREBASE_USER_PASSWORD }}
+        run: |
+          python3 -c 'import os, json; keys=["FIREBASE_API_KEY","FIREBASE_AUTH_DOMAIN","FIREBASE_DATABASE_URL","FIREBASE_PROJECT_ID","FIREBASE_STORAGE_BUCKET","FIREBASE_MESSAGING_SENDER_ID","FIREBASE_APP_ID","FIREBASE_MEASUREMENT_ID","FIREBASE_USER_EMAIL","FIREBASE_USER_PASSWORD"]; d={k:os.environ.get(k,"") for k in keys if os.environ.get(k)}; json.dump(d, open("ci_defines.json","w"))'
+          flutter build apk --release --split-per-abi --dart-define-from-file=ci_defines.json
+          rm -f ci_defines.json
 
       - name: Upload arm64-v8a Release APK
         uses: actions/upload-artifact@v4
@@ -72,7 +86,21 @@ jobs:
 
       - name: Build iOS (No Codesign)
         working-directory: app
-        run: flutter build ios --release --no-codesign
+        env:
+          FIREBASE_API_KEY: ${{ secrets.FIREBASE_API_KEY }}
+          FIREBASE_AUTH_DOMAIN: ${{ secrets.FIREBASE_AUTH_DOMAIN }}
+          FIREBASE_DATABASE_URL: ${{ secrets.FIREBASE_DATABASE_URL }}
+          FIREBASE_PROJECT_ID: ${{ secrets.FIREBASE_PROJECT_ID }}
+          FIREBASE_STORAGE_BUCKET: ${{ secrets.FIREBASE_STORAGE_BUCKET }}
+          FIREBASE_MESSAGING_SENDER_ID: ${{ secrets.FIREBASE_MESSAGING_SENDER_ID }}
+          FIREBASE_APP_ID: ${{ secrets.FIREBASE_APP_ID }}
+          FIREBASE_MEASUREMENT_ID: ${{ secrets.FIREBASE_MEASUREMENT_ID }}
+          FIREBASE_USER_EMAIL: ${{ secrets.FIREBASE_USER_EMAIL }}
+          FIREBASE_USER_PASSWORD: ${{ secrets.FIREBASE_USER_PASSWORD }}
+        run: |
+          python3 -c 'import os, json; keys=["FIREBASE_API_KEY","FIREBASE_AUTH_DOMAIN","FIREBASE_DATABASE_URL","FIREBASE_PROJECT_ID","FIREBASE_STORAGE_BUCKET","FIREBASE_MESSAGING_SENDER_ID","FIREBASE_APP_ID","FIREBASE_MEASUREMENT_ID","FIREBASE_USER_EMAIL","FIREBASE_USER_PASSWORD"]; d={k:os.environ.get(k,"") for k in keys if os.environ.get(k)}; json.dump(d, open("ci_defines.json","w"))'
+          flutter build ios --release --no-codesign --dart-define-from-file=ci_defines.json
+          rm -f ci_defines.json
 
       - name: Package .ipa and Runner.app
         working-directory: app

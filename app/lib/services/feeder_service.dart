@@ -10,6 +10,7 @@ import '../models/feeder_command.dart';
 import 'alert_notification_service.dart';
 import 'hardware/firebase_hardware_adapter.dart';
 import 'hardware/hardware_adapter.dart';
+import 'hardware/rest_hardware_adapter.dart';
 
 /// Link state between the mobile app and the cloud database / feeder.
 enum FeederConnection { connecting, online, offline }
@@ -96,7 +97,7 @@ class FeederService extends ChangeNotifier {
     await _loadLocalDataInternal(preserveConcurrentMutations: true);
     if (_disposed) return;
     alertService.seedHistoricalLogIds(_history.map((l) => l.id));
-    if (_adapter is FirebaseHardwareAdapter) {
+    if (_adapter is FirebaseHardwareAdapter || _adapter is RestHardwareAdapter) {
       await syncWithFirebaseCloud();
     }
   }
@@ -160,7 +161,8 @@ class FeederService extends ChangeNotifier {
     });
 
     adapter.initialize();
-    if (syncCloudImmediately && adapter is FirebaseHardwareAdapter) {
+    if (syncCloudImmediately &&
+        (adapter is FirebaseHardwareAdapter || adapter is RestHardwareAdapter)) {
       unawaited(syncWithFirebaseCloud());
     }
   }
@@ -190,6 +192,34 @@ class FeederService extends ChangeNotifier {
       final cmd = FeederCommand.tareScale();
       final res = await _adapter.sendCommand(cmd);
       return res.status == CommandStatus.completed;
+    } finally {
+      _isCommandInFlight = false;
+    }
+  }
+
+  /// Clears transient dispense/sensor faults (e.g. empty-hopper stall) and re-polls live telemetry.
+  Future<bool> clearHardwareFault() async {
+    if (_isDispensing || _isCommandInFlight || !isDeviceOnline) {
+      _lastErrorMessage = 'Cannot clear fault while feeder is offline or busy.';
+      return false;
+    }
+    _isCommandInFlight = true;
+    try {
+      bool cmdOk = false;
+      if (_adapter is RestHardwareAdapter) {
+        cmdOk = await (_adapter as RestHardwareAdapter).clearFault();
+      } else {
+        final res = await _adapter.sendCommand(FeederCommand.tareScale());
+        cmdOk = res.status == CommandStatus.completed;
+      }
+      await _adapter.refreshTelemetry();
+      await Future<void>.delayed(Duration.zero);
+      final faultCleared = _telemetry.status != FeederStatus.error &&
+          (_telemetry.sensorError == null || _telemetry.sensorError!.isEmpty);
+      if (faultCleared) {
+        _lastErrorMessage = null;
+      }
+      return cmdOk && faultCleared;
     } finally {
       _isCommandInFlight = false;
     }
@@ -265,12 +295,14 @@ class FeederService extends ChangeNotifier {
     _connection = FeederConnection.connecting;
     notifyListeners();
     final linkOk = await _adapter.refreshTelemetry();
+    await Future<void>.delayed(Duration.zero);
     return linkOk && isDeviceOnline;
   }
 
   /// Pulls the latest telemetry from the hardware adapter.
   Future<bool> refreshTelemetry() async {
     final linkOk = await _adapter.refreshTelemetry();
+    await Future<void>.delayed(Duration.zero);
     return linkOk && (_adapter.isMock || _telemetry.isOnline);
   }
 
@@ -391,17 +423,36 @@ class FeederService extends ChangeNotifier {
   }
 
   /// Synchronizes schedules and history logs with Firebase Realtime Database
-  /// when operating in Firebase Cloud mode.
+  /// or the local ESP32 REST server when operating in Direct Wi-Fi mode.
   Future<void> syncWithFirebaseCloud() async {
-    if (_adapter is! FirebaseHardwareAdapter || _disposed) return;
+    if ((_adapter is! FirebaseHardwareAdapter && _adapter is! RestHardwareAdapter) || _disposed) {
+      return;
+    }
     await refreshSchedulesFromCloud();
     await refreshLogsFromCloud();
   }
 
-  /// Pulls the latest schedules from Firebase RTDB `/schedules.json` when using `FirebaseHardwareAdapter`.
+  /// Pulls the latest schedules from Firebase RTDB (`/schedules.json`) or ESP32 NVS (`/api/schedules`).
   Future<bool> refreshSchedulesFromCloud() async {
+    if (_adapter is RestHardwareAdapter) {
+      final rest = _adapter as RestHardwareAdapter;
+      final remoteList = await rest.fetchSchedulesSnapshot();
+      if (remoteList == null) {
+        await loadLocalData();
+        return false;
+      }
+      _lastErrorMessage = null;
+      if (remoteList.isEmpty && _schedules.isNotEmpty) {
+        return rest.syncSchedules(_schedules);
+      }
+      _schedules = remoteList;
+      await _saveLocalSchedules();
+      notifyListeners();
+      return true;
+    }
+
     if (_adapter is! FirebaseHardwareAdapter) {
-      // Local/mock mode: reload from local persistence
+      // Mock mode: reload from local persistence
       await loadLocalData();
       return _adapter.isMock;
     }
@@ -432,8 +483,25 @@ class FeederService extends ChangeNotifier {
     return true;
   }
 
-  /// Pulls the latest feeding logs from Firebase RTDB `/logs.json` when using `FirebaseHardwareAdapter`.
+  /// Pulls the latest feeding logs from Firebase RTDB (`/logs.json`) or ESP32 ring buffer (`/api/logs`).
   Future<bool> refreshLogsFromCloud() async {
+    if (_adapter is RestHardwareAdapter) {
+      final rest = _adapter as RestHardwareAdapter;
+      final remoteLogs = await rest.fetchLogsSnapshot();
+      if (remoteLogs == null) {
+        await loadLocalData();
+        return false;
+      }
+      _lastErrorMessage = null;
+      if (remoteLogs.isNotEmpty) {
+        alertService.seedHistoricalLogIds(remoteLogs.map((l) => l.id));
+        _history = remoteLogs;
+        await _saveLocalLogs();
+        notifyListeners();
+      }
+      return true;
+    }
+
     if (_adapter is! FirebaseHardwareAdapter) {
       await loadLocalData();
       return _adapter.isMock;

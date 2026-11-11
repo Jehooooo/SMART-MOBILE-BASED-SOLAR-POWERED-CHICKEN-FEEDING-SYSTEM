@@ -20,7 +20,7 @@
   - [1.3 Scope and Limitations](#13-scope-and-limitations)
   - [1.4 Main Features & Implementation Matrix](#14-main-features--implementation-matrix)
   - [1.5 System Capabilities](#15-system-capabilities)
-  - [1.6 Technologies and Frameworks Used](#16-technologies-and-frameworks-used)
+  - [1.6 Technologies, Frameworks, and Tools Used (and Why They Were Chosen)](#16-technologies-frameworks-and-tools-used-and-why-they-were-chosen)
   - [1.7 How the Entire System Works (Plain-English Walkthrough)](#17-how-the-entire-system-works-plain-english-walkthrough)
   - [1.8 System Architecture Overview](#18-system-architecture-overview)
 - [Chapter 2: System Architecture and Components](#chapter-2-system-architecture-and-components)
@@ -170,18 +170,32 @@ The **Smart Mobile-Based Solar-Powered Chicken Feeding System with Automated Dis
 - **Command Poll Latency:** ESP32 polls `/commands/dispense.json` every `1.5 seconds` (`COMMAND_POLL_MS = 1500`) over HTTPS, or responds instantaneously (`< 50 ms`) in Direct Wi-Fi SoftAP mode.
 - **Heartbeat Freshness Window:** Mobile app marks the feeder **Online** only when `lastHeartbeat` is less than `3 minutes` old (`FeederTelemetry.isOnline` in `app/lib/models/telemetry.dart`).
 
-### 1.6 Technologies and Frameworks Used
+### 1.6 Technologies, Frameworks, and Tools Used (and Why They Were Chosen)
 
-| Layer | Technology / Package | Version / Target | Purpose |
+| Layer | Technology / Tool | Version / Target | What It Does & Why It Was Chosen |
 | :--- | :--- | :--- | :--- |
-| **Mobile & Web UI** | Flutter SDK (Dart) | Dart `>=3.5.0 <4.0.0` | Cross-platform Android APK & Web PWA with custom Liquid Glass theme |
-| **Cloud SDKs (App)** | `firebase_core`, `firebase_auth`, `firebase_database` | `^4.15.0`, `^6.7.0`, `^12.6.0` | Native real-time WebSocket database streams and anonymous authentication |
-| **HTTP & Caching (App)** | `http`, `shared_preferences`, `intl` | `^1.6.0`, `^2.5.6`, `^0.20.3` | Direct SoftAP REST calls, Firebase REST fallback, and offline local cache |
-| **Notifications (App)** | `flutter_local_notifications` | `^22.3.1` | High-priority Android/iOS local safety alerts |
-| **Embedded Firmware** | PlatformIO + Arduino Framework (`espressif32`) | C++ (`esp32dev`) | Non-blocking microcontroller firmware (`RAM 15.3%`, `Flash 53.4%`) |
-| **Firmware Libraries** | `ESP32Servo`, `HX711`, `RTClib`, `ArduinoJson` | `^3.0.5`, `^0.7.5`, `^2.1.4`, `^7.2.0` | PWM gate control, 24-bit load-cell ADC, DS3231 I2C clock, JSON serialization |
-| **Cloud Backend** | Firebase Realtime Database + Auth | `asia-southeast1` (Singapore) | Secure (`auth != null`) cloud state synchronization |
-| **CI / Release** | GitHub Actions (`ios_build.yml`) | Ubuntu & macOS Runners | Automated Android split-ABI release APK builds & GitHub Releases |
+| **Mobile & Web Framework** | **Flutter SDK & Dart** | Flutter `3.x` / Dart `>=3.5.0 <4.0.0` | Builds both the native Android APK and the iOS/Web Progressive Web App (PWA) from a single codebase with smooth 60 FPS animations and a custom iOS 26 Dark Forest Liquid Glass UI. |
+| **State Management** | **Flutter `ChangeNotifier` (`FeederService`, `SettingsService`)** | Built-in Flutter SDK | Provides lightweight, reactive UI state updates without heavy third-party boilerplate, keeping app startup fast and memory usage low. |
+| **Cloud Database** | **Firebase Realtime Database** | `asia-southeast1` (`firebase_database ^12.6.0`) | Provides a low-latency JSON tree with sub-second WebSocket sync to the mobile app and lightweight HTTPS `.json` REST endpoints that the low-RAM ESP32 can poll without heavy SDK overhead. |
+| **Cloud Authentication** | **Firebase Authentication** | `firebase_auth ^6.7.0` + IdentityToolkit REST | Secures all database nodes (`auth != null` in `database.rules.json`) using Email/Password and Anonymous JWT tokens so unauthorized users on the internet cannot hijack the feeder. |
+| **Web / iOS Hosting** | **Firebase Hosting** | `smart-chicken-feeder-33bec.web.app` | Serves the production PWA over global HTTPS at zero cost, allowing iPhone and iPad users to install the app via Safari (*Add to Home Screen*) without an Apple Developer fee. |
+| **HTTP & Local Storage (App)** | **`http`, `shared_preferences`, `intl`** | `^1.6.0`, `^2.5.6`, `^0.20.3` | `http` handles direct SoftAP calls (`192.168.4.1`) and REST fallbacks; `shared_preferences` caches schedules/logs offline on the phone; `intl` formats timestamps and Excel/CSV exports. |
+| **Real-Time Alerts (App)** | **`flutter_local_notifications`** | `^22.3.1` | Fires immediate OS-level alerts for low feed (`< 20%`), low battery (`< 11.5V`), and hardware faults directly on the device without needing a paid backend push server. |
+| **Embedded Microcontroller** | **ESP32-WROOM-32 (`esp32dev`)** | 30-Pin DevKit V1 (`240 MHz`, Dual-Core) | Features built-in 2.4 GHz Wi-Fi supporting simultaneous **Station + SoftAP (`WIFI_AP_STA`)**, hardware PWM, I2C, and 12-bit ADC inputs at low solar power consumption. |
+| **Firmware Toolchain** | **PlatformIO + Arduino Framework (`espressif32`)** | C++ (`RAM: 15.3%`, `Flash: 53.8%`) | Chosen over the basic Arduino IDE for reproducible library version pinning (`platformio.ini`), faster incremental compilation, and clean header/source organization. |
+| **Firmware Libraries** | **`ESP32Servo`, `HX711`, `RTClib`, `ArduinoJson`** | `^3.0.5`, `^0.7.5`, `^2.1.4`, `^7.2.0` | `ESP32Servo` drives jitter-free 50 Hz gate PWM; `HX711` reads 24-bit load-cell weight non-blockingly; `RTClib` runs the `DS3231` clock; `ArduinoJson` serializes telemetry with minimal RAM. |
+| **Onboard Storage & Portal** | **ESP32 `Preferences` (NVS) & `WebServer`** | Built-in ESP32 Arduino Core | `Preferences` saves schedules, scale calibration, and Wi-Fi credentials in flash memory across power loss; `WebServer` hosts the offline `http://192.168.4.1` rescue portal and REST API. |
+| **Sensors & Actuator** | **`HX711` + `5 kg` Load Cell, `HC-SR04`, `DS3231`, `MG996R`** | `3.3V` / `5.0V` Peripherals | `HX711` + load cell enables closed-loop gram weighing; `HC-SR04` measures hopper level without moving parts; `DS3231` keeps time offline; metal-gear `MG996R` resists pellet jams. |
+| **Solar Power Subsystem** | **`12V` Solar Panel + PWM Controller + `12V` Battery + `LM2596` Buck** | `12V DC` Bus $\rightarrow$ `5.00V DC` Regulated | Enables 24/7 off-grid farm operation while the `LM2596` buck converter isolates high servo motor current spikes from the ESP32 to prevent brownout resets. |
+| **IDE, Version Control & CI/CD** | **VS Code, Git, GitHub & GitHub Actions** | `.github/workflows/ios_build.yml` | VS Code integrates Flutter and PlatformIO in one workspace; Git/GitHub tracks per-file history; GitHub Actions automatically compiles and publishes release APKs on every push. |
+| **Testing & Documentation** | **`flutter_test` (26 Tests) & `python-docx`** | Automated QA & Word Export | `flutter_test` verifies UI widgets and loopback HTTP/Firebase socket behavior before hardware flashing; `python-docx` compiles the Markdown manual and flowcharts into `.docx`. |
+
+#### Brief Rationale Summary by System Area
+
+- **Why Flutter + Dart for the Mobile App:** Poultry operators use both Android phones and iPhones. Flutter compiles a single Dart codebase into both a high-performance native Android APK (`arm64-v8a` / `armeabi-v7a`) and an installable iOS/Web PWA with identical UI and logic.
+- **Why Firebase Realtime Database + Auth over Custom Backend Servers:** A custom cloud VPS or SQL server requires monthly hosting fees and server maintenance. Firebase Realtime Database operates serverlessly on Google's infrastructure (`asia-southeast1`), pushes live telemetry changes in milliseconds over WebSockets, and exposes simple `.json` HTTPS URLs that an ESP32 can query directly.
+- **Why Dual-Mode `WIFI_AP_STA` (Cloud + Direct SoftAP `192.168.4.1`):** Rural poultry farms frequently suffer from weak cellular signal or Wi-Fi outages. Running Firebase Cloud alongside the ESP32's built-in `SmartFeeder-AP` hotspot ensures the farmer can always control the machine, calibrate the scale, or update Wi-Fi credentials directly from their phone with zero internet.
+- **Why PlatformIO + C++ on ESP32 with `DS3231` RTC & NVS Flash:** Relying on the cloud alone to trigger scheduled feedings is unsafe if farm Wi-Fi drops. Storing schedules in ESP32 NVS flash and checking time against a coin-cell-backed `DS3231` RTC ensures chickens are fed on time even during complete internet blackouts.
 
 ### 1.7 How the Entire System Works (Plain-English Walkthrough)
 
@@ -369,32 +383,36 @@ flowchart TD
 Traces all 11 stages of an automated feeding cycle from schedule/command trigger through validation, safety checks, closed-loop weighing, gate shutoff, logging, Firebase sync, and mobile display:
 
 ```mermaid
-flowchart TD
-    S1(["1. Schedule Matches DS3231 Time OR Remote Command Arrives"]) --> S2{"2. Validate Command: Unique ID & Age <= 60s?"}
-    S2 -- "Invalid / Expired" --> REJ["Purge Command & Mark 'failed' ('expired_stale_command')"]
+flowchart TB
+    subgraph Phase1["Phase 1: Trigger, Validation & Pre-Actuation Safety"]
+        direction LR
+        S1(["1. Schedule Matches DS3231 Time<br/>OR Remote Command Arrives"]) --> S2{"2. Validate Command:<br/>Unique ID & Age <= 60s?"}
+        S2 -- "Invalid / Expired" --> REJ["Purge Command & Mark 'failed'<br/>('expired_stale_command')"]
+        S2 -- "Valid" --> DEL_PRE["Pre-Actuation Safety:<br/>DELETE /commands/dispense.json<br/>& Save ID to NVS"]
+        DEL_PRE --> S3{"3. Check Conditions:<br/>Battery >= 11.2V &<br/>Scale Tare OK?"}
+        S3 -- "Battery < 11.2V" --> F_BAT["Abort at 0 deg<br/>('battery_cutoff_11v2')"]
+        S3 -- "HX711 Tare Failed" --> F_TARE["Abort at 0 deg<br/>('hx711_tare_failed')"]
+    end
 
-    S2 -- "Valid" --> DEL_PRE["Pre-Actuation Safety: DELETE /commands/dispense.json & Save ID to NVS"]
-    DEL_PRE --> S3{"3. Check Operational Conditions: Battery >= 11.2V & Pre-Dispense Scale Tare OK?"}
+    subgraph Phase2["Phase 2: Closed-Loop Weighing, Safety Cutoff & Cloud Sync"]
+        direction LR
+        S4["4. Activate MG996R Servo<br/>Open Gate to 90 deg"] --> S5["5. Pellets Flow Into<br/>Weighing Tray"]
+        S5 --> S6["6. HX711 Samples Weight<br/>(250ms Non-Blocking)"]
+        S6 --> S6_ERR{"3 Consecutive<br/>HX711 Errors?"}
+        S6_ERR -- "Yes" --> F_HX["Emergency Close (0 deg)<br/>('hx711_mid_dispense_fault')"]
+        S6_ERR -- "No" --> S7{"7. dispensedGrams<br/>>= targetGrams?"}
+        S7 -- "No" --> SAFETY_LOOP{"Stall (>6s, <2g),<br/>Timeout (>30s), or Stop?"}
+        SAFETY_LOOP -- "Triggered" --> F_SAFE["Immediate Gate Close (0 deg)<br/>Set Fault / Abort Code"]
+        SAFETY_LOOP -- "Normal Flow" --> STREAM_15["Stream Weight Progress<br/>Every 1.5s"] --> S5
+        S7 -- "Yes (Reached)" --> S8["8. Close Gate to 0 deg<br/>Wait 250ms & Read Final Grams"]
+        S8 --> S9["9. Record FeedingLog<br/>(Target, Actual, Pass/Fail, V, %)"]
+        F_HX --> S9
+        F_SAFE --> S9
+        S9 --> S10["10. Sync /logs, /telemetry &<br/>/commands/latest to Firebase"]
+        S10 --> S11(["11. Mobile App Updates<br/>Dashboard, History & Alerts"])
+    end
 
-    S3 -- "Battery < 11.2V" --> F_BAT["Abort: Keep Gate at 0 deg | Record 'battery_cutoff_11v2'"] --> S9
-    S3 -- "HX711 Tare Failed" --> F_TARE["Abort: Keep Gate at 0 deg | Record 'hx711_tare_failed_pre_dispense'"] --> S9
-
-    S3 -- "Conditions Safe" --> S4["4. Activate MG996R Servo Motor -> Open Gate to 90 deg"]
-    S4 --> S5["5. Pellets Flow Into Weighing Tray"]
-    S5 --> S6["6. HX711 Load Cell Measures Dispensed Weight (250ms Non-Blocking Sample)"]
-
-    S6 --> S6_ERR{"3 Consecutive HX711 Errors?"}
-    S6_ERR -- "Yes" --> F_HX["Emergency Close (0 deg) | 'hx711_mid_dispense_fault'"] --> S9
-    S6_ERR -- "No" --> S7{"7. dispensedGrams >= targetGrams?"}
-
-    S7 -- "No" --> SAFETY_LOOP{"Safety Checks: Stall (>6s with <2g), Timeout (>30s), or Emergency Stop?"}
-    SAFETY_LOOP -- "Stall / Timeout / Stop" --> F_SAFE["Immediate Gate Close (0 deg) | Set Fault/Abort Code"] --> S9
-    SAFETY_LOOP -- "Normal Flow" --> STREAM_15["Push Live Weight Progress Every 1.5s"] --> S5
-
-    S7 -- "Yes (Target Reached)" --> S8["8. Close Servo Gate to 0 deg -> Wait 250ms Settling -> Read Final Grams"]
-    S8 --> S9["9. Record FeedingLog (Target, Actual, Duration, Trigger, Pass/Fail, Volts, Hopper %)"]
-    S9 --> S10["10. Push /logs, /telemetry & /commands/latest to Firebase (When Online)"]
-    S10 --> S11(["11. Mobile App Updates Dashboard, History Table & Alerts"])
+    Phase1 -- "Conditions Safe -> Open Gate" --> Phase2
 ```
 
 ### 3.4 Firebase Communication Flowchart
@@ -426,25 +444,29 @@ sequenceDiagram
 Shows initial `WIFI_AP_STA` dual-mode setup, connection attempts, 15-second background reconnection, network failure fallback, and cloud recovery.
 
 ```mermaid
-flowchart TD
-    BOOT(["ESP32 Boot"]) --> AP_ON["Enable WIFI_AP_STA & Broadcast 'SmartFeeder-AP' (192.168.4.1)"]
-    AP_ON --> HAS_CFG{"WIFI_SSID Configured in secrets.h?"}
-    HAS_CFG -- "No" --> LOCAL_ONLY["Run in Off-Grid Mode (SoftAP HTTP + DS3231 RTC Schedules)"]
-    HAS_CFG -- "Yes" --> ATTEMPT["Attempt Station Wi-Fi Connect (Up to 6 Seconds)"]
+flowchart TB
+    subgraph BootSetup["1. Boot & Initial Dual-Mode Setup"]
+        direction LR
+        BOOT(["ESP32 Boot"]) --> AP_ON["Enable WIFI_AP_STA & Broadcast<br/>'SmartFeeder-AP' (192.168.4.1)"]
+        AP_ON --> HAS_CFG{"Wi-Fi Configured<br/>in NVS / secrets.h?"}
+        HAS_CFG -- "No" --> LOCAL_ONLY["Run in Off-Grid Mode<br/>(SoftAP HTTP + DS3231 Schedules)"]
+        HAS_CFG -- "Yes" --> ATTEMPT["Attempt Station Wi-Fi Connect<br/>(Up to 6 Seconds)"]
+        ATTEMPT --> CONN_OK{"Connected<br/>to Router?"}
+        CONN_OK -- "Yes" --> INIT_SYNC["Sync NTP Clock + Auth Firebase +<br/>Purge Stale Cmds + Sync Schedules"]
+        CONN_OK -- "No" --> CONTINUE_OFF["Do Not Block Boot:<br/>Keep SoftAP & RTC Active"]
+    end
 
-    ATTEMPT --> CONN_OK{"Connected to Router?"}
-    CONN_OK -- "Yes" --> INIT_SYNC["Sync NTP Clock + Authenticate Firebase + Purge Old Commands + Sync Schedules"]
-    CONN_OK -- "No" --> CONTINUE_OFF["Do Not Block Boot: Keep SoftAP & RTC Active"]
+    subgraph Watchdog["2. 15-Second Background Reconnect Watchdog"]
+        direction LR
+        TIMER_15["Every 15s: Check WiFi.status()"] --> IS_UP{"WL_CONNECTED?"}
+        IS_UP -- "Yes" --> CLOUD_OK["Continue 10s Telemetry &<br/>1.5s Command Polling"]
+        IS_UP -- "No" --> RETRY["Non-Blocking WiFi.reconnect()<br/>(SoftAP & Schedules Unaffected)"]
+        RETRY --> RESTORED{"Reconnected on<br/>Next Check?"}
+        RESTORED -- "No" --> TIMER_15
+        RESTORED -- "Yes" --> RECOVER["Re-Sync NTP + Purge Stale Cmds<br/>+ Sync Schedules"] --> CLOUD_OK
+    end
 
-    INIT_SYNC --> TIMER_15["Every 15s: Check WiFi.status()"]
-    CONTINUE_OFF --> TIMER_15
-
-    TIMER_15 --> IS_UP{"WL_CONNECTED?"}
-    IS_UP -- "Yes" --> CLOUD_OK["Continue 10s Telemetry & 1.5s Command Polling"]
-    IS_UP -- "No" --> RETRY["Call Non-Blocking WiFi.reconnect() (SoftAP & Schedules Unaffected)"]
-    RETRY --> RESTORED{"Reconnected on Subsequent Check?"}
-    RESTORED -- "No" --> TIMER_15
-    RESTORED -- "Yes" --> RECOVER["Re-Sync NTP + Purge Stale Commands + Sync Schedules"] --> CLOUD_OK
+    BootSetup -- "Start 15s Watchdog Timer" --> Watchdog
 ```
 
 ### 3.6 Error Handling Flowchart

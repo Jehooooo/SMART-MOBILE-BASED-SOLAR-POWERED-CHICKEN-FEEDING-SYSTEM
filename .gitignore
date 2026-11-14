@@ -53,7 +53,7 @@ Thumbs.db
 gantt_chart*.png
 
 # ---- Agent task and summary files ----
-AGENTS.md
+note.txt
 SUMMARY.md
 task-*.md
 TASK.md

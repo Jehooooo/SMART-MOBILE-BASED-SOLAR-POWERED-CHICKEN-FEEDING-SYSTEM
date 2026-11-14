@@ -1,6 +1,6 @@
 # Methodology Analysis — Smart Mobile-Based Solar-Powered Chicken Feeding System
 
-Source: `Methodology.docx` (Chapter II). This note converts the paper into engineering requirements.
+Source: `docs/Methodology.docx` (Chapter II). This note converts the paper into engineering requirements.
 
 ## 1. What the system must do
 

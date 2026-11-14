@@ -1681,16 +1681,21 @@ AutomaticDispensing/
 │   │   ├── integration_audit_test.dart # End-to-end safety, alert & persistence audit tests
 │   │   └── mocks/mock_hardware_adapter.dart # Test-only simulator (excluded from production UI)
 │   ├── web/                          # PWA manifest.json, icons & index.html
-│   └── pubspec.yaml                  # Flutter dependencies (v1.0.0+1)
+│   ├── pubspec.yaml                  # Flutter dependencies (v1.0.0+1)
+│   └── README.md                     # Mobile client module documentation
 ├── docs/                             # Master Documentation & Engineering Guides
 │   ├── PROJECT_DOCUMENTATION.md      # This master 14-chapter technical & user manual
 │   ├── PROJECT_DOCUMENTATION.docx    # Formatted Microsoft Word edition of master manual
 │   ├── SYSTEM_FLOWCHART.md           # 11-diagram Mermaid system flowchart suite
+│   ├── FINAL_PROJECT_READINESS_REPORT.md # Final pre-deployment audit & 60-minute onsite runbook
 │   ├── MVP_PLAN.md                   # Lean MVP scope & pre-defense bench checklist
 │   ├── FIREBASE_SETUP_GUIDE.md       # Supplementary Firebase reference
 │   ├── BENCH_TESTING_GUIDE.md        # Bench bring-up checklist
+│   ├── CLIENT_HARDWARE_SETUP_GUIDE.md # Client hardware assembly & bring-up guide
 │   ├── HARDWARE_INTEGRATION_SPECIFICATION.md # Electrical pinout specification
-│   └── AUDIT_REPORT.md               # System integration audit record
+│   ├── AUDIT_REPORT.md               # System integration audit record
+│   ├── methodology_analysis.md       # Theoretical framework & research methodology
+│   └── Methodology.docx              # Thesis Chapter II reference manuscript
 ├── firmware/                         # ESP32 Embedded C++ Project (PlatformIO)
 │   ├── include/
 │   │   ├── config.h                  # Verified GPIO pins, thresholds & timing constants
@@ -1701,6 +1706,8 @@ AutomaticDispensing/
 │   └── platformio.ini                # Board (esp32dev) & library configuration
 ├── scripts/
 │   └── firebase_hardware_simulator.py # Developer-only Python diagnostic script
+├── .firebaserc                       # Firebase project alias configuration
+├── .gitignore                        # Git exclusion and secret hygiene rules
 ├── AGENTS.md                         # Project engineering & Git hygiene rules
 ├── data.json                         # Clean Firebase Realtime Database schema template
 ├── database.rules.json               # Authenticated Firebase RTDB security & validation rules
@@ -1740,6 +1747,7 @@ AutomaticDispensing/
 | `POST` | `/api/sync-clock` | `{"epochSeconds": 1761840000}` | Updates `DS3231` RTC clock directly when operating 100% off-grid. |
 | `GET` / `POST` | `/api/schedules` | `[{...schedule objects...}]` | Reads or overwrites up to `16` autonomous schedules in NVS flash. |
 | `GET` | `/api/logs` | *(None)* | Returns JSON array of up to `25` recent `FeedingLog` entries from RAM ring buffer. |
+| `GET` / `POST` | `/api/wifi` | `{"ssid": "Farm_2.4G", "password": "..."}` | Reads Wi-Fi status or saves new 2.4 GHz router credentials to NVS and reconnects. |
 
 ### 13.5 Developer Build, Test, and Flash Commands
 
@@ -1749,7 +1757,7 @@ Run these commands in Windows PowerShell from the repository root (`AutomaticDis
 # 1. Verify Flutter Static Analysis (Developer)
 cd app; dart analyze lib/ test/
 
-# 2. Run All 24 Automated Flutter Unit & Loopback Tests (Developer)
+# 2. Run All 26 Automated Flutter Unit & Loopback Tests (Developer)
 cd app; flutter test --no-pub --timeout 30s
 
 # 3. Build Split-ABI Release Android APKs (Developer)

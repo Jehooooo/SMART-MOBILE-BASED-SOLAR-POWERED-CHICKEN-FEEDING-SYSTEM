@@ -16,7 +16,7 @@ An intelligent, solar-powered agricultural automation system that provides autom
 |---|---|---|
 | **Android** (Modern 64-bit) | Direct APK Download | 👉 **[Download app-arm64-v8a-release.apk](https://github.com/Jehooooo/SMART-MOBILE-BASED-SOLAR-POWERED-CHICKEN-FEEDING-SYSTEM/releases/download/v1.0.0/app-arm64-v8a-release.apk)** (Samsung, Xiaomi, Oppo, Vivo, Realme, Pixel) |
 | **Android** (Legacy 32-bit) | Direct APK Download | 👉 **[Download app-armeabi-v7a-release.apk](https://github.com/Jehooooo/SMART-MOBILE-BASED-SOLAR-POWERED-CHICKEN-FEEDING-SYSTEM/releases/download/v1.0.0/app-armeabi-v7a-release.apk)** |
-| **iPhone / iPad (iOS)** | Safari PWA (Zero Fee) | 👉 Open **[Smart Feeder Web App](https://jehooooo.github.io/SMART-MOBILE-BASED-SOLAR-POWERED-CHICKEN-FEEDING-SYSTEM/)** in Safari $\rightarrow$ Tap **Share** $\rightarrow$ **"Add to Home Screen"** |
+| **iPhone / iPad (iOS)** | Safari PWA (Zero Fee) | 👉 Open **[Smart Feeder Web App](https://smart-chicken-feeder-33bec.web.app)** in Safari $\rightarrow$ Tap **Share** $\rightarrow$ **"Add to Home Screen"** |
 
 > **Android Installation Tip:** When prompted with *"For your security, your phone is not allowed to install unknown apps from this source"*, tap **Settings** $\rightarrow$ toggle **Allow from this source** $\rightarrow$ tap **Install**.
 
@@ -108,49 +108,75 @@ flowchart TD
 
 ```text
 AutomaticDispensing/
-├── firmware/                       # ESP32 Embedded C++ Firmware
-│   ├── src/
-│   │   ├── main.cpp                # Core application, FreeRTOS tasks, HTTP server & Firebase loop
-│   │   ├── config.h                # Hardware pin definitions & calibration constants
-│   │   ├── load_cell.cpp/.h        # HX711 driver, tare, and continuous sampling
-│   │   ├── servo_controller.cpp/.h # PWM servo dispense gate control & jam protection
-│   │   ├── ultrasonic.cpp/.h       # HC-SR04 distance filter & hopper % mapping
-│   │   ├── rtc_manager.cpp/.h      # DS3231 RTC driver & offline alarm evaluation
-│   │   └── battery_monitor.cpp/.h  # ADC battery voltage calculation & state-of-charge
-│   ├── include/
-│   │   └── secrets.example.h       # Wi-Fi SSID, password & Firebase credentials template
-│   └── platformio.ini              # PlatformIO build configurations & dependencies
-│
-├── app/                            # Flutter Android Mobile Application
+├── .github/workflows/
+│   └── ios_build.yml                     # CI/CD workflow for Android Split-ABI APKs & iOS/Web builds
+├── app/                                  # Flutter Mobile (Android/iOS) & Web Application
+│   ├── android/                          # Android Gradle (Kotlin DSL) & AndroidManifest.xml
+│   ├── assets/images/app_logo.png        # Branded Rooster emblem
+│   ├── ios/                              # iOS Runner Xcode project & Info.plist
 │   ├── lib/
-│   │   ├── main.dart               # App entry point, theme & route configuration
-│   │   ├── models/                 # Telemetry, FeedingSchedule, FeedingLog data models
+│   │   ├── main.dart                     # App bootstrap, Firebase Auth/RTDB init & 4-tab shell
+│   │   ├── firebase_options.dart         # [GIT-IGNORED] Private local Firebase platform keys
+│   │   ├── models/
+│   │   │   ├── feeder_command.dart       # FeederCommand, FeederAction & CommandStatus enums
+│   │   │   ├── feeding_log.dart          # FeedingLog model, accuracy math & CSV row builder
+│   │   │   ├── schedule.dart             # FeedingSchedule model & 12h time formatter
+│   │   │   └── telemetry.dart            # FeederTelemetry & 3-minute heartbeat isOnline check
+│   │   ├── screens/
+│   │   │   ├── dashboard_screen.dart     # Live hopper/solar/battery gauges, manual feed & fault clear
+│   │   │   ├── diagnostics_screen.dart   # 2-point HX711 calibration & MG996R servo sweep
+│   │   │   ├── history_screen.dart       # Chapter IV empirical metrics & UTF-8 BOM CSV export
+│   │   │   ├── onboarding_screen.dart    # 4-slide first-run operator walkthrough
+│   │   │   ├── schedules_screen.dart     # Daily schedule CRUD, test-run & 4-second undo
+│   │   │   └── settings_screen.dart      # Theme, Cloud/SoftAP switch, Wi-Fi provisioning & alerts
 │   │   ├── services/
-│   │   │   ├── feeder_service.dart # State manager, stream subscriptions, optimistic caching
-│   │   │   └── hardware/           # Hardware transport abstraction layer
-│   │   │       ├── feeder_hardware_adapter.dart  # Abstract interface
-│   │   │       ├── firebase_hardware_adapter.dart# Firebase RTDB & REST client
-│   │   │       ├── rest_hardware_adapter.dart    # Direct SoftAP HTTP REST client
-│   │   │       └── mock_hardware_adapter.dart    # Offline bench mock simulator
-│   │   └── screens/
-│   │       ├── dashboard_screen.dart   # Live gauges, solar telemetry & quick dispense
-│   │       ├── schedule_screen.dart    # Routine scheduler with undo support
-│   │       ├── history_screen.dart     # Empirical data table & Excel/CSV export
-│   │       └── diagnostics_screen.dart # 2-point calibration & servo test sweep
-│   └── test/
-│       └── widget_test.dart        # 13 automated unit & socket loopback integration tests
-│
-├── docs/                           # Technical Specifications & Research Guides
-│   ├── AUDIT_REPORT.md             # Full-Stack & Firebase Communication Audit
-│   ├── BENCH_TESTING_GUIDE.md      # Bench testing, LM2596 tuning & wiring checklist
-│   ├── FIREBASE_SETUP_GUIDE.md     # Firebase Realtime Database setup & security rules
+│   │   │   ├── alert_notification_service.dart # Local OS notifications, cooldown & hysteresis
+│   │   │   ├── feeder_service.dart       # Central ChangeNotifier state engine & offline cache
+│   │   │   ├── settings_service.dart     # Persistent operator preferences
+│   │   │   ├── file_export/              # Cross-platform CSV downloader (IO & Web)
+│   │   │   └── hardware/
+│   │   │       ├── hardware_adapter.dart          # Abstract transport strategy contract
+│   │   │       ├── firebase_hardware_adapter.dart # Firebase RTDB native stream + REST client
+│   │   │       └── rest_hardware_adapter.dart     # Direct SoftAP HTTP client (192.168.4.1)
+│   │   ├── theme/app_theme.dart          # Liquid Glass Dark Forest & Light theme tokens
+│   │   └── widgets/                      # ConnectionBanner, HardwareGuideDialog, AppLogo, Skeleton
+│   ├── test/
+│   │   ├── widget_test.dart              # Model, service, UI & loopback socket unit tests
+│   │   ├── integration_audit_test.dart   # End-to-end safety, alert & persistence audit tests
+│   │   └── mocks/mock_hardware_adapter.dart # Test-only simulator
+│   ├── web/                              # PWA manifest.json, icons & index.html
+│   ├── pubspec.yaml                      # Flutter dependencies & asset configuration
+│   └── README.md                         # Mobile client module documentation
+├── docs/                                 # Master Documentation, Flowcharts & Engineering Guides
+│   ├── PROJECT_DOCUMENTATION.md          # Master 14-chapter technical & user manual
+│   ├── PROJECT_DOCUMENTATION.docx        # Academic & client Word edition (with visual flowcharts)
+│   ├── SYSTEM_FLOWCHART.md               # 11-diagram Mermaid system flowchart suite
+│   ├── FINAL_PROJECT_READINESS_REPORT.md # Final pre-deployment audit & 60-minute onsite runbook
+│   ├── MVP_PLAN.md                       # Lean MVP scope & pre-defense bench checklist
+│   ├── FIREBASE_SETUP_GUIDE.md           # Firebase Realtime Database setup & security rules
+│   ├── BENCH_TESTING_GUIDE.md            # Bench testing, LM2596 tuning & wiring checklist
+│   ├── CLIENT_HARDWARE_SETUP_GUIDE.md    # Client hardware assembly & bring-up guide
 │   ├── HARDWARE_INTEGRATION_SPECIFICATION.md # Complete electrical & pinout matrix
-│   ├── SYSTEM_FLOWCHART.md         # Comprehensive system architecture & dataflow flowchart
-│   └── methodology_analysis.md     # Theoretical framework & research methodology
-│
-├── data.json                       # Seed schema template for Firebase Realtime Database
-├── AGENTS.md                       # Project coding rules, hygiene & commit constraints
-└── README.md                       # Project documentation
+│   ├── AUDIT_REPORT.md                   # System integration audit record
+│   ├── methodology_analysis.md           # Theoretical framework & research methodology
+│   └── Methodology.docx                  # Thesis Chapter II reference manuscript
+├── firmware/                             # ESP32 Embedded C++ Project (PlatformIO)
+│   ├── include/
+│   │   ├── config.h                      # Verified GPIO pins, thresholds & timing constants
+│   │   ├── secrets.example.h             # Safe template for Wi-Fi & Firebase credentials
+│   │   └── secrets.h                     # [GIT-IGNORED] Private Wi-Fi & Firebase credentials
+│   ├── src/
+│   │   └── main.cpp                      # Complete non-blocking ESP32 controller firmware
+│   └── platformio.ini                    # Board (esp32dev) & library configuration
+├── scripts/
+│   └── firebase_hardware_simulator.py    # Developer-only Python diagnostic script
+├── .firebaserc                           # Firebase project alias configuration
+├── .gitignore                            # Git exclusion and secret hygiene rules
+├── AGENTS.md                             # Project coding rules, hygiene & commit constraints
+├── data.json                             # Seed schema template for Firebase Realtime Database
+├── database.rules.json                   # Authenticated Firebase RTDB security & validation rules
+├── firebase.json                         # Firebase CLI database & web hosting configuration
+└── README.md                             # Repository overview & download portal
 ```
 
 ---
@@ -186,12 +212,17 @@ When connected to the **`SmartFeeder-AP`** Wi-Fi network, the ESP32 listens on *
 
 | Method | Endpoint | Request Body | Response Payload / Description |
 |:---|:---|:---|:---|
+| `GET` | `/` | None | Embedded lightweight HTML control dashboard for web browsers. |
 | `GET` | `/api/telemetry` | None | Returns JSON object with live weight, hopper level, battery voltage, and status. |
 | `POST` | `/api/dispense` | `{"durationSeconds": 5, "targetGrams": 150.0}` | Opens the servo gate until target weight or duration timeout is reached. |
 | `POST` | `/api/stop` | None | Emergency gate closure; closes servo to 0° immediately and resets state. |
-| `POST` | `/api/tare` | None | Resets scale offset to zero with empty feeding tray. |
+| `POST` | `/api/tare` | None | Resets scale offset to zero with empty feeding tray (`CLEAR_FAULT` also resets faults). |
 | `POST` | `/api/calibrate` | `{"targetGrams": 500.0}` | Calculates and saves calibration factor using placed reference weight. |
-| `GET` | `/` | None | Embedded lightweight HTML control dashboard for web browsers. |
+| `POST` | `/api/servo` | `{"servoAngle": 45}` | Moves gate to `0°–90°` for bench alignment (auto-closes after `10s`). |
+| `POST` | `/api/sync-clock` | `{"epochSeconds": 1761840000}` | Updates `DS3231` RTC clock directly when operating 100% off-grid. |
+| `GET` / `POST` | `/api/schedules` | `[{...schedule objects...}]` | Reads or overwrites up to `16` autonomous schedules in NVS flash. |
+| `GET` | `/api/logs` | None | Returns JSON array of up to `25` recent `FeedingLog` entries from RAM ring buffer. |
+| `GET` / `POST` | `/api/wifi` | `{"ssid": "Farm_2.4G", "password": "..."}` | Reads Wi-Fi status or saves new 2.4 GHz router credentials to NVS and reconnects. |
 
 ---
 
@@ -270,12 +301,14 @@ When connected to the **`SmartFeeder-AP`** Wi-Fi network, the ESP32 listens on *
    ```powershell
    copy include\secrets.example.h include\secrets.h
    ```
-3. Open `include/secrets.h` and provide your farm Wi-Fi credentials and Firebase database URL:
+3. Open `include/secrets.h` and provide your farm Wi-Fi credentials and Firebase database configuration:
    ```cpp
-   #define WIFI_SSID         "Your_Farm_WiFi"
-   #define WIFI_PASSWORD     "Your_WiFi_Password"
-   #define FIREBASE_HOST     "smart-chicken-feeder-33bec-default-rtdb.asia-southeast1.firebasedatabase.app"
-   #define FIREBASE_AUTH     "YOUR_FIREBASE_DATABASE_SECRET_OR_TOKEN"
+   #define WIFI_SSID              "Your_Farm_WiFi"
+   #define WIFI_PASS              "Your_WiFi_Password"
+   #define FIREBASE_API_KEY       "YOUR_FIREBASE_WEB_API_KEY"
+   #define FIREBASE_DB_URL        "https://smart-chicken-feeder-33bec-default-rtdb.asia-southeast1.firebasedatabase.app"
+   #define FIREBASE_USER_EMAIL    "feeder-device@yourdomain.com"
+   #define FIREBASE_USER_PASSWORD "YOUR_DEVICE_AUTH_PASSWORD"
    ```
 4. Build the firmware:
    ```powershell
@@ -358,9 +391,11 @@ flutter test --no-pub
 | [docs/MVP_PLAN.md](docs/MVP_PLAN.md) | Lean MVP scope guardrails, verified baseline, and 5-step pre-defense bench runbook |
 | [docs/AUDIT_REPORT.md](docs/AUDIT_REPORT.md) | Comprehensive full-stack and Firebase communication audit report |
 | [docs/BENCH_TESTING_GUIDE.md](docs/BENCH_TESTING_GUIDE.md) | Step-by-step bench testing, LM2596 buck tuning & wiring checklist |
+| [docs/CLIENT_HARDWARE_SETUP_GUIDE.md](docs/CLIENT_HARDWARE_SETUP_GUIDE.md) | Client hardware assembly & onsite bring-up guide |
 | [docs/FIREBASE_SETUP_GUIDE.md](docs/FIREBASE_SETUP_GUIDE.md) | Firebase Realtime Database setup, indexing, and security rules |
 | [docs/HARDWARE_INTEGRATION_SPECIFICATION.md](docs/HARDWARE_INTEGRATION_SPECIFICATION.md) | Electrical schematics, pinout tables, and voltage regulation specs |
 | [docs/methodology_analysis.md](docs/methodology_analysis.md) | Research methodology, theoretical equations, and empirical analysis |
+| [docs/Methodology.docx](docs/Methodology.docx) | Thesis Chapter II reference manuscript |
 
 ---
 

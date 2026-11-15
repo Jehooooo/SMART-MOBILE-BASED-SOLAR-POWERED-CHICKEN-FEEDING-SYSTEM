@@ -140,7 +140,7 @@ class _HardwareGuideModalState extends State<_HardwareGuideModal> {
                   children: [
                     Expanded(
                       child: Text(
-                        'ESP32 DevKit V1 • 12V Solar • FreeRTOS Firmware',
+                        'ESP32 38-Pin Yellow Header • 12V Solar • Arduino Firmware',
                         style: TextStyle(fontSize: 11, color: c.textMuted, fontWeight: FontWeight.w500),
                       ),
                     ),
@@ -355,14 +355,12 @@ class _HardwareGuideModalState extends State<_HardwareGuideModal> {
   Widget _buildPinoutTab(BuildContext context) {
     final c = context.colors;
     final pinoutRows = [
-      ('Servo PWM (Gate)', 'GPIO 13', '5V Buck Rail & GND', 'MG996R high-torque metal gear servo'),
-      ('HX711 DOUT (Data)', 'GPIO 16', '5V & GND', 'Load cell scale amplifier output'),
-      ('HX711 SCK (Clock)', 'GPIO 17', '5V & GND', 'Serial clock signal from ESP32'),
-      ('HC-SR04 TRIG', 'GPIO 5', '5V & GND', 'Ultrasonic trigger pulse'),
-      ('HC-SR04 ECHO', 'GPIO 18', '3.3V safe (divider)', 'Requires 1kΩ/2kΩ divider before ESP32'),
-      ('DS3231 SDA (I2C)', 'GPIO 21', '3.3V & GND', 'Real-Time Clock data (CR2032 backed)'),
-      ('DS3231 SCL (I2C)', 'GPIO 22', '3.3V & GND', 'Real-Time Clock I2C clock'),
-      ('Battery ADC', 'GPIO 34', 'Analog Input', 'Midpoint of 40kΩ & 10kΩ divider on 12V battery'),
+      ('Servo PWM (DS-S020A-C)', 'GPIO 18', '5V Buck Rail & GND', 'DS-S020A-C 30kg high-torque servo'),
+      ('HX711 DT (Data)', 'GPIO 23', '3V3 & GND', 'Load cell scale amplifier data'),
+      ('HX711 SCK (Clock)', 'GPIO 22', '3V3 & GND', 'Serial clock signal from ESP32'),
+      ('HC-SR04 Ultrasonic', 'Bypassed', 'Not Connected', 'Disabled in firmware (defaults to 100%)'),
+      ('DS3231 RTC', 'Bypassed', 'Not Connected', 'Uses ESP32 internal RTC + NTP/App sync'),
+      ('Battery ADC', 'Bypassed', 'Not Connected', 'Defaults to 12.6V (88%) nominal'),
     ];
 
     return Column(
@@ -372,9 +370,9 @@ class _HardwareGuideModalState extends State<_HardwareGuideModal> {
           context,
           icon: Icons.info_outline_rounded,
           color: c.info,
-          title: 'Target Controller: ESP32 DevKit V1 (30-Pin)',
+          title: 'Target Controller: ESP32 Dual-Core 38-Pin (Yellow Header)',
           message:
-              'All GPIO assignments are pre-configured in the mobile app\'s data contracts and the /firmware source files. Refer to the table below during soldering and breadboarding.',
+              'All GPIO assignments match the live 38-Pin Yellow Header wiring and /firmware config.h hardware flags. Refer to the table below for physical connections.',
         ),
         const SizedBox(height: 16),
         _buildSectionTitle(context, 'ESP32 Hardware Pin Connections'),

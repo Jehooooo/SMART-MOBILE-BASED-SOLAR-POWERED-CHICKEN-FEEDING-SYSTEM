@@ -3,15 +3,20 @@
 // Secrets (Wi-Fi / Firebase) live in secrets.h, which is git-ignored.
 // Copy secrets.example.h -> secrets.h and fill in your values.
 
-// ---------- Pins (ESP32 DevKit V1) ----------
-#define PIN_SERVO          18   // DS-S020A-C 30kg dispenser gate servo (PWM)
-#define PIN_HX711_DOUT     23   // load cell amplifier data (DT)
-#define PIN_HX711_SCK      22   // load cell amplifier clock (SCK)
-#define PIN_US_TRIG        5    // HC-SR04 trigger
-#define PIN_US_ECHO        19   // HC-SR04 echo (use 5V->3.3V divider!)
+// ---------- Installed Hardware Modules ----------
+#define HAS_ULTRASONIC     0    // HC-SR04 not installed by builder
+#define HAS_RTC_DS3231     0    // DS3231 not installed by builder (uses ESP32 internal RTC + NTP/App sync)
+#define HAS_BATTERY_ADC    0    // 12V battery voltage divider not connected to GPIO 34
+
+// ---------- Pins (ESP32 38-Pin Yellow Header) ----------
+#define PIN_SERVO          18   // DS-S020A-C 30kg dispenser gate servo (PWM) [CONNECTED]
+#define PIN_HX711_DOUT     23   // load cell amplifier data (DT) [CONNECTED @ 3V3]
+#define PIN_HX711_SCK      22   // load cell amplifier clock (SCK) [CONNECTED @ 3V3]
+#define PIN_US_TRIG        5    // HC-SR04 trigger (unused when HAS_ULTRASONIC == 0)
+#define PIN_US_ECHO        19   // HC-SR04 echo (unused when HAS_ULTRASONIC == 0)
 #define PIN_BATTERY_ADC    34   // battery voltage via divider (input-only pin)
-#define PIN_RTC_SDA        25   // DS3231 I2C SDA
-#define PIN_RTC_SCL        26   // DS3231 I2C SCL
+#define PIN_RTC_SDA        25   // DS3231 I2C SDA (unused when HAS_RTC_DS3231 == 0)
+#define PIN_RTC_SCL        26   // DS3231 I2C SCL (unused when HAS_RTC_DS3231 == 0)
 
 // ---------- Servo ----------
 #define SERVO_CLOSED_DEG   0
@@ -55,6 +60,6 @@
 // ---------- Direct Wi-Fi / SoftAP Mode (Off-Grid Direct Connect) ----------
 #define SOFTAP_SSID            "SmartFeeder-AP"
 #define SOFTAP_PASSWORD        "chickens123"   // Minimum 8 chars for WPA2
-#define SOFTAP_CHANNEL         1
+#define SOFTAP_CHANNEL         11
 #define SOFTAP_MAX_CONN        4
 #define HTTP_SERVER_PORT       80

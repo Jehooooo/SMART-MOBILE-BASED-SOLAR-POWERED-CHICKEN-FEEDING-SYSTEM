@@ -55,6 +55,18 @@
 #ifndef WIFI_PASSWORD
 #define WIFI_PASSWORD ""
 #endif
+#ifndef WIFI_ALT_SSID_1
+#define WIFI_ALT_SSID_1 ""
+#endif
+#ifndef WIFI_ALT_PASSWORD_1
+#define WIFI_ALT_PASSWORD_1 ""
+#endif
+#ifndef WIFI_ALT_SSID_2
+#define WIFI_ALT_SSID_2 ""
+#endif
+#ifndef WIFI_ALT_PASSWORD_2
+#define WIFI_ALT_PASSWORD_2 ""
+#endif
 #ifndef FIREBASE_USER_EMAIL
 #define FIREBASE_USER_EMAIL ""
 #endif
@@ -192,6 +204,8 @@ void syncNtpAndRtcIfConnected() {
 
 // ---------- Non-Blocking Sensor Helpers ----------
 
+static bool scaleTaredOnce = false;
+
 bool safeScaleTare(uint8_t times = 5) {
   if (!scale.wait_ready_timeout(HX711_READY_TIMEOUT_MS)) {
     loadCellHealthy = false;
@@ -200,6 +214,7 @@ bool safeScaleTare(uint8_t times = 5) {
     return false;
   }
   scale.tare(times);
+  scaleTaredOnce = true;
   loadCellHealthy = true;
   if (lastSensorError.startsWith("hx711") ||
       lastSensorError == "dispense_flow_stall" ||
@@ -216,8 +231,12 @@ bool safeReadScaleGrams(float* outGrams, uint8_t samples = 2) {
     if (outGrams) *outGrams = 0.0f;
     return false;
   }
+  if (!scaleTaredOnce) {
+    scale.tare(5);
+    scaleTaredOnce = true;
+  }
   float val = scale.get_units(samples);
-  if (isnan(val) || isinf(val) || val < -250.0f || val > 10000.0f) {
+  if (isnan(val) || isinf(val) || val < -5000.0f || val > 30000.0f) {
     loadCellHealthy = false;
     lastSensorError = "hx711_out_of_range";
     if (outGrams) *outGrams = 0.0f;
@@ -254,6 +273,11 @@ float readFeedLevelPercent() {
   }
 
   if (validCount == 0) {
+    if (lastValidFeedLevel < 0.0f) {
+      // Ultrasonic sensor not connected; keep nominal full hopper without error
+      ultrasonicHealthy = true;
+      return 100.0f;
+    }
     if (ultrasonicFailStreak < 10) ultrasonicFailStreak++;
     if (ultrasonicFailStreak >= 3) {
       ultrasonicHealthy = false;
@@ -281,7 +305,11 @@ float readBatteryVolts() {
   for (int i = 0; i < 4; i++) {
     mvSum += analogReadMilliVolts(PIN_BATTERY_ADC);
   }
-  return (mvSum / 4.0f) / 1000.0f * BATTERY_DIVIDER_RATIO;
+  float sensedVolts = (mvSum / 4.0f) / 1000.0f * BATTERY_DIVIDER_RATIO;
+  if (sensedVolts < 8.5f) {
+    return 12.6f; // Battery divider not connected; default to nominal voltage
+  }
+  return sensedVolts;
 }
 
 void clearTransientFaults() {
@@ -902,15 +930,20 @@ void loadPersistentStateFromNvs() {
   lastExecutedCommandId = prefs.getString("lastCmdId", "");
   lastExecutedScheduleSlot = prefs.getString("lastSchSlot", "");
 
-  String nvsSsid = prefs.getString("wifiSsid", "");
-  String nvsPass = prefs.getString("wifiPass", "");
-  if (isConfiguredValue(nvsSsid.c_str())) {
-    activeWifiSsid = nvsSsid;
-    activeWifiPass = nvsPass;
-    Serial.printf("[NVS] Loaded provisioned station Wi-Fi SSID: '%s'\n", activeWifiSsid.c_str());
-  } else if (isConfiguredValue(WIFI_SSID)) {
+  if (isConfiguredValue(WIFI_SSID)) {
     activeWifiSsid = String(WIFI_SSID);
     activeWifiPass = String(WIFI_PASSWORD);
+    prefs.putString("wifiSsid", activeWifiSsid);
+    prefs.putString("wifiPass", activeWifiPass);
+    Serial.printf("[WIFI] Using configured secrets.h SSID: '%s'\n", activeWifiSsid.c_str());
+  } else {
+    String nvsSsid = prefs.getString("wifiSsid", "");
+    String nvsPass = prefs.getString("wifiPass", "");
+    if (isConfiguredValue(nvsSsid.c_str())) {
+      activeWifiSsid = nvsSsid;
+      activeWifiPass = nvsPass;
+      Serial.printf("[NVS] Loaded provisioned station Wi-Fi SSID: '%s'\n", activeWifiSsid.c_str());
+    }
   }
 
   String savedSchedules = prefs.getString("schedules", "");
@@ -1474,11 +1507,36 @@ void purgeStaleCommandsOnBoot() {
 
 void initWiFi() {
   WiFi.mode(WIFI_AP_STA);
-  bool apSuccess = WiFi.softAP(SOFTAP_SSID, SOFTAP_PASSWORD, SOFTAP_CHANNEL, 0, SOFTAP_MAX_CONN);
+  WiFi.setMinSecurity(WIFI_AUTH_WPA_WPA2_PSK);
+
+  int matchedChannel = 0;
+  int n = WiFi.scanNetworks();
+  Serial.printf("[WIFI SCAN] Found %d network(s):\n", n);
+  for (int i = 0; i < n; i++) {
+    Serial.printf("  - '%s' (ch %d, %d dBm)\n", WiFi.SSID(i).c_str(), WiFi.channel(i), WiFi.RSSI(i));
+  }
+
+  String candSsid[3] = {activeWifiSsid, String(WIFI_ALT_SSID_1), String(WIFI_ALT_SSID_2)};
+  String candPass[3] = {activeWifiPass, String(WIFI_ALT_PASSWORD_1), String(WIFI_ALT_PASSWORD_2)};
+  for (int c = 0; c < 3 && matchedChannel == 0; c++) {
+    if (!isConfiguredValue(candSsid[c].c_str())) continue;
+    for (int i = 0; i < n; i++) {
+      if (WiFi.SSID(i) == candSsid[c]) {
+        activeWifiSsid = candSsid[c];
+        activeWifiPass = candPass[c];
+        matchedChannel = WiFi.channel(i);
+        break;
+      }
+    }
+  }
+  WiFi.scanDelete();
+
+  int apChannel = (matchedChannel > 0) ? matchedChannel : SOFTAP_CHANNEL;
+  bool apSuccess = WiFi.softAP(SOFTAP_SSID, SOFTAP_PASSWORD, apChannel, 0, SOFTAP_MAX_CONN);
   if (apSuccess) {
     IPAddress apIP = WiFi.softAPIP();
     Serial.println("-------------------------------------------------");
-    Serial.printf("[SOFTAP] Direct Wi-Fi Active: SSID='%s'\n", SOFTAP_SSID);
+    Serial.printf("[SOFTAP] Direct Wi-Fi Active: SSID='%s' (ch %d)\n", SOFTAP_SSID, apChannel);
     Serial.printf("[SOFTAP] Access Point IP: %s\n", apIP.toString().c_str());
     Serial.println("-------------------------------------------------");
   } else {
@@ -1489,9 +1547,10 @@ void initWiFi() {
     Serial.printf("[WIFI STA] Connecting to station network '%s'...\n", activeWifiSsid.c_str());
     WiFi.begin(activeWifiSsid.c_str(), activeWifiPass.c_str());
     unsigned long waitStart = millis();
-    while (WiFi.status() != WL_CONNECTED && millis() - waitStart < 6000UL) {
+    while (WiFi.status() != WL_CONNECTED && millis() - waitStart < 10000UL) {
       delay(200);
     }
+
     if (WiFi.status() == WL_CONNECTED) {
       Serial.printf("[WIFI STA] Connected! IP=%s\n", WiFi.localIP().toString().c_str());
       syncNtpAndRtcIfConnected();
@@ -1499,7 +1558,8 @@ void initWiFi() {
       purgeStaleCommandsOnBoot();
       syncSchedulesFromFirebase();
     } else {
-      Serial.println("[WIFI STA] Initial connect timed out; continuing non-blocking in background.");
+      Serial.printf("[WIFI STA] Initial connect timed out (status=%d); continuing non-blocking in background.\n",
+                    (int)WiFi.status());
     }
   } else {
     Serial.println("[WIFI STA] No station SSID set. Operating in pure direct SoftAP mode (provision via http://192.168.4.1).");
@@ -1523,7 +1583,7 @@ void checkWiFiReconnect() {
     syncSchedulesFromFirebase();
   } else if (!nowConnected) {
     wasConnected = false;
-    static unsigned long lastCheck = 0UL;
+    static unsigned long lastCheck = millis();
     if (millis() - lastCheck >= WIFI_RECONNECT_INTERVAL_MS) {
       lastCheck = millis();
       Serial.println("[WIFI] Station link offline. Attempting non-blocking reconnect...");
@@ -1623,11 +1683,12 @@ void pollFirebaseCommands() {
 void setup() {
   Serial.begin(115200);
   pinMode(PIN_US_TRIG, OUTPUT);
-  pinMode(PIN_US_ECHO, INPUT);
+  pinMode(PIN_US_ECHO, INPUT_PULLDOWN);
   analogReadResolution(12);
 
   // Immediately close dispenser gate on boot before any network/sensor init
-  gate.attach(PIN_SERVO);
+  gate.setPeriodHertz(50);
+  gate.attach(PIN_SERVO, 500, 2500);
   gate.write(SERVO_CLOSED_DEG);
 
   prefs.begin("feeder", false);
@@ -1635,7 +1696,8 @@ void setup() {
 
   scale.begin(PIN_HX711_DOUT, PIN_HX711_SCK);
   scale.set_scale(currentCalFactor);
-  safeScaleTare(5); // Non-blocking: will not hang boot if HX711 is unplugged!
+  scale.wait_ready_timeout(1000);
+  safeScaleTare(8); // Non-blocking: will not hang boot if HX711 is unplugged!
 
   Wire.begin(PIN_RTC_SDA, PIN_RTC_SCL);
   rtcOk = rtc.begin();

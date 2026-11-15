@@ -1,13 +1,12 @@
 // Smart Mobile-Based Solar-Powered Chicken Feeding System
-// ESP32 DevKit V1 Firmware - Hardened Machine Integration Layer
-// Aligned with HARDWARE_INTEGRATION_SPECIFICATION.md
+// ESP32 38-Pin Dual-Core Firmware - Hardened Machine Integration Layer
 //
-// Subsystems:
-//   - MG996R Servo Gate (GPIO 13)
-//   - HX711 24-bit ADC Load Cell Scale (DOUT GPIO 16, SCK GPIO 17)
-//   - HC-SR04 Ultrasonic Depth Sensor (TRIG GPIO 5, ECHO GPIO 18)
-//   - DS3231 Real-Time Clock (I2C SDA GPIO 21, SCL GPIO 22) + NTP Sync
-//   - 12V Battery Voltage Divider into ADC (GPIO 34)
+// Active Hardware Subsystems:
+//   - DS-S020A-C 30kg Servo Gate (PWM GPIO 18)
+//   - HX711 24-bit ADC Load Cell Scale (DT GPIO 23, SCK GPIO 22, powered @ 3V3)
+//   - ESP32 Internal System Clock + NTP / Mobile App Sync (DS3231 disabled: HAS_RTC_DS3231=0)
+//   - Nominal Hopper Level Fallback (HC-SR04 disabled: HAS_ULTRASONIC=0)
+//   - 12V Battery Voltage Divider into ADC (GPIO 34, defaults to 12.6V if unconnected)
 //   - NVS Flash Persistence (Schedules, Scale Calibration, Command Deduplication)
 //   - Dual-Mode Wi-Fi (SoftAP + Station) & Authenticated Firebase RTDB REST Sync
 
@@ -262,6 +261,10 @@ static float pingUltrasonicOnceCm() {
 }
 
 float readFeedLevelPercent() {
+#if !HAS_ULTRASONIC
+  ultrasonicHealthy = true;
+  return 100.0f;
+#else
   float validSamples[3];
   int validCount = 0;
   for (int i = 0; i < 3; i++) {
@@ -298,9 +301,13 @@ float readFeedLevelPercent() {
   float pct = (HOPPER_EMPTY_CM - avgCm) / (HOPPER_EMPTY_CM - HOPPER_FULL_CM) * 100.0f;
   lastValidFeedLevel = constrain(pct, 0.0f, 100.0f);
   return lastValidFeedLevel;
+#endif
 }
 
 float readBatteryVolts() {
+#if !HAS_BATTERY_ADC
+  return 12.6f;
+#else
   uint32_t mvSum = 0;
   for (int i = 0; i < 4; i++) {
     mvSum += analogReadMilliVolts(PIN_BATTERY_ADC);
@@ -310,6 +317,7 @@ float readBatteryVolts() {
     return 12.6f; // Battery divider not connected; default to nominal voltage
   }
   return sensedVolts;
+#endif
 }
 
 void clearTransientFaults() {
@@ -1507,36 +1515,14 @@ void purgeStaleCommandsOnBoot() {
 
 void initWiFi() {
   WiFi.mode(WIFI_AP_STA);
+  WiFi.setSleep(false);
   WiFi.setMinSecurity(WIFI_AUTH_WPA_WPA2_PSK);
 
-  int matchedChannel = 0;
-  int n = WiFi.scanNetworks();
-  Serial.printf("[WIFI SCAN] Found %d network(s):\n", n);
-  for (int i = 0; i < n; i++) {
-    Serial.printf("  - '%s' (ch %d, %d dBm)\n", WiFi.SSID(i).c_str(), WiFi.channel(i), WiFi.RSSI(i));
-  }
-
-  String candSsid[3] = {activeWifiSsid, String(WIFI_ALT_SSID_1), String(WIFI_ALT_SSID_2)};
-  String candPass[3] = {activeWifiPass, String(WIFI_ALT_PASSWORD_1), String(WIFI_ALT_PASSWORD_2)};
-  for (int c = 0; c < 3 && matchedChannel == 0; c++) {
-    if (!isConfiguredValue(candSsid[c].c_str())) continue;
-    for (int i = 0; i < n; i++) {
-      if (WiFi.SSID(i) == candSsid[c]) {
-        activeWifiSsid = candSsid[c];
-        activeWifiPass = candPass[c];
-        matchedChannel = WiFi.channel(i);
-        break;
-      }
-    }
-  }
-  WiFi.scanDelete();
-
-  int apChannel = (matchedChannel > 0) ? matchedChannel : SOFTAP_CHANNEL;
-  bool apSuccess = WiFi.softAP(SOFTAP_SSID, SOFTAP_PASSWORD, apChannel, 0, SOFTAP_MAX_CONN);
+  bool apSuccess = WiFi.softAP(SOFTAP_SSID, SOFTAP_PASSWORD, SOFTAP_CHANNEL, 0, SOFTAP_MAX_CONN);
   if (apSuccess) {
     IPAddress apIP = WiFi.softAPIP();
     Serial.println("-------------------------------------------------");
-    Serial.printf("[SOFTAP] Direct Wi-Fi Active: SSID='%s' (ch %d)\n", SOFTAP_SSID, apChannel);
+    Serial.printf("[SOFTAP] Direct Wi-Fi Active: SSID='%s' (ch %d)\n", SOFTAP_SSID, SOFTAP_CHANNEL);
     Serial.printf("[SOFTAP] Access Point IP: %s\n", apIP.toString().c_str());
     Serial.println("-------------------------------------------------");
   } else {
@@ -1547,7 +1533,7 @@ void initWiFi() {
     Serial.printf("[WIFI STA] Connecting to station network '%s'...\n", activeWifiSsid.c_str());
     WiFi.begin(activeWifiSsid.c_str(), activeWifiPass.c_str());
     unsigned long waitStart = millis();
-    while (WiFi.status() != WL_CONNECTED && millis() - waitStart < 10000UL) {
+    while (WiFi.status() != WL_CONNECTED && millis() - waitStart < 12000UL) {
       delay(200);
     }
 
@@ -1581,6 +1567,7 @@ void checkWiFiReconnect() {
     authenticateFirebase(false);
     purgeStaleCommandsOnBoot();
     syncSchedulesFromFirebase();
+    printTelemetryJson();
   } else if (!nowConnected) {
     wasConnected = false;
     static unsigned long lastCheck = millis();
@@ -1682,8 +1669,10 @@ void pollFirebaseCommands() {
 
 void setup() {
   Serial.begin(115200);
+#if HAS_ULTRASONIC
   pinMode(PIN_US_TRIG, OUTPUT);
   pinMode(PIN_US_ECHO, INPUT_PULLDOWN);
+#endif
   analogReadResolution(12);
 
   // Immediately close dispenser gate on boot before any network/sensor init
@@ -1699,6 +1688,7 @@ void setup() {
   scale.wait_ready_timeout(1000);
   safeScaleTare(8); // Non-blocking: will not hang boot if HX711 is unplugged!
 
+#if HAS_RTC_DS3231
   Wire.begin(PIN_RTC_SDA, PIN_RTC_SCL);
   rtcOk = rtc.begin();
   if (rtcOk && rtc.lostPower()) {
@@ -1708,6 +1698,9 @@ void setup() {
         : compileLocal.unixtime();
     rtc.adjust(DateTime(utcSec));
   }
+#else
+  rtcOk = false;
+#endif
 
   Serial.println("=================================================");
   Serial.println(" Smart Chicken Feeder - Hardened Firmware v1.1   ");

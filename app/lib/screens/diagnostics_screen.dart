@@ -294,7 +294,7 @@ class _DiagnosticsScreenState extends State<DiagnosticsScreen> {
                   border: Border.all(color: c.border.withValues(alpha: 0.6)),
                 ),
                 child: const Text(
-                  'GPIO 16, 17',
+                  'DT 23, SCK 22 (3V3)',
                   style: TextStyle(fontSize: 11, fontFamily: 'monospace', fontWeight: FontWeight.w600),
                 ),
               ),
@@ -498,7 +498,7 @@ class _DiagnosticsScreenState extends State<DiagnosticsScreen> {
                   border: Border.all(color: c.border.withValues(alpha: 0.6)),
                 ),
                 child: const Text(
-                  'TRIG 5, ECHO 18',
+                  'Bypassed (100%)',
                   style: TextStyle(fontSize: 11, fontFamily: 'monospace', fontWeight: FontWeight.w600),
                 ),
               ),
@@ -673,7 +673,7 @@ class _DiagnosticsScreenState extends State<DiagnosticsScreen> {
                   border: Border.all(color: c.border.withValues(alpha: 0.6)),
                 ),
                 child: const Text(
-                  'PWM GPIO 13',
+                  'PWM GPIO 18 (DS-S020A-C)',
                   style: TextStyle(fontSize: 11, fontFamily: 'monospace', fontWeight: FontWeight.w600),
                 ),
               ),

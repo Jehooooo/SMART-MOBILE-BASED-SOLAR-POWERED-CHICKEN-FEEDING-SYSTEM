@@ -4,14 +4,14 @@
 // Copy secrets.example.h -> secrets.h and fill in your values.
 
 // ---------- Pins (ESP32 DevKit V1) ----------
-#define PIN_SERVO          13   // dispenser gate servo (PWM)
-#define PIN_HX711_DOUT     16   // load cell amplifier data
-#define PIN_HX711_SCK      17   // load cell amplifier clock
+#define PIN_SERVO          18   // DS-S020A-C 30kg dispenser gate servo (PWM)
+#define PIN_HX711_DOUT     23   // load cell amplifier data (DT)
+#define PIN_HX711_SCK      22   // load cell amplifier clock (SCK)
 #define PIN_US_TRIG        5    // HC-SR04 trigger
-#define PIN_US_ECHO        18   // HC-SR04 echo (use 5V->3.3V divider!)
+#define PIN_US_ECHO        19   // HC-SR04 echo (use 5V->3.3V divider!)
 #define PIN_BATTERY_ADC    34   // battery voltage via divider (input-only pin)
-#define PIN_RTC_SDA        21   // DS3231 I2C SDA
-#define PIN_RTC_SCL        22   // DS3231 I2C SCL
+#define PIN_RTC_SDA        25   // DS3231 I2C SDA
+#define PIN_RTC_SCL        26   // DS3231 I2C SCL
 
 // ---------- Servo ----------
 #define SERVO_CLOSED_DEG   0

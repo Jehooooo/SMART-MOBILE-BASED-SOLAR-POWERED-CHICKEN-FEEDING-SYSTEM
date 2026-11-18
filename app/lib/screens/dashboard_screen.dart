@@ -339,8 +339,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
         _buildWarningBanner(
           'Hardware / Sensor Error$errCode: Dispenser gate locked closed for safety. Inspect load cell, ultrasonic sensor, and auger chute.',
           c.danger,
-          actionLabel: widget.feederService.isDeviceOnline ? 'Clear Fault' : null,
-          onAction: widget.feederService.isDeviceOnline
+          actionLabel: (widget.feederService.isConnected || widget.feederService.isDeviceOnline) ? 'Clear Fault' : null,
+          onAction: (widget.feederService.isConnected || widget.feederService.isDeviceOnline)
               ? () async {
                   final cleared = await widget.feederService.clearHardwareFault();
                   if (!mounted) return;

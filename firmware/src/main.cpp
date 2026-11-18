@@ -11,6 +11,8 @@
 //   - Dual-Mode Wi-Fi (SoftAP + Station) & Authenticated Firebase RTDB REST Sync
 
 #include <Arduino.h>
+#include "soc/soc.h"
+#include "soc/rtc_cntl_reg.h"
 #include <Wire.h>
 #include <WiFi.h>
 #include <WebServer.h>
@@ -117,6 +119,7 @@ static float lastFedGrams = 0.0f;
 static float currentCalFactor = LOADCELL_CAL_FACTOR;
 
 static unsigned long servoTestAutoCloseAtMs = 0UL;
+static int currentServoAngle = SERVO_CLOSED_DEG;
 static String lastExecutedCommandId = "";
 static String lastExecutedScheduleSlot = "";
 
@@ -146,6 +149,31 @@ bool authenticateFirebase(bool forceRefresh = false);
 void purgeStaleCommandsOnBoot();
 void syncSchedulesFromFirebase();
 void checkAutonomousSchedules();
+
+// Smoothly ramps the DS-S020A-C 30kg servo to limit 5V buck converter inrush spikes on battery
+// and releases PWM holding torque when parked closed (`holdTorque == false`).
+void setGateAngleSmooth(int targetAngle, bool holdTorque = true) {
+  targetAngle = constrain(targetAngle, SERVO_CLOSED_DEG, SERVO_OPEN_DEG);
+  if (!gate.attached()) {
+    gate.setPeriodHertz(50);
+    gate.attach(PIN_SERVO, 500, 2500);
+  }
+  int step = (targetAngle >= currentServoAngle) ? 5 : -5;
+  for (int pos = currentServoAngle;
+       (step > 0) ? (pos < targetAngle) : (pos > targetAngle);
+       pos += step) {
+    gate.write(pos);
+    delay(15);
+  }
+  gate.write(targetAngle);
+  currentServoAngle = targetAngle;
+  if (!holdTorque) {
+    delay(250);
+    if (gate.attached()) {
+      gate.detach();
+    }
+  }
+}
 
 // ---------- Time & Clock Helpers ----------
 
@@ -636,6 +664,7 @@ void serviceEmergencyInputsDuringDispense(unsigned long* lastCloudStopCheckMs) {
         line.indexOf("STOP") >= 0) {
       emergencyStopRequested = true;
       gate.write(SERVO_CLOSED_DEG);
+      currentServoAngle = SERVO_CLOSED_DEG;
       return;
     }
   }
@@ -646,6 +675,7 @@ void serviceEmergencyInputsDuringDispense(unsigned long* lastCloudStopCheckMs) {
     if (checkCloudEmergencyStopFast()) {
       emergencyStopRequested = true;
       gate.write(SERVO_CLOSED_DEG);
+      currentServoAngle = SERVO_CLOSED_DEG;
     }
   }
 }
@@ -683,7 +713,7 @@ bool dispenseFeed(float targetGrams, const char* triggerType, String* outError =
   emergencyStopRequested = false;
   servoTestAutoCloseAtMs = 0UL;
 
-  gate.write(SERVO_OPEN_DEG);
+  setGateAngleSmooth(SERVO_OPEN_DEG, true);
   printTelemetryJson("dispensing");
 
   unsigned long startTime = millis();
@@ -696,7 +726,7 @@ bool dispenseFeed(float targetGrams, const char* triggerType, String* outError =
     serviceEmergencyInputsDuringDispense(&lastCloudStopCheck);
 
     if (emergencyStopRequested) {
-      gate.write(SERVO_CLOSED_DEG);
+      setGateAngleSmooth(SERVO_CLOSED_DEG, false);
       isDispensing = false;
       int elapsedSec = (int)((millis() - startTime) / 1000UL);
       Serial.println("[ABORT] Dispensing halted immediately by emergency stop");
@@ -714,7 +744,7 @@ bool dispenseFeed(float targetGrams, const char* triggerType, String* outError =
     } else {
       consecutiveScaleErrors++;
       if (consecutiveScaleErrors >= 3) {
-        gate.write(SERVO_CLOSED_DEG);
+        setGateAngleSmooth(SERVO_CLOSED_DEG, false);
         isDispensing = false;
         lastSensorError = "hx711_mid_dispense_fault";
         Serial.println("[SAFETY] Gate closed: HX711 failed mid-dispense!");
@@ -728,28 +758,28 @@ bool dispenseFeed(float targetGrams, const char* triggerType, String* outError =
 
     unsigned long elapsedMs = millis() - startTime;
 
-    // Stall / jam / empty hopper guard: prevent 30s uncontrolled open gate if weight isn't rising
+    // Stall / jam / empty hopper guard: close gate safely and recover to idle (no sticky UI lockout)
     if (elapsedMs > DISPENSE_STALL_TIMEOUT_MS && currentWeight < MIN_FLOW_PROGRESS_GRAMS) {
-      gate.write(SERVO_CLOSED_DEG);
+      setGateAngleSmooth(SERVO_CLOSED_DEG, false);
       isDispensing = false;
-      lastSensorError = "dispense_flow_stall";
+      lastSensorError = "";
       Serial.println("[SAFETY] Gate closed: No feed flow detected after 6s (hopper empty or gate jammed)");
       if (outActualGrams) *outActualGrams = currentWeight;
       if (outError) *outError = "No feed flow detected (jam or empty hopper)";
       emitFeedingLog(triggerType, targetGrams, currentWeight, (int)(elapsedMs / 1000UL), false);
-      printTelemetryJson("error");
+      printTelemetryJson("idle");
       return false;
     }
 
     if (elapsedMs > DISPENSE_TIMEOUT_MS) {
-      gate.write(SERVO_CLOSED_DEG);
+      setGateAngleSmooth(SERVO_CLOSED_DEG, false);
       isDispensing = false;
-      lastSensorError = "dispense_timeout";
+      lastSensorError = "";
       Serial.printf("[ERROR] Dispense timeout at %.1f g\n", currentWeight);
       if (outActualGrams) *outActualGrams = currentWeight;
       if (outError) *outError = "Dispense timeout before target weight reached";
       emitFeedingLog(triggerType, targetGrams, currentWeight, (int)(elapsedMs / 1000UL), false);
-      printTelemetryJson("error");
+      printTelemetryJson("idle");
       return false;
     }
 
@@ -761,7 +791,7 @@ bool dispenseFeed(float targetGrams, const char* triggerType, String* outError =
     delay(60);
   }
 
-  gate.write(SERVO_CLOSED_DEG);
+  setGateAngleSmooth(SERVO_CLOSED_DEG, false);
   int durationSec = max(1, (int)((millis() - startTime) / 1000UL));
   isDispensing = false;
   lastSensorError = "";
@@ -801,7 +831,7 @@ bool dispenseFeedDuration(int durationSec, const char* triggerType, float nomina
   emergencyStopRequested = false;
   servoTestAutoCloseAtMs = 0UL;
 
-  gate.write(SERVO_OPEN_DEG);
+  setGateAngleSmooth(SERVO_OPEN_DEG, true);
   printTelemetryJson("dispensing");
 
   unsigned long startTime = millis();
@@ -812,7 +842,7 @@ bool dispenseFeedDuration(int durationSec, const char* triggerType, float nomina
     serviceEmergencyInputsDuringDispense(&lastCloudStopCheck);
 
     if (emergencyStopRequested) {
-      gate.write(SERVO_CLOSED_DEG);
+      setGateAngleSmooth(SERVO_CLOSED_DEG, false);
       isDispensing = false;
       float partialWeight = 0.0f;
       safeReadScaleGrams(&partialWeight, 2);
@@ -827,7 +857,7 @@ bool dispenseFeedDuration(int durationSec, const char* triggerType, float nomina
     delay(50);
   }
 
-  gate.write(SERVO_CLOSED_DEG);
+  setGateAngleSmooth(SERVO_CLOSED_DEG, false);
   int actualDurationSec = max(1, (int)((millis() - startTime) / 1000UL));
   float dispensedWeight = 0.0f;
   if (!safeReadScaleGrams(&dispensedWeight, 2) || dispensedWeight < 0.0f) {
@@ -938,20 +968,18 @@ void loadPersistentStateFromNvs() {
   lastExecutedCommandId = prefs.getString("lastCmdId", "");
   lastExecutedScheduleSlot = prefs.getString("lastSchSlot", "");
 
-  if (isConfiguredValue(WIFI_SSID)) {
+  String nvsSsid = prefs.getString("wifiSsid", "");
+  String nvsPass = prefs.getString("wifiPass", "");
+  if (isConfiguredValue(nvsSsid.c_str())) {
+    activeWifiSsid = nvsSsid;
+    activeWifiPass = nvsPass;
+    Serial.printf("[NVS] Loaded provisioned station Wi-Fi SSID: '%s'\n", activeWifiSsid.c_str());
+  } else if (isConfiguredValue(WIFI_SSID)) {
     activeWifiSsid = String(WIFI_SSID);
     activeWifiPass = String(WIFI_PASSWORD);
     prefs.putString("wifiSsid", activeWifiSsid);
     prefs.putString("wifiPass", activeWifiPass);
-    Serial.printf("[WIFI] Using configured secrets.h SSID: '%s'\n", activeWifiSsid.c_str());
-  } else {
-    String nvsSsid = prefs.getString("wifiSsid", "");
-    String nvsPass = prefs.getString("wifiPass", "");
-    if (isConfiguredValue(nvsSsid.c_str())) {
-      activeWifiSsid = nvsSsid;
-      activeWifiPass = nvsPass;
-      Serial.printf("[NVS] Loaded provisioned station Wi-Fi SSID: '%s'\n", activeWifiSsid.c_str());
-    }
+    Serial.printf("[WIFI] Initialized default secrets.h SSID: '%s'\n", activeWifiSsid.c_str());
   }
 
   String savedSchedules = prefs.getString("schedules", "");
@@ -1018,10 +1046,12 @@ void checkAutonomousSchedules() {
       Serial.printf("[SCHEDULE] Autonomous execution triggered: %s at %02u:%02u\n",
                     s.label, s.hour, s.minute);
 
-      if (loadCellHealthy && s.targetGrams > 0.0f) {
+      if (s.durationSeconds > 0) {
+        dispenseFeedDuration(s.durationSeconds, triggerLabel.c_str(), s.targetGrams);
+      } else if (loadCellHealthy && s.targetGrams > 0.0f) {
         dispenseFeed(s.targetGrams, triggerLabel.c_str());
       } else {
-        dispenseFeedDuration(s.durationSeconds, triggerLabel.c_str(), s.targetGrams);
+        dispenseFeedDuration(5, triggerLabel.c_str(), 100.0f);
       }
       break; // Execute one schedule per cycle cleanly
     }
@@ -1050,7 +1080,7 @@ void handleCommand(const String& cmdJson, bool fromCloud) {
   // Emergency stop always preempts immediately regardless of timestamp/status
   if (strcmp(action, "EMERGENCY_STOP") == 0 || strcmp(action, "STOP") == 0) {
     emergencyStopRequested = true;
-    gate.write(SERVO_CLOSED_DEG);
+    setGateAngleSmooth(SERVO_CLOSED_DEG, false);
     servoTestAutoCloseAtMs = 0UL;
     Serial.println("[CMD] Emergency stop executed immediately");
     if (fromCloud && cmdId.length() > 0) {
@@ -1101,12 +1131,9 @@ void handleCommand(const String& cmdJson, bool fromCloud) {
     String execErr = "";
     float actualG = 0.0f;
     bool ok = false;
-    if (durationSec > 0 && targetGrams <= 0.0f) {
-      ok = dispenseFeedDuration(durationSec, triggerType, durationSec * 20.0f, &execErr, &actualG);
-    } else if (targetGrams > 0.0f && loadCellHealthy) {
-      ok = dispenseFeed(targetGrams, triggerType, &execErr, &actualG);
-    } else if (durationSec > 0) {
-      ok = dispenseFeedDuration(durationSec, triggerType, targetGrams, &execErr, &actualG);
+    if (durationSec > 0) {
+      float nomGrams = (targetGrams > 0.0f) ? targetGrams : (durationSec * 20.0f);
+      ok = dispenseFeedDuration(durationSec, triggerType, nomGrams, &execErr, &actualG);
     } else if (targetGrams > 0.0f) {
       ok = dispenseFeed(targetGrams, triggerType, &execErr, &actualG);
     } else {
@@ -1121,7 +1148,7 @@ void handleCommand(const String& cmdJson, bool fromCloud) {
   } else if (strcmp(action, "SERVO_TEST") == 0 || strcmp(action, "TEST_SERVO") == 0) {
     int angle = doc["servoAngle"] | doc["angle"] | (int)round(targetGrams);
     angle = constrain(angle, SERVO_CLOSED_DEG, SERVO_OPEN_DEG);
-    gate.write(angle);
+    setGateAngleSmooth(angle, angle > SERVO_CLOSED_DEG);
     servoTestAutoCloseAtMs = (angle > SERVO_CLOSED_DEG) ? (millis() + SERVO_TEST_AUTO_CLOSE_MS) : 0UL;
     Serial.printf("[CMD] Servo bench angle set to %d deg\n", angle);
     if (fromCloud && cmdId.length() > 0) {
@@ -1184,7 +1211,7 @@ void handleCommand(const String& cmdJson, bool fromCloud) {
       updateCommandAckInFirebase(cmdId, action, "completed", 0.0f, nullptr);
     }
     Serial.println("[CMD] Safe controller restart requested...");
-    gate.write(SERVO_CLOSED_DEG);
+    setGateAngleSmooth(SERVO_CLOSED_DEG, false);
     delay(400);
     ESP.restart();
   } else {
@@ -1230,16 +1257,19 @@ void setupWebServer() {
 
     server.send(200, "application/json", "{\"status\":\"ok\",\"message\":\"Dispensing initiated\"}");
 
-    if (targetGrams > 0.0f && loadCellHealthy) {
+    if (durationSec > 0) {
+      float nomGrams = (targetGrams > 0.0f) ? targetGrams : (durationSec * 20.0f);
+      dispenseFeedDuration(durationSec, "Direct Local", nomGrams);
+    } else if (targetGrams > 0.0f) {
       dispenseFeed(targetGrams, "Direct Local");
     } else {
-      dispenseFeedDuration(durationSec, "Direct Local", targetGrams);
+      dispenseFeedDuration(5, "Direct Local", 100.0f);
     }
   });
 
   server.on("/api/stop", HTTP_POST, []() {
     emergencyStopRequested = true;
-    gate.write(SERVO_CLOSED_DEG);
+    setGateAngleSmooth(SERVO_CLOSED_DEG, false);
     servoTestAutoCloseAtMs = 0UL;
     server.sendHeader("Access-Control-Allow-Origin", "*");
     server.send(200, "application/json", "{\"status\":\"ok\",\"message\":\"Emergency stop executed\"}");
@@ -1300,7 +1330,7 @@ void setupWebServer() {
     }
     if (server.hasArg("angle")) angle = server.arg("angle").toInt();
     angle = constrain(angle, SERVO_CLOSED_DEG, SERVO_OPEN_DEG);
-    gate.write(angle);
+    setGateAngleSmooth(angle, angle > SERVO_CLOSED_DEG);
     servoTestAutoCloseAtMs = (angle > SERVO_CLOSED_DEG) ? (millis() + SERVO_TEST_AUTO_CLOSE_MS) : 0UL;
     server.sendHeader("Access-Control-Allow-Origin", "*");
     server.send(200, "application/json", "{\"status\":\"ok\",\"angle\":" + String(angle) + "}");
@@ -1513,9 +1543,51 @@ void purgeStaleCommandsOnBoot() {
   }
 }
 
+bool findVisibleConfiguredNetwork(String& matchedSsid, String& matchedPass) {
+  struct WifiCandidate {
+    const char* ssid;
+    const char* pass;
+  };
+  WifiCandidate candidates[4] = {
+    { activeWifiSsid.c_str(), activeWifiPass.c_str() },
+    { WIFI_SSID, WIFI_PASSWORD },
+    { WIFI_ALT_SSID_1, WIFI_ALT_PASSWORD_1 },
+    { WIFI_ALT_SSID_2, WIFI_ALT_PASSWORD_2 }
+  };
+
+  bool hasAnyCandidate = false;
+  for (int c = 0; c < 4; c++) {
+    if (isConfiguredValue(candidates[c].ssid)) {
+      hasAnyCandidate = true;
+      break;
+    }
+  }
+  if (!hasAnyCandidate) return false;
+
+  int n = WiFi.scanNetworks(false, false);
+  bool found = false;
+  if (n > 0) {
+    for (int c = 0; c < 4 && !found; c++) {
+      if (!isConfiguredValue(candidates[c].ssid)) continue;
+      for (int i = 0; i < n; i++) {
+        if (WiFi.SSID(i) == String(candidates[c].ssid)) {
+          matchedSsid = String(candidates[c].ssid);
+          matchedPass = candidates[c].pass ? String(candidates[c].pass) : "";
+          found = true;
+          break;
+        }
+      }
+    }
+  }
+  WiFi.scanDelete();
+  return found;
+}
+
 void initWiFi() {
   WiFi.mode(WIFI_AP_STA);
   WiFi.setSleep(false);
+  WiFi.setTxPower(WIFI_POWER_15dBm);
+  WiFi.setAutoReconnect(false);
   WiFi.setMinSecurity(WIFI_AUTH_WPA_WPA2_PSK);
 
   bool apSuccess = WiFi.softAP(SOFTAP_SSID, SOFTAP_PASSWORD, SOFTAP_CHANNEL, 0, SOFTAP_MAX_CONN);
@@ -1529,8 +1601,12 @@ void initWiFi() {
     Serial.println("[SOFTAP ERROR] Failed to start SoftAP hotspot.");
   }
 
-  if (activeWifiSsid.length() > 0) {
-    Serial.printf("[WIFI STA] Connecting to station network '%s'...\n", activeWifiSsid.c_str());
+  String matchedSsid = "";
+  String matchedPass = "";
+  if (findVisibleConfiguredNetwork(matchedSsid, matchedPass)) {
+    activeWifiSsid = matchedSsid;
+    activeWifiPass = matchedPass;
+    Serial.printf("[WIFI STA] Visible network '%s' found. Connecting...\n", activeWifiSsid.c_str());
     WiFi.begin(activeWifiSsid.c_str(), activeWifiPass.c_str());
     unsigned long waitStart = millis();
     while (WiFi.status() != WL_CONNECTED && millis() - waitStart < 12000UL) {
@@ -1544,19 +1620,21 @@ void initWiFi() {
       purgeStaleCommandsOnBoot();
       syncSchedulesFromFirebase();
     } else {
-      Serial.printf("[WIFI STA] Initial connect timed out (status=%d); continuing non-blocking in background.\n",
+      Serial.printf("[WIFI STA] Connect timed out (status=%d); parking STA to protect SmartFeeder-AP.\n",
                     (int)WiFi.status());
+      WiFi.disconnect(false);
     }
   } else {
-    Serial.println("[WIFI STA] No station SSID set. Operating in pure direct SoftAP mode (provision via http://192.168.4.1).");
+    Serial.println("[WIFI STA] Configured SSID not in range; keeping SmartFeeder-AP active without channel-hopping.");
+    WiFi.disconnect(false);
   }
 
   setupWebServer();
 }
 
 void checkWiFiReconnect() {
-  if (activeWifiSsid.length() == 0) return;
   static bool wasConnected = false;
+  static unsigned long lastScanMs = 0UL;
   bool nowConnected = (WiFi.status() == WL_CONNECTED);
 
   if (nowConnected && !wasConnected) {
@@ -1570,11 +1648,16 @@ void checkWiFiReconnect() {
     printTelemetryJson();
   } else if (!nowConnected) {
     wasConnected = false;
-    static unsigned long lastCheck = millis();
-    if (millis() - lastCheck >= WIFI_RECONNECT_INTERVAL_MS) {
-      lastCheck = millis();
-      Serial.println("[WIFI] Station link offline. Attempting non-blocking reconnect...");
-      WiFi.reconnect();
+    if (millis() - lastScanMs >= 60000UL && !isDispensing) {
+      lastScanMs = millis();
+      String matchedSsid = "";
+      String matchedPass = "";
+      if (findVisibleConfiguredNetwork(matchedSsid, matchedPass)) {
+        activeWifiSsid = matchedSsid;
+        activeWifiPass = matchedPass;
+        Serial.printf("[WIFI] Known router '%s' back in range. Connecting...\n", activeWifiSsid.c_str());
+        WiFi.begin(activeWifiSsid.c_str(), activeWifiPass.c_str());
+      }
     }
   }
 }
@@ -1668,6 +1751,7 @@ void pollFirebaseCommands() {
 }
 
 void setup() {
+  WRITE_PERI_REG(RTC_CNTL_BROWN_OUT_REG, 0); // Prevent servo/Wi-Fi inrush brownout resets on battery
   Serial.begin(115200);
 #if HAS_ULTRASONIC
   pinMode(PIN_US_TRIG, OUTPUT);
@@ -1675,10 +1759,8 @@ void setup() {
 #endif
   analogReadResolution(12);
 
-  // Immediately close dispenser gate on boot before any network/sensor init
-  gate.setPeriodHertz(50);
-  gate.attach(PIN_SERVO, 500, 2500);
-  gate.write(SERVO_CLOSED_DEG);
+  // Immediately close dispenser gate on boot and release holding torque for battery safety
+  setGateAngleSmooth(SERVO_CLOSED_DEG, false);
 
   prefs.begin("feeder", false);
   loadPersistentStateFromNvs();
@@ -1718,7 +1800,7 @@ void loop() {
   // Safety auto-close if bench SERVO_TEST left gate open
   if (!isDispensing && servoTestAutoCloseAtMs > 0UL && millis() >= servoTestAutoCloseAtMs) {
     servoTestAutoCloseAtMs = 0UL;
-    gate.write(SERVO_CLOSED_DEG);
+    setGateAngleSmooth(SERVO_CLOSED_DEG, false);
     Serial.println("[SAFETY] Bench servo test auto-closed gate to 0 deg.");
   }
 
@@ -1761,7 +1843,7 @@ void loop() {
         Serial.println("[CMD] Load cell tared");
       } else if (input == "s" || input.equalsIgnoreCase("stop")) {
         emergencyStopRequested = true;
-        gate.write(SERVO_CLOSED_DEG);
+        setGateAngleSmooth(SERVO_CLOSED_DEG, false);
       }
     }
   }

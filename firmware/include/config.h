@@ -20,7 +20,7 @@
 
 // ---------- Servo ----------
 #define SERVO_CLOSED_DEG   0
-#define SERVO_OPEN_DEG     90
+#define SERVO_OPEN_DEG     180
 #define SERVO_TEST_AUTO_CLOSE_MS 10000UL  // safety auto-close after bench angle test
 
 // ---------- Dispensing & Safety Interlocks ----------

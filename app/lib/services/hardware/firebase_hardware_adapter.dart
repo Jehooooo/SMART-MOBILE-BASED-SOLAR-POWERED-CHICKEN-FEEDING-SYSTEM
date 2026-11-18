@@ -858,7 +858,50 @@ class FirebaseHardwareAdapter implements FeederHardwareAdapter {
     return res.status == CommandStatus.completed;
   }
 
-  /// Sends a direct servo angle test command (`SERVO_TEST`, `0..90` degrees).
+  /// Clears stuck hardware/sensor errors in Firebase RTDB `/telemetry` and, when
+  /// the controller is online, dispatches `CLEAR_FAULT` to `/commands/dispense`.
+  Future<bool> clearFault({bool sendDeviceCommand = true}) async {
+    bool cmdOk = false;
+    if (sendDeviceCommand) {
+      final res = await sendCommand(FeederCommand.clearFault());
+      cmdOk = res.status == CommandStatus.completed;
+    }
+
+    if (_rootRef != null) {
+      try {
+        await _rootRef!.child('telemetry').update({
+          'status': 'idle',
+          'sensorError': null,
+        });
+        _lastErrorMessage = null;
+        return true;
+      } catch (e) {
+        debugPrint('clearFault native error: $e');
+      }
+    }
+
+    try {
+      final resp = await _httpClient
+          .patch(
+            await _authorizedUri('telemetry.json'),
+            headers: {'Content-Type': 'application/json'},
+            body: jsonEncode({
+              'status': 'idle',
+              'sensorError': null,
+            }),
+          )
+          .timeout(const Duration(seconds: 4));
+      final failed = _recordHttpErrorIfDenied(resp, 'clear fault');
+      if (resp.statusCode == 401 || resp.statusCode == 403) return false;
+      return !failed || cmdOk;
+    } catch (e) {
+      _lastErrorMessage = 'clearFault REST error: $e';
+      debugPrint(_lastErrorMessage);
+      return cmdOk;
+    }
+  }
+
+  /// Sends a direct servo angle test command (`SERVO_TEST`, `0..180` degrees).
   Future<bool> testServoGate(int angleDegrees) async {
     final cmd = FeederCommand.servoTest(angleDegrees);
     final res = await sendCommand(cmd);

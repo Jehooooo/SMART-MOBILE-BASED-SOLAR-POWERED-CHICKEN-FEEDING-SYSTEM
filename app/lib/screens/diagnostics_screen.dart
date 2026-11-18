@@ -710,11 +710,11 @@ class _DiagnosticsScreenState extends State<DiagnosticsScreen> {
                 onPressed: _isActionRunning
                     ? null
                     : () => _executeAction(
-                          'Half Open Gate (45°)',
-                          () => widget.feederService.testServoGate(45),
+                          'Middle Gate (90°)',
+                          () => widget.feederService.testServoGate(90),
                         ),
                 icon: const Icon(Icons.change_history_rounded, size: 16),
-                child: const Text('Half (45°)'),
+                child: const Text('Middle (90°)'),
               ),
               LiquidGlassButton(
                 isSecondary: true,
@@ -723,11 +723,11 @@ class _DiagnosticsScreenState extends State<DiagnosticsScreen> {
                 onPressed: _isActionRunning
                     ? null
                     : () => _executeAction(
-                          'Full Open Gate (90°)',
-                          () => widget.feederService.testServoGate(90),
+                          'Full Open Gate (180°)',
+                          () => widget.feederService.testServoGate(180),
                         ),
                 icon: const Icon(Icons.lock_open_rounded, size: 16),
-                child: const Text('Full Open (90°)'),
+                child: const Text('Full Open (180°)'),
               ),
               LiquidGlassButton(
                 height: 38,

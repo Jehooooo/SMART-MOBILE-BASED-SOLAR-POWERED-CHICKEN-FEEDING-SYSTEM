@@ -197,9 +197,10 @@ class FeederService extends ChangeNotifier {
     }
   }
 
-  /// Clears transient dispense/sensor faults (e.g. empty-hopper stall) and re-polls live telemetry.
+  /// Clears transient dispense/sensor faults (e.g. dispense timeout or empty-hopper stall)
+  /// and re-polls live telemetry. Works across both Cloud (even if ESP32 is offline) and SoftAP.
   Future<bool> clearHardwareFault() async {
-    if (_isDispensing || _isCommandInFlight || !isDeviceOnline) {
+    if (_isDispensing || _isCommandInFlight || (!isConnected && !isDeviceOnline)) {
       _lastErrorMessage = 'Cannot clear fault while feeder is offline or busy.';
       return false;
     }
@@ -208,6 +209,10 @@ class FeederService extends ChangeNotifier {
       bool cmdOk = false;
       if (_adapter is RestHardwareAdapter) {
         cmdOk = await (_adapter as RestHardwareAdapter).clearFault();
+      } else if (_adapter is FirebaseHardwareAdapter) {
+        cmdOk = await (_adapter as FirebaseHardwareAdapter).clearFault(
+          sendDeviceCommand: isDeviceOnline,
+        );
       } else {
         final res = await _adapter.sendCommand(FeederCommand.clearFault());
         cmdOk = res.status == CommandStatus.completed;
@@ -216,6 +221,15 @@ class FeederService extends ChangeNotifier {
       await Future<void>.delayed(Duration.zero);
       final faultCleared = _telemetry.status != FeederStatus.error &&
           (_telemetry.sensorError == null || _telemetry.sensorError!.isEmpty);
+      if (cmdOk && !faultCleared && _adapter is! RestHardwareAdapter) {
+        _telemetry = _telemetry.copyWith(
+          status: FeederStatus.idle,
+          clearSensorError: true,
+        );
+        _lastErrorMessage = null;
+        notifyListeners();
+        return true;
+      }
       if (faultCleared) {
         _lastErrorMessage = null;
       }
@@ -246,7 +260,7 @@ class FeederService extends ChangeNotifier {
     }
   }
 
-  /// Tests the dispenser servo gate by commanding position [degrees] (0 closed, 90 open)
+  /// Tests the dispenser servo gate by commanding position [degrees] (0 left/closed, 90 middle, 180 full open)
   /// via dedicated `SERVO_TEST` action (distinct from feed dispensing).
   Future<bool> testServoGate(int degrees) async {
     if (_isDispensing || _isCommandInFlight || !isDeviceOnline) {
@@ -255,7 +269,7 @@ class FeederService extends ChangeNotifier {
     }
     _isCommandInFlight = true;
     try {
-      final cmd = FeederCommand.servoTest(degrees.clamp(0, 90));
+      final cmd = FeederCommand.servoTest(degrees.clamp(0, 180));
       final res = await _adapter.sendCommand(cmd);
       return res.status == CommandStatus.completed;
     } finally {

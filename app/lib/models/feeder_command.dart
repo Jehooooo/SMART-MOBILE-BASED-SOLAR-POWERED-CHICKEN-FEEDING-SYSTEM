@@ -196,7 +196,7 @@ class FeederCommand {
   }
 
   factory FeederCommand.servoTest(int angleDegrees) {
-    final clamped = angleDegrees.clamp(0, 90);
+    final clamped = angleDegrees.clamp(0, 180);
     return FeederCommand(
       id: 'cmd_servo_${DateTime.now().millisecondsSinceEpoch}',
       action: FeederAction.setServoAngle,

@@ -17,7 +17,7 @@ import 'hardware_adapter.dart';
 /// - `GET /api/telemetry` -> returns FeederTelemetry JSON
 /// - `POST /api/dispense` -> triggers servo gate with target weight
 /// - `POST /api/stop` -> immediate emergency cutoff
-/// - `POST /api/servo` -> tests MG996R gate angle (`0..90`)
+/// - `POST /api/servo` -> tests DS-S020A-C gate angle (`0..180`)
 /// - `POST /api/schedules` -> synchronizes schedule table to onboard NVS/RTC
 /// - `GET /api/logs` -> retrieves onboard ring-buffered feeding logs
 class RestHardwareAdapter implements FeederHardwareAdapter {
@@ -407,8 +407,8 @@ class RestHardwareAdapter implements FeederHardwareAdapter {
     _isCommandInFlight = true;
     try {
       return await _postJson('/api/servo', {
-        'servoAngle': angleDegrees.clamp(0, 90),
-        'angle': angleDegrees.clamp(0, 90),
+        'servoAngle': angleDegrees.clamp(0, 180),
+        'angle': angleDegrees.clamp(0, 180),
       });
     } finally {
       _isCommandInFlight = false;

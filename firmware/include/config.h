@@ -20,11 +20,11 @@
 
 // ---------- Servo (DS-S020A-C 30kg — Center-Closed Gate Geometry) ----------
 // 90 deg = Middle (orange paddle centered directly under hopper pipe = CLOSED)
-// 120 deg = Open (30 deg sweep from center = OPEN; returns back to 90 deg = CLOSED)
+// 40 deg = Open (50 deg sweep from center = OPEN; returns back to 90 deg = CLOSED)
 #define SERVO_MIN_SAFE_DEG       0
 #define SERVO_MAX_SAFE_DEG       180
 #define SERVO_CLOSED_DEG         90
-#define SERVO_OPEN_DEG           120
+#define SERVO_OPEN_DEG           40
 #define SERVO_STEP_DEG           5        // smooth ramp step to limit battery inrush
 #define SERVO_STEP_DELAY_MS      14UL     // delay per step (~155ms crisp smooth ramp)
 #define SERVO_CLOSE_HOLD_MS      900UL    // hold firm torque at closed seat before detaching PWM

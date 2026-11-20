@@ -879,12 +879,14 @@ bool dispenseFeedDuration(int durationSec, const char* triggerType, float nomina
   unsigned long startTime = millis();
   unsigned long lastCloudStopCheck = millis();
   unsigned long durationMs = (unsigned long)durationSec * 1000UL;
+  Serial.printf("[DISPENSE] Gate opened (%d deg) for exact %d s (%lu ms)\n",
+                SERVO_OPEN_DEG, durationSec, durationMs);
 
   while (millis() - startTime < durationMs) {
     unsigned long elapsed = millis() - startTime;
     unsigned long remaining = (elapsed < durationMs) ? (durationMs - elapsed) : 0UL;
-    // Only poll cloud emergency stop when plenty of time remains so HTTPS latency never overruns durationSec
-    unsigned long* cloudStopPtr = (durationSec >= 8 && remaining > 3000UL) ? &lastCloudStopCheck : nullptr;
+    // Never let blocking TLS handshakes overrun timed close (3s/5s/10s/15s stay exact; cloud stop only if >=20s and >8s left)
+    unsigned long* cloudStopPtr = (durationSec >= 20 && remaining > 8000UL) ? &lastCloudStopCheck : nullptr;
     serviceEmergencyInputsDuringDispense(cloudStopPtr);
 
     if (emergencyStopRequested) {
@@ -900,12 +902,15 @@ bool dispenseFeedDuration(int durationSec, const char* triggerType, float nomina
       printTelemetryJson("idle");
       return false;
     }
-    delay(25);
+    delay(10);
   }
 
-  // Immediately drive gate firmly back to SERVO_CLOSED_DEG (with full close-hold torque) BEFORE any network sync!
+  // Immediately drive gate back to SERVO_CLOSED_DEG at exact elapsed duration BEFORE any network sync!
+  unsigned long openElapsedMs = millis() - startTime;
   setGateAngleSmooth(SERVO_CLOSED_DEG, false);
-  int actualDurationSec = max(1, (int)((millis() - startTime) / 1000UL));
+  int actualDurationSec = max(1, (int)((openElapsedMs + 500UL) / 1000UL));
+  Serial.printf("[DISPENSE] Gate closed (%d deg) after %lu ms (requested %d s)\n",
+                SERVO_CLOSED_DEG, openElapsedMs, durationSec);
   float dispensedWeight = 0.0f;
   if (!safeReadScaleGrams(&dispensedWeight, 2) || dispensedWeight < 0.0f) {
     dispensedWeight = 0.0f;
@@ -1120,7 +1125,12 @@ void handleCommand(const String& cmdJson, bool fromCloud) {
   const char* status = doc["status"] | "pending";
   const char* triggerType = doc["triggerType"] | "Manual";
   String scheduleSlotKey = String((const char*)(doc["scheduleSlotKey"] | ""));
-  int durationSec = doc["durationSeconds"] | doc["duration"] | 0;
+  int durationSec = 0;
+  if (!doc["durationSeconds"].isNull()) {
+    durationSec = (int)round(doc["durationSeconds"].as<double>());
+  } else if (!doc["duration"].isNull()) {
+    durationSec = (int)round(doc["duration"].as<double>());
+  }
   float targetGrams = doc["targetGrams"] | 0.0f;
   uint64_t cmdTsMs = doc["timestamp"] | 0ULL;
 
@@ -1166,7 +1176,9 @@ void handleCommand(const String& cmdJson, bool fromCloud) {
     if (cmdId.length() > 0) {
       lastExecutedCommandId = cmdId;
       prefs.putString("lastCmdId", lastExecutedCommandId);
-      updateCommandAckInFirebase(cmdId, action, "inProgress", 0.0f, nullptr);
+      if (strcmp(action, "DISPENSE") != 0) {
+        updateCommandAckInFirebase(cmdId, action, "inProgress", 0.0f, nullptr);
+      }
     }
   }
 
@@ -1291,7 +1303,11 @@ void setupWebServer() {
     if (server.hasArg("plain")) {
       JsonDocument doc;
       if (!deserializeJson(doc, server.arg("plain"))) {
-        durationSec = doc["durationSeconds"] | doc["duration"] | 5;
+        if (!doc["durationSeconds"].isNull()) {
+          durationSec = (int)round(doc["durationSeconds"].as<double>());
+        } else if (!doc["duration"].isNull()) {
+          durationSec = (int)round(doc["duration"].as<double>());
+        }
         targetGrams = doc["targetGrams"] | 0.0f;
       }
     }

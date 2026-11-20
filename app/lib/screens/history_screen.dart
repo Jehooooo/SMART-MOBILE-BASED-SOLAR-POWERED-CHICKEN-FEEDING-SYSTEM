@@ -51,9 +51,11 @@ class _HistoryScreenState extends State<HistoryScreen> {
             : allLogs.where((l) => l.triggerType.startsWith(_selectedFilter)).toList();
 
         final totalFeedings = allLogs.length;
-        final totalGrams = allLogs.fold<double>(0.0, (acc, item) => acc + item.actualGrams);
-        final avgAccuracy = totalFeedings > 0
-            ? allLogs.fold<double>(0.0, (acc, item) => acc + item.accuracyPercent) / totalFeedings
+        final totalGrams = allLogs
+            .where((l) => l.isSuccess)
+            .fold<double>(0.0, (acc, item) => acc + FeederService.configuredGramsForLog(item));
+        final successRate = totalFeedings > 0
+            ? (allLogs.where((l) => l.isSuccess).length / totalFeedings) * 100.0
             : 0.0;
 
         final scheduleCount = allLogs.where((l) => l.triggerType.startsWith('Schedule')).length;
@@ -185,7 +187,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
                                               Row(
                                                 children: [
                                                   _buildSummaryItem('Total Feeds', '$totalFeedings'),
-                                                  _buildSummaryItem('Avg Accuracy', '${avgAccuracy.toStringAsFixed(1)}%'),
+                                                  _buildSummaryItem('Success Rate', '${successRate.toStringAsFixed(0)}%'),
                                                   _buildSummaryItem(
                                                     'Total Dispensed',
                                                     totalGrams >= 1000
@@ -364,8 +366,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
     final dateFormat = DateFormat('MMM dd, yyyy • hh:mm a');
     final formattedDate = dateFormat.format(log.timestamp);
     final relativeTime = _formatRelativeTime(log.timestamp);
-    final errorDiff = log.errorGrams;
-    final isOver = errorDiff >= 0;
+    final dispensedGrams = FeederService.configuredGramsForLog(log);
     final isScheduled = log.triggerType.startsWith('Schedule');
     final isSuccess = log.isSuccess;
 
@@ -434,10 +435,10 @@ class _HistoryScreenState extends State<HistoryScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('Target', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: c.textMuted)),
+                      Text('Duration', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: c.textMuted)),
                       const SizedBox(height: 2),
                       Text(
-                        '${log.targetGrams.toStringAsFixed(1)} g',
+                        '${log.durationSeconds} s',
                         style: TextStyle(fontWeight: FontWeight.w800, fontSize: 14, color: c.textPrimary),
                       ),
                     ],
@@ -451,7 +452,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
                       Text('Dispensed', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: c.textMuted)),
                       const SizedBox(height: 2),
                       Text(
-                        '${log.actualGrams.toStringAsFixed(1)} g',
+                        '${dispensedGrams.toStringAsFixed(0)} g',
                         style: TextStyle(fontWeight: FontWeight.w800, fontSize: 14, color: c.brand),
                       ),
                     ],
@@ -462,21 +463,21 @@ class _HistoryScreenState extends State<HistoryScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.end,
                     children: [
-                      Text('Variance', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: c.textMuted)),
+                      Text('Status', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: c.textMuted)),
                       const SizedBox(height: 2),
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                         decoration: BoxDecoration(
-                          color: (errorDiff.abs() <= 3.0 ? c.success : c.warning).withValues(alpha: 0.12),
+                          color: (isSuccess ? c.success : c.danger).withValues(alpha: 0.12),
                           borderRadius: BorderRadius.circular(8),
                         ),
                         child: Text(
-                          '${isOver ? '+' : ''}${errorDiff.toStringAsFixed(1)} g (${log.accuracyPercent.toStringAsFixed(1)}%)',
+                          isSuccess ? 'Completed' : 'Aborted',
                           overflow: TextOverflow.ellipsis,
                           style: TextStyle(
                             fontWeight: FontWeight.w800,
                             fontSize: 11,
-                            color: errorDiff.abs() <= 3.0 ? c.success : c.warning,
+                            color: isSuccess ? c.success : c.danger,
                           ),
                         ),
                       ),

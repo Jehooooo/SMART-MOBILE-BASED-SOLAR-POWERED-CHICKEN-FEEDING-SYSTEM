@@ -126,7 +126,7 @@ static String lastExecutedScheduleSlot = "";
 static String firebaseIdToken = "";
 static unsigned long lastAuthRefreshMs = 0UL;
 static unsigned long lastAuthFailedMs = 0UL;
-static const unsigned long AUTH_RETRY_COOLDOWN_MS = 60000UL;
+static const unsigned long AUTH_RETRY_COOLDOWN_MS = 10000UL;
 
 // Station Wi-Fi credentials (provisionable via SoftAP NVS or secrets.h fallback)
 static String activeWifiSsid = "";
@@ -520,13 +520,14 @@ bool authenticateFirebase(bool forceRefresh) {
       (millis() - lastAuthRefreshMs < AUTH_REFRESH_INTERVAL_MS)) {
     return true;
   }
-  if (!forceRefresh && firebaseIdToken.length() == 0 && lastAuthFailedMs > 0UL &&
+  if (firebaseIdToken.length() == 0 && lastAuthFailedMs > 0UL &&
       (millis() - lastAuthFailedMs < AUTH_RETRY_COOLDOWN_MS)) {
     return false;
   }
 
   WiFiClientSecure client;
   client.setInsecure();
+  client.setTimeout(6);
   HTTPClient https;
 
   bool usePasswordAuth = isConfiguredValue(FIREBASE_USER_EMAIL) &&
@@ -547,10 +548,13 @@ bool authenticateFirebase(bool forceRefresh) {
   serializeJson(reqDoc, reqBody);
 
   bool ok = false;
+  int lastCode = 0;
   if (https.begin(client, endpoint)) {
     https.addHeader("Content-Type", "application/json");
-    https.setTimeout(3500);
+    https.setConnectTimeout(6000);
+    https.setTimeout(6000);
     int code = https.POST(reqBody);
+    lastCode = code;
     if (code == 200) {
       JsonDocument respDoc;
       if (!deserializeJson(respDoc, https.getString())) {
@@ -562,13 +566,14 @@ bool authenticateFirebase(bool forceRefresh) {
           Serial.println("[AUTH] Firebase ID token acquired.");
         }
       }
-    } else if (usePasswordAuth) {
-      // Fallback to Anonymous signUp if device email account is not created yet
+    } else if (usePasswordAuth && code == 400) {
+      // Fallback to Anonymous signUp only if email/password account is rejected (not on TLS timeout)
       https.end();
       String anonUrl = "https://identitytoolkit.googleapis.com/v1/accounts:signUp?key=" + String(FIREBASE_API_KEY);
       if (https.begin(client, anonUrl)) {
         https.addHeader("Content-Type", "application/json");
-        https.setTimeout(3500);
+        https.setConnectTimeout(6000);
+        https.setTimeout(6000);
         if (https.POST("{\"returnSecureToken\":true}") == 200) {
           JsonDocument respDoc;
           if (!deserializeJson(respDoc, https.getString())) {
@@ -589,7 +594,8 @@ bool authenticateFirebase(bool forceRefresh) {
     lastAuthFailedMs = 0UL;
   } else {
     lastAuthFailedMs = millis();
-    Serial.println("[AUTH WARN] Firebase Auth token unavailable (retrying in 60s); using direct RTDB URL.");
+    Serial.printf("[AUTH WARN] Firebase Auth failed (HTTP %d, RSSI=%d dBm); retrying in 10s.\n",
+                  lastCode, WiFi.RSSI());
   }
   return ok;
 }
@@ -1624,7 +1630,7 @@ bool findVisibleConfiguredNetwork(String& matchedSsid, String& matchedPass) {
 void initWiFi() {
   WiFi.mode(WIFI_AP_STA);
   WiFi.setSleep(false);
-  WiFi.setTxPower(WIFI_POWER_15dBm);
+  WiFi.setTxPower(WIFI_POWER_19_5dBm);
   WiFi.setAutoReconnect(false);
   WiFi.setMinSecurity(WIFI_AUTH_WPA_WPA2_PSK);
 
@@ -1652,7 +1658,8 @@ void initWiFi() {
     }
 
     if (WiFi.status() == WL_CONNECTED) {
-      Serial.printf("[WIFI STA] Connected! IP=%s\n", WiFi.localIP().toString().c_str());
+      Serial.printf("[WIFI STA] Connected! IP=%s RSSI=%d dBm\n",
+                    WiFi.localIP().toString().c_str(), WiFi.RSSI());
       syncNtpAndRtcIfConnected();
       authenticateFirebase(true);
       purgeStaleCommandsOnBoot();
@@ -1677,8 +1684,8 @@ void checkWiFiReconnect() {
 
   if (nowConnected && !wasConnected) {
     wasConnected = true;
-    Serial.printf("[WIFI] Station link active (%s). Syncing clock, purging stale queue & syncing schedules.\n",
-                  WiFi.localIP().toString().c_str());
+    Serial.printf("[WIFI] Station link active (%s, RSSI=%d dBm). Syncing clock, purging stale queue & syncing schedules.\n",
+                  WiFi.localIP().toString().c_str(), WiFi.RSSI());
     syncNtpAndRtcIfConnected();
     authenticateFirebase(false);
     purgeStaleCommandsOnBoot();
@@ -1686,7 +1693,7 @@ void checkWiFiReconnect() {
     printTelemetryJson();
   } else if (!nowConnected) {
     wasConnected = false;
-    if (millis() - lastScanMs >= 60000UL && !isDispensing) {
+    if (millis() - lastScanMs >= 25000UL && !isDispensing) {
       lastScanMs = millis();
       String matchedSsid = "";
       String matchedPass = "";
@@ -1706,22 +1713,27 @@ void syncTelemetryToFirebase(const String& jsonPayload) {
 
   WiFiClientSecure client;
   client.setInsecure();
+  client.setTimeout(5);
   HTTPClient https;
 
   if (https.begin(client, buildFirebaseUrl("telemetry.json"))) {
     https.addHeader("Content-Type", "application/json");
-    https.setTimeout(3000);
+    https.setConnectTimeout(5000);
+    https.setTimeout(5000);
     int httpCode = https.PUT(jsonPayload);
     if (httpCode == 401 && authenticateFirebase(true)) {
       https.end();
       if (https.begin(client, buildFirebaseUrl("telemetry.json"))) {
         https.addHeader("Content-Type", "application/json");
-        https.setTimeout(3000);
+        https.setConnectTimeout(5000);
+        https.setTimeout(5000);
         httpCode = https.PUT(jsonPayload);
       }
     }
     if (httpCode <= 0) {
       Serial.printf("[CLOUD ERROR] Telemetry sync failed: %s\n", https.errorToString(httpCode).c_str());
+    } else if (httpCode != 200) {
+      Serial.printf("[CLOUD WARN] Telemetry sync returned HTTP %d\n", httpCode);
     }
     https.end();
   }

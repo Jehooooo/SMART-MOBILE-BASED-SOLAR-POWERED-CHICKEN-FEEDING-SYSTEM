@@ -11,8 +11,7 @@
 //   - Dual-Mode Wi-Fi (SoftAP + Station) & Authenticated Firebase RTDB REST Sync
 
 #include <Arduino.h>
-#include "soc/soc.h"
-#include "soc/rtc_cntl_reg.h"
+#include <esp_system.h>
 #include <Wire.h>
 #include <WiFi.h>
 #include <WebServer.h>
@@ -150,28 +149,64 @@ void purgeStaleCommandsOnBoot();
 void syncSchedulesFromFirebase();
 void checkAutonomousSchedules();
 
-// Smoothly ramps the DS-S020A-C 30kg servo to limit 5V buck converter inrush spikes on battery
-// and releases PWM holding torque when parked closed (`holdTorque == false`).
+// Smoothly ramps the DS-S020A-C 30kg servo to limit buck converter inrush spikes on battery,
+// writes target angle BEFORE attach() to eliminate startup/re-attach glitch pulses, and
+// releases PWM holding torque when parked closed (`holdTorque == false`).
+static int normalizeBenchServoAngle(int requestedDeg) {
+  if (requestedDeg == 0) return SERVO_CLOSED_DEG;
+  if (requestedDeg >= 170) return SERVO_OPEN_DEG;
+  return constrain(requestedDeg, SERVO_MIN_SAFE_DEG, SERVO_MAX_SAFE_DEG);
+}
+
+void initGateClosedSafely() {
+  currentServoAngle = SERVO_CLOSED_DEG;
+  gate.setPeriodHertz(50);
+  gate.write(SERVO_CLOSED_DEG); // pre-load closed pulse BEFORE attach to prevent startup jerk
+  gate.attach(PIN_SERVO, 500, 2500);
+  gate.write(SERVO_CLOSED_DEG);
+  delay(450);
+  if (gate.attached()) {
+    gate.detach(); // 0 mA idle holding current before Wi-Fi radio starts
+  }
+}
+
 void setGateAngleSmooth(int targetAngle, bool holdTorque = true) {
-  targetAngle = constrain(targetAngle, SERVO_CLOSED_DEG, SERVO_OPEN_DEG);
+  targetAngle = constrain(targetAngle, SERVO_MIN_SAFE_DEG, SERVO_MAX_SAFE_DEG);
   if (!gate.attached()) {
     gate.setPeriodHertz(50);
+    gate.write(currentServoAngle); // pre-load last known angle BEFORE attach to prevent glitch
     gate.attach(PIN_SERVO, 500, 2500);
   }
-  int step = (targetAngle >= currentServoAngle) ? 5 : -5;
+  int step = (targetAngle >= currentServoAngle) ? SERVO_STEP_DEG : -SERVO_STEP_DEG;
   for (int pos = currentServoAngle;
        (step > 0) ? (pos < targetAngle) : (pos > targetAngle);
        pos += step) {
     gate.write(pos);
-    delay(15);
+    delay(SERVO_STEP_DELAY_MS);
   }
   gate.write(targetAngle);
   currentServoAngle = targetAngle;
   if (!holdTorque) {
-    delay(250);
+    delay(300);
     if (gate.attached()) {
       gate.detach();
     }
+  }
+}
+
+static const char* resetReasonToString(esp_reset_reason_t reason) {
+  switch (reason) {
+    case ESP_RST_POWERON:  return "POWERON";
+    case ESP_RST_EXT:      return "EXTERNAL_PIN";
+    case ESP_RST_SW:       return "SOFTWARE";
+    case ESP_RST_PANIC:    return "PANIC";
+    case ESP_RST_INT_WDT:  return "INT_WDT";
+    case ESP_RST_TASK_WDT: return "TASK_WDT";
+    case ESP_RST_WDT:      return "OTHER_WDT";
+    case ESP_RST_DEEPSLEEP:return "DEEPSLEEP";
+    case ESP_RST_BROWNOUT: return "BROWNOUT (LOW VOLTAGE!)";
+    case ESP_RST_SDIO:     return "SDIO";
+    default:               return "UNKNOWN";
   }
 }
 
@@ -1146,11 +1181,13 @@ void handleCommand(const String& cmdJson, bool fromCloud) {
       updateCommandAckInFirebase(cmdId, action, finalState, actualG, execErr.c_str());
     }
   } else if (strcmp(action, "SERVO_TEST") == 0 || strcmp(action, "TEST_SERVO") == 0) {
-    int angle = doc["servoAngle"] | doc["angle"] | (int)round(targetGrams);
-    angle = constrain(angle, SERVO_CLOSED_DEG, SERVO_OPEN_DEG);
-    setGateAngleSmooth(angle, angle > SERVO_CLOSED_DEG);
-    servoTestAutoCloseAtMs = (angle > SERVO_CLOSED_DEG) ? (millis() + SERVO_TEST_AUTO_CLOSE_MS) : 0UL;
-    Serial.printf("[CMD] Servo bench angle set to %d deg\n", angle);
+    int rawAngle = doc["servoAngle"] | doc["angle"] | (int)round(targetGrams);
+    int angle = normalizeBenchServoAngle(rawAngle);
+    bool isAwayFromClosed = (angle != SERVO_CLOSED_DEG);
+    setGateAngleSmooth(angle, isAwayFromClosed);
+    servoTestAutoCloseAtMs = isAwayFromClosed ? (millis() + SERVO_TEST_AUTO_CLOSE_MS) : 0UL;
+    Serial.printf("[CMD] Servo bench angle set to %d deg (requested=%d, closed=%d)\n",
+                  angle, rawAngle, SERVO_CLOSED_DEG);
     if (fromCloud && cmdId.length() > 0) {
       updateCommandAckInFirebase(cmdId, action, "completed", 0.0f, nullptr);
     }
@@ -1329,9 +1366,10 @@ void setupWebServer() {
       }
     }
     if (server.hasArg("angle")) angle = server.arg("angle").toInt();
-    angle = constrain(angle, SERVO_CLOSED_DEG, SERVO_OPEN_DEG);
-    setGateAngleSmooth(angle, angle > SERVO_CLOSED_DEG);
-    servoTestAutoCloseAtMs = (angle > SERVO_CLOSED_DEG) ? (millis() + SERVO_TEST_AUTO_CLOSE_MS) : 0UL;
+    angle = normalizeBenchServoAngle(angle);
+    bool isAwayFromClosed = (angle != SERVO_CLOSED_DEG);
+    setGateAngleSmooth(angle, isAwayFromClosed);
+    servoTestAutoCloseAtMs = isAwayFromClosed ? (millis() + SERVO_TEST_AUTO_CLOSE_MS) : 0UL;
     server.sendHeader("Access-Control-Allow-Origin", "*");
     server.send(200, "application/json", "{\"status\":\"ok\",\"angle\":" + String(angle) + "}");
   });
@@ -1751,16 +1789,16 @@ void pollFirebaseCommands() {
 }
 
 void setup() {
-  WRITE_PERI_REG(RTC_CNTL_BROWN_OUT_REG, 0); // Prevent servo/Wi-Fi inrush brownout resets on battery
   Serial.begin(115200);
+  esp_reset_reason_t rstReason = esp_reset_reason();
 #if HAS_ULTRASONIC
   pinMode(PIN_US_TRIG, OUTPUT);
   pinMode(PIN_US_ECHO, INPUT_PULLDOWN);
 #endif
   analogReadResolution(12);
 
-  // Immediately close dispenser gate on boot and release holding torque for battery safety
-  setGateAngleSmooth(SERVO_CLOSED_DEG, false);
+  // Immediately seat dispenser gate at center-closed position (no startup jerk) and release PWM before Wi-Fi starts
+  initGateClosedSafely();
 
   prefs.begin("feeder", false);
   loadPersistentStateFromNvs();
@@ -1785,7 +1823,10 @@ void setup() {
 #endif
 
   Serial.println("=================================================");
-  Serial.println(" Smart Chicken Feeder - Hardened Firmware v1.1   ");
+  Serial.println(" Smart Chicken Feeder - Hardened Firmware v1.2   ");
+  Serial.printf(" Reset Reason: %s\n", resetReasonToString(rstReason));
+  Serial.printf(" Servo Safe Range: %d..%d deg (Closed=%d, Open=%d)\n",
+                SERVO_MIN_SAFE_DEG, SERVO_MAX_SAFE_DEG, SERVO_CLOSED_DEG, SERVO_OPEN_DEG);
   Serial.println(" Dual Mode: Direct SoftAP + Authenticated Cloud  ");
   Serial.println("=================================================");
 
@@ -1801,7 +1842,7 @@ void loop() {
   if (!isDispensing && servoTestAutoCloseAtMs > 0UL && millis() >= servoTestAutoCloseAtMs) {
     servoTestAutoCloseAtMs = 0UL;
     setGateAngleSmooth(SERVO_CLOSED_DEG, false);
-    Serial.println("[SAFETY] Bench servo test auto-closed gate to 0 deg.");
+    Serial.printf("[SAFETY] Bench servo test auto-closed gate to %d deg.\n", SERVO_CLOSED_DEG);
   }
 
   static unsigned long lastTelemetry = 0UL;

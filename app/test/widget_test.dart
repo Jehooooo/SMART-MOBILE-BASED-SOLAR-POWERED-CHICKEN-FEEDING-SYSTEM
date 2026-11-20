@@ -53,7 +53,7 @@ void main() {
 
       // Now on main dashboard
       expect(find.text('Smart Chicken Feeder'), findsOneWidget);
-      expect(find.text('Feed Hopper Level'), findsOneWidget);
+      expect(find.text('Feed Dispenser Scale'), findsOneWidget);
       expect(find.text('Dashboard'), findsOneWidget);
       expect(find.text('Schedules'), findsOneWidget);
       expect(find.text('History & Logs'), findsOneWidget);
@@ -74,9 +74,9 @@ void main() {
 
       // Check dashboard headers & Nielsen status elements
       expect(find.text('Smart Chicken Feeder'), findsOneWidget);
-      expect(find.text('Feed Hopper Level'), findsOneWidget);
+      expect(find.text('Feed Dispenser Scale'), findsOneWidget);
       expect(find.text('Solar System'), findsOneWidget);
-      expect(find.text('Battery Level'), findsOneWidget);
+      expect(find.text('Dispensed Today'), findsOneWidget);
       expect(find.text('Next Automated Feeding'), findsOneWidget);
       expect(find.text('Manual Feed Trigger'), findsOneWidget);
 

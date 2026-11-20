@@ -18,9 +18,15 @@
 #define PIN_RTC_SDA        25   // DS3231 I2C SDA (unused when HAS_RTC_DS3231 == 0)
 #define PIN_RTC_SCL        26   // DS3231 I2C SCL (unused when HAS_RTC_DS3231 == 0)
 
-// ---------- Servo ----------
-#define SERVO_CLOSED_DEG   0
-#define SERVO_OPEN_DEG     180
+// ---------- Servo (DS-S020A-C 30kg — Center-Closed Gate Geometry) ----------
+// 90 deg = Middle (orange paddle centered directly under hopper pipe = CLOSED)
+// 145 deg = Right (55 deg sweep over support roller = OPEN, clear of frame posts)
+#define SERVO_MIN_SAFE_DEG       25
+#define SERVO_MAX_SAFE_DEG       165
+#define SERVO_CLOSED_DEG         90
+#define SERVO_OPEN_DEG           145
+#define SERVO_STEP_DEG           4        // smooth ramp step to limit battery inrush
+#define SERVO_STEP_DELAY_MS      18UL     // delay per step (~250ms smooth ramp)
 #define SERVO_TEST_AUTO_CLOSE_MS 10000UL  // safety auto-close after bench angle test
 
 // ---------- Dispensing & Safety Interlocks ----------

@@ -388,10 +388,20 @@ class FeederService extends ChangeNotifier {
     _isCommandInFlight = true;
     try {
       _lastErrorMessage = null;
-      return await _adapter.triggerManualDispense(
-        durationSeconds: durationSeconds.clamp(1, 60),
+      final clampedSec = durationSeconds.clamp(1, 60);
+      final effectiveTarget = targetGrams > 0 ? targetGrams : (clampedSec * 20.0);
+      final ok = await _adapter.triggerManualDispense(
+        durationSeconds: clampedSec,
         targetGrams: targetGrams,
       );
+      if (ok) {
+        unawaited(alertService.notifyDispenseTriggered(
+          durationSeconds: clampedSec,
+          targetGrams: effectiveTarget,
+          triggerLabel: 'Manual Feed',
+        ));
+      }
+      return ok;
     } finally {
       _isCommandInFlight = false;
     }
@@ -413,7 +423,15 @@ class FeederService extends ChangeNotifier {
     _isCommandInFlight = true;
     try {
       _lastErrorMessage = null;
-      return await _adapter.triggerScheduleDispense(schedule);
+      final ok = await _adapter.triggerScheduleDispense(schedule);
+      if (ok) {
+        unawaited(alertService.notifyDispenseTriggered(
+          durationSeconds: schedule.durationSeconds.clamp(1, 60),
+          targetGrams: schedule.targetGrams,
+          triggerLabel: 'Schedule (${schedule.label})',
+        ));
+      }
+      return ok;
     } finally {
       _isCommandInFlight = false;
     }

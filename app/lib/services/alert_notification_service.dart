@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import '../models/telemetry.dart';
 import '../models/feeding_log.dart';
@@ -34,6 +35,8 @@ class FeederAlert {
 /// - Gracefully degrades to in-app alert stream when OS notification permissions
 ///   are denied or when running in headless test environments.
 class AlertNotificationService {
+  static const MethodChannel _soundChannel = MethodChannel('smart_chicken_feeder/sound');
+
   final Duration cooldown;
   final bool enableOsNotifications;
 
@@ -160,7 +163,39 @@ class AlertNotificationService {
     return emitted;
   }
 
-  /// Evaluates newly recorded feeding logs so failed or aborted cycles notify the user once.
+  /// Plays the 1-second chicken cluck sound effect on Android devices.
+  Future<void> playChickenCluckSound() async {
+    if (_disposed || !enableOsNotifications || kIsWeb) return;
+    if (defaultTargetPlatform != TargetPlatform.android) return;
+    try {
+      await _soundChannel.invokeMethod<bool>('playChickenCluck');
+    } catch (_) {
+      // Safe no-op in widget tests or unsupported platforms
+    }
+  }
+
+  /// Emits an immediate phone notification and 1-second chicken cluck when the user taps DISPENSE NOW.
+  Future<FeederAlert?> notifyDispenseTriggered({
+    required int durationSeconds,
+    required double targetGrams,
+    String triggerLabel = 'Manual Feed',
+  }) async {
+    if (_disposed) return null;
+    final now = DateTime.now();
+    final portionGrams = targetGrams > 0 ? targetGrams : (durationSeconds * 20.0);
+    final alert = FeederAlert(
+      id: 'alert_dispense_start_${now.millisecondsSinceEpoch}',
+      category: 'dispense_started',
+      title: '🐔 Dispensing Feed Now',
+      message: '$triggerLabel started for ${durationSeconds}s (~${portionGrams.toInt()} g).',
+      severity: FeederAlertSeverity.info,
+      timestamp: now,
+    );
+    await _recordAndDispatch(alert, playChickenSound: true);
+    return alert;
+  }
+
+  /// Evaluates newly recorded feeding logs so completed (scheduled or manual) and failed cycles notify the user once.
   Future<FeederAlert?> evaluateFeedingLog(FeedingLog log) async {
     if (_disposed) return null;
     if (_alertedLogIds.contains(log.id)) return null;
@@ -171,20 +206,36 @@ class AlertNotificationService {
       return null;
     }
 
-    if (!log.isSuccess) {
+    final portionGrams = log.targetGrams > 0
+        ? log.targetGrams
+        : (log.durationSeconds > 0 ? log.durationSeconds * 20.0 : log.actualGrams);
+
+    if (log.isSuccess) {
+      final isScheduled = log.triggerType.startsWith('Schedule');
+      final alert = FeederAlert(
+        id: 'alert_${log.id}',
+        category: 'dispense_completed',
+        title: isScheduled ? '🐔 Scheduled Feeding Complete' : '🐔 Feeding Complete',
+        message:
+            '${log.triggerType} dispensed ${portionGrams.toInt()} g (${log.durationSeconds}s).',
+        severity: FeederAlertSeverity.info,
+        timestamp: DateTime.now(),
+      );
+      await _recordAndDispatch(alert, playChickenSound: true);
+      return alert;
+    } else {
       final alert = FeederAlert(
         id: 'alert_${log.id}',
         category: 'dispense_failed',
         title: 'Feeding Cycle Incomplete',
         message:
-            '${log.triggerType} dispensed ${log.actualGrams.toStringAsFixed(1)}g of ${log.targetGrams.toStringAsFixed(0)}g target. Inspect feeder.',
+            '${log.triggerType} aborted/failed after ${log.durationSeconds}s (target ${portionGrams.toInt()} g). Inspect feeder.',
         severity: FeederAlertSeverity.critical,
         timestamp: DateTime.now(),
       );
       await _recordAndDispatch(alert);
       return alert;
     }
-    return null;
   }
 
   /// Recordsexisting log IDs during initial cache/cloud load so historical entries never re-alert.
@@ -221,7 +272,7 @@ class AlertNotificationService {
     return alert;
   }
 
-  Future<void> _recordAndDispatch(FeederAlert alert) async {
+  Future<void> _recordAndDispatch(FeederAlert alert, {bool playChickenSound = false}) async {
     if (_disposed) return;
     _recentAlerts.insert(0, alert);
     if (_recentAlerts.length > 50) {
@@ -231,17 +282,31 @@ class AlertNotificationService {
       _alertController.add(alert);
     }
 
+    if (playChickenSound) {
+      unawaited(playChickenCluckSound());
+    }
+
     if (_osNotificationsAvailable && _plugin != null) {
       try {
-        const androidDetails = AndroidNotificationDetails(
-          'feeder_safety_alerts',
-          'Feeder Safety & Telemetry Alerts',
-          channelDescription: 'Real-time alerts for low feed, low solar battery, and dispenser faults',
-          importance: Importance.high,
-          priority: Priority.high,
-        );
-        const iosDetails = DarwinNotificationDetails();
-        const details = NotificationDetails(android: androidDetails, iOS: iosDetails);
+        final androidDetails = playChickenSound
+            ? const AndroidNotificationDetails(
+                'feeder_chicken_cluck_v1',
+                'Chicken Feeder Dispense Notifications',
+                channelDescription: 'Notifications with 1-second chicken sound when manual or scheduled feeding runs',
+                importance: Importance.max,
+                priority: Priority.high,
+                playSound: true,
+                sound: RawResourceAndroidNotificationSound('chicken_cluck'),
+              )
+            : const AndroidNotificationDetails(
+                'feeder_safety_alerts',
+                'Feeder Safety & Telemetry Alerts',
+                channelDescription: 'Real-time alerts for low feed, low solar battery, and dispenser faults',
+                importance: Importance.high,
+                priority: Priority.high,
+              );
+        const iosDetails = DarwinNotificationDetails(presentAlert: true, presentSound: true);
+        final details = NotificationDetails(android: androidDetails, iOS: iosDetails);
         await _plugin!.show(
           id: _nextNotificationId++,
           title: alert.title,

@@ -149,9 +149,9 @@ void purgeStaleCommandsOnBoot();
 void syncSchedulesFromFirebase();
 void checkAutonomousSchedules();
 
-// Smoothly ramps the DS-S020A-C 30kg servo to limit buck converter inrush spikes on battery,
-// writes target angle BEFORE attach() to eliminate startup/re-attach glitch pulses, and
-// releases PWM holding torque when parked closed (`holdTorque == false`).
+// Smoothly ramps the DS-S020A-C 30kg servo to limit buck converter inrush spikes on battery
+// and keeps 16-bit PWM continuously attached so the gate actively holds SERVO_CLOSED_DEG
+// without ESP32Servo detach/re-attach glitches or floating-pin drift.
 static int normalizeBenchServoAngle(int requestedDeg) {
   if (requestedDeg == 0) return SERVO_CLOSED_DEG;
   if (requestedDeg >= 170) return SERVO_OPEN_DEG;
@@ -161,22 +161,24 @@ static int normalizeBenchServoAngle(int requestedDeg) {
 void initGateClosedSafely() {
   currentServoAngle = SERVO_CLOSED_DEG;
   gate.setPeriodHertz(50);
-  gate.write(SERVO_CLOSED_DEG); // pre-load closed pulse BEFORE attach to prevent startup jerk
   gate.attach(PIN_SERVO, 500, 2500);
+  gate.setTimerWidth(16); // full 16-bit PWM precision (~0.3 us/tick)
   gate.write(SERVO_CLOSED_DEG);
   delay(SERVO_CLOSE_HOLD_MS);
-  if (gate.attached()) {
-    gate.detach(); // 0 mA idle holding current before Wi-Fi radio starts
-  }
+  Serial.printf("[SERVO] Boot gate seated & actively held at %d deg (%d us)\n",
+                SERVO_CLOSED_DEG, gate.readMicroseconds());
 }
 
 void setGateAngleSmooth(int targetAngle, bool holdTorque = true) {
+  (void)holdTorque; // keep PWM attached continuously so servo holds exact angle with zero re-attach glitch
   targetAngle = constrain(targetAngle, SERVO_MIN_SAFE_DEG, SERVO_MAX_SAFE_DEG);
   if (!gate.attached()) {
     gate.setPeriodHertz(50);
-    gate.write(currentServoAngle); // pre-load last known angle BEFORE attach to prevent glitch
     gate.attach(PIN_SERVO, 500, 2500);
+    gate.setTimerWidth(16);
+    gate.write(currentServoAngle);
   }
+  int startAngle = currentServoAngle;
   int step = (targetAngle >= currentServoAngle) ? SERVO_STEP_DEG : -SERVO_STEP_DEG;
   for (int pos = currentServoAngle;
        (step > 0) ? (pos < targetAngle) : (pos > targetAngle);
@@ -186,12 +188,11 @@ void setGateAngleSmooth(int targetAngle, bool holdTorque = true) {
   }
   gate.write(targetAngle);
   currentServoAngle = targetAngle;
-  if (!holdTorque) {
-    // Hold firm torque long enough for the 30kg servo to cut through feed and fully seat closed
-    delay(SERVO_CLOSE_HOLD_MS);
-    if (gate.attached()) {
-      gate.detach();
-    }
+  Serial.printf("[SERVO] Moved %d deg -> %d deg (%d us)\n",
+                startAngle, targetAngle, gate.readMicroseconds());
+  if (targetAngle == SERVO_CLOSED_DEG) {
+    // Brief settle pause while actively holding closed torque so feed clears before weight sample
+    delay(300UL);
   }
 }
 
@@ -1814,7 +1815,7 @@ void setup() {
 #endif
   analogReadResolution(12);
 
-  // Immediately seat dispenser gate at center-closed position (no startup jerk) and release PWM before Wi-Fi starts
+  // Immediately seat and actively hold dispenser gate at SERVO_CLOSED_DEG before Wi-Fi starts
   initGateClosedSafely();
 
   prefs.begin("feeder", false);

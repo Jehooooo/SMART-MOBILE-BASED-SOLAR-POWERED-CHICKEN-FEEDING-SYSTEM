@@ -413,6 +413,15 @@ const char* evaluateSystemStatus(float feedLevel, float vbat) {
 
 // ---------- Telemetry & Activity Logging ----------
 
+static bool isDaylightSolarWindow() {
+  struct tm localTm;
+  if (getLocalCalendarTime(&localTm)) {
+    // Daylight solar charging window: 06:00 AM – 05:59 PM local time (UTC+8)
+    return (localTm.tm_hour >= 6 && localTm.tm_hour < 18);
+  }
+  return false;
+}
+
 String buildTelemetryJsonString(const char* statusOverride = nullptr) {
   float level = readFeedLevelPercent();
   float vbat = readBatteryVolts();
@@ -433,7 +442,11 @@ String buildTelemetryJsonString(const char* statusOverride = nullptr) {
   doc["lastHeartbeat"] = getEpochMillis();
   doc["lastFedTimestamp"] = lastFedTimestampMs;
   doc["lastFedGrams"] = round(lastFedGrams * 10.0f) / 10.0f;
-  doc["isSolarCharging"] = (vbat > 12.6f);
+#if HAS_BATTERY_ADC
+  doc["isSolarCharging"] = (vbat > 12.6f) || isDaylightSolarWindow();
+#else
+  doc["isSolarCharging"] = isDaylightSolarWindow();
+#endif
   if (lastSensorError.length() > 0) {
     doc["sensorError"] = lastSensorError;
   }

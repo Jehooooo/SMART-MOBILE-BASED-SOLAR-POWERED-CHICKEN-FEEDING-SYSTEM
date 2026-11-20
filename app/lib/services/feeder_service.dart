@@ -304,6 +304,35 @@ class FeederService extends ChangeNotifier {
 
   int get activeScheduleCount => _schedules.where((s) => s.isEnabled).length;
 
+  /// Total grams dispensed today based on recorded feeding logs.
+  double get todayDispensedGrams {
+    final now = DateTime.now();
+    return _history
+        .where((l) =>
+            l.timestamp.year == now.year &&
+            l.timestamp.month == now.month &&
+            l.timestamp.day == now.day)
+        .fold<double>(0.0, (acc, item) => acc + item.actualGrams);
+  }
+
+  /// Number of feeding cycles logged today.
+  int get todayFeedCount {
+    final now = DateTime.now();
+    return _history
+        .where((l) =>
+            l.timestamp.year == now.year &&
+            l.timestamp.month == now.month &&
+            l.timestamp.day == now.day)
+        .length;
+  }
+
+  /// Most recent dispensed weight in grams (prefers live telemetry, falls back to latest log).
+  double get latestDispensedGrams {
+    if (_telemetry.lastFedGrams > 0) return _telemetry.lastFedGrams;
+    if (_history.isNotEmpty) return _history.first.actualGrams;
+    return 0.0;
+  }
+
   /// Attempts to re-establish the connection and verify live controller heartbeat.
   Future<bool> retryConnection() async {
     _connection = FeederConnection.connecting;

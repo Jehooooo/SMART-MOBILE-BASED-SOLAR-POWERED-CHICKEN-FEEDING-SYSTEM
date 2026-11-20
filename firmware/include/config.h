@@ -19,15 +19,15 @@
 #define PIN_RTC_SCL        26   // DS3231 I2C SCL (unused when HAS_RTC_DS3231 == 0)
 
 // ---------- Servo (DS-S020A-C 30kg — Calibrated Gate Geometry) ----------
-// 50 deg = Closed (centered directly under hopper pipe = CLOSED)
-// 10 deg = Open (40 deg sweep from 50 -> 10 = OPEN; returns 10 -> 50 = CLOSED)
+// 30 deg = Full Close (aligned directly under hopper pipe = CLOSED)
+// 0 deg  = Full Open (30 deg sweep from 30 -> 0 = OPEN; returns 0 -> 30 = CLOSED)
 #define SERVO_MIN_SAFE_DEG       0
 #define SERVO_MAX_SAFE_DEG       180
-#define SERVO_CLOSED_DEG         50
-#define SERVO_OPEN_DEG           10
+#define SERVO_CLOSED_DEG         30
+#define SERVO_OPEN_DEG           0
 #define SERVO_STEP_DEG           5        // smooth ramp step to limit battery inrush
-#define SERVO_STEP_DELAY_MS      14UL     // delay per step (~155ms crisp smooth ramp)
-#define SERVO_CLOSE_HOLD_MS      900UL    // hold firm torque at closed seat before detaching PWM
+#define SERVO_STEP_DELAY_MS      14UL     // delay per step (~84ms crisp smooth ramp)
+#define SERVO_CLOSE_HOLD_MS      900UL    // boot seat hold delay while keeping active PWM torque
 #define SERVO_TEST_AUTO_CLOSE_MS 10000UL  // safety auto-close after bench angle test
 
 // ---------- Dispensing & Safety Interlocks ----------

@@ -304,16 +304,31 @@ class FeederService extends ChangeNotifier {
 
   int get activeScheduleCount => _schedules.where((s) => s.isEnabled).length;
 
-  /// Total grams dispensed today based on recorded feeding logs.
+  /// Returns the configured portion grams from the interface/schedule for a log entry
+  /// (e.g., 3s -> 60g, 5s -> 100g, 10s -> 200g) so UI totals stay consistent even when
+  /// the physical load cell is uncalibrated.
+  static double configuredGramsForLog(FeedingLog log) {
+    if (log.targetGrams > 0) return log.targetGrams;
+    if (log.durationSeconds > 0) return log.durationSeconds * 20.0;
+    return log.actualGrams;
+  }
+
+  /// Total configured portion grams dispensed today based on recorded feeding logs.
   double get todayDispensedGrams {
     final now = DateTime.now();
     return _history
         .where((l) =>
+            l.isSuccess &&
             l.timestamp.year == now.year &&
             l.timestamp.month == now.month &&
             l.timestamp.day == now.day)
-        .fold<double>(0.0, (acc, item) => acc + item.actualGrams);
+        .fold<double>(0.0, (acc, item) => acc + configuredGramsForLog(item));
   }
+
+  /// Cumulative configured portion grams dispensed across all successful logs.
+  double get totalDispensedGrams => _history
+      .where((l) => l.isSuccess)
+      .fold<double>(0.0, (acc, item) => acc + configuredGramsForLog(item));
 
   /// Number of feeding cycles logged today.
   int get todayFeedCount {
@@ -326,10 +341,10 @@ class FeederService extends ChangeNotifier {
         .length;
   }
 
-  /// Most recent dispensed weight in grams (prefers live telemetry, falls back to latest log).
+  /// Most recent dispensed portion in grams based on the selected interface/schedule portion.
   double get latestDispensedGrams {
+    if (_history.isNotEmpty) return configuredGramsForLog(_history.first);
     if (_telemetry.lastFedGrams > 0) return _telemetry.lastFedGrams;
-    if (_history.isNotEmpty) return _history.first.actualGrams;
     return 0.0;
   }
 

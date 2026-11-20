@@ -43,12 +43,17 @@ class _DashboardScreenState extends State<DashboardScreen> {
     return 'in ${hours}h ${minutes}m';
   }
 
-  String _getHopperEstimatedDays(double feedPercent, double dailyTarget) {
-    final totalCapacityGrams = _settings.hopperCapacityKg * 1000.0; // Hopper capacity from Settings
-    final remainingGrams = (feedPercent / 100.0) * totalCapacityGrams;
-    if (dailyTarget <= 0) return '~${(remainingGrams / 1000.0).toStringAsFixed(1)} kg available';
-    final days = remainingGrams / dailyTarget;
-    return '~${days.toStringAsFixed(1)} days left';
+  bool _isSolarDaylight(FeederTelemetry telemetry) {
+    if (widget.feederService.isMock) return telemetry.isSolarCharging;
+    final hour = DateTime.now().hour;
+    return hour >= 6 && hour < 18;
+  }
+
+  String _formatGrams(double grams) {
+    if (grams >= 1000.0) {
+      return '${(grams / 1000.0).toStringAsFixed(2)} kg';
+    }
+    return '${grams.toStringAsFixed(1)} g';
   }
 
   @override
@@ -216,25 +221,31 @@ class _DashboardScreenState extends State<DashboardScreen> {
         builder: (context, constraints) {
           final isWide = constraints.maxWidth >= 768;
 
+          final bool isSolarCharging = _isSolarDaylight(telemetry);
+          final double todayGrams = widget.feederService.todayDispensedGrams;
+          final int todayCount = widget.feederService.todayFeedCount;
+
           final metricsRow = Row(
             children: [
               Expanded(
                 child: _buildMetricTile(
-                  icon: Icons.solar_power,
-                  iconColor: c.solar,
+                  icon: isSolarCharging ? Icons.wb_sunny_rounded : Icons.nights_stay_rounded,
+                  iconColor: isSolarCharging ? c.solar : c.textMuted,
                   title: 'Solar System',
-                  value: telemetry.isSolarCharging ? 'Charging' : 'Idle',
-                  subtitle: '12V Solar Panel',
+                  value: isSolarCharging ? 'Charging' : 'Idle',
+                  subtitle: isSolarCharging ? '12V Solar • Daylight' : '12V Solar • Nighttime',
                 ),
               ),
               const SizedBox(width: 12),
               Expanded(
                 child: _buildMetricTile(
-                  icon: Icons.battery_charging_full,
-                  iconColor: telemetry.batteryPercent > _settings.lowBatteryThreshold + 10 ? c.success : c.danger,
-                  title: 'Battery Level',
-                  value: '${telemetry.batteryPercent}%',
-                  subtitle: '${telemetry.batteryVolts.toStringAsFixed(1)} Volts',
+                  icon: Icons.restaurant_rounded,
+                  iconColor: c.brand,
+                  title: 'Dispensed Today',
+                  value: _formatGrams(todayGrams),
+                  subtitle: todayCount == 0
+                      ? 'No feeds logged today'
+                      : '$todayCount feed${todayCount == 1 ? '' : 's'} logged today',
                 ),
               ),
             ],
@@ -496,109 +507,113 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   Widget _buildHopperCard(FeederTelemetry telemetry, double dailyTarget) {
     final c = context.colors;
-    final pct = telemetry.feedLevelPercent;
-    final lowFeed = _settings.lowFeedThreshold;
-    final capacityKg = _settings.hopperCapacityKg;
-    final color = pct > lowFeed * 2 ? c.brand : (pct > lowFeed ? c.warning : c.danger);
-    final remainingKg = ((pct / 100.0) * capacityKg).clamp(0.0, capacityKg);
-    final daysSupplyText = _getHopperEstimatedDays(pct, dailyTarget);
+    final double liveTrayGrams = telemetry.currentWeightGrams;
+    final double lastDispensedGrams = widget.feederService.latestDispensedGrams;
+    final double todayGrams = widget.feederService.todayDispensedGrams;
+    final bool showingLiveWeight = widget.feederService.isDispensing || liveTrayGrams > 0.5;
+    final double headlineGrams = showingLiveWeight ? liveTrayGrams : lastDispensedGrams;
+    final double barTargetGrams = dailyTarget > 0 ? dailyTarget : 500.0;
+    final double progress = (todayGrams / barTargetGrams).clamp(0.0, 1.0);
+    final Color color = showingLiveWeight ? c.info : c.brand;
 
     return LiquidGlassCard(
       borderRadius: BorderRadius.circular(22),
       padding: const EdgeInsets.all(20.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Expanded(
-                  child: Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(10),
-                        decoration: BoxDecoration(
-                          color: color.withValues(alpha: 0.12),
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Icon(Icons.inventory_2_outlined, color: color, size: 22),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Expanded(
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: color.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(12),
                       ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Feed Hopper Level',
-                              style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.w800,
-                                letterSpacing: -0.2,
-                                color: c.textPrimary,
-                              ),
+                      child: Icon(Icons.scale_rounded, color: color, size: 22),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Feed Dispenser Scale',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w800,
+                              letterSpacing: -0.2,
+                              color: c.textPrimary,
                             ),
-                            Text(
-                              'Telemetry Source: HC-SR04 Ultrasonic Sensor',
-                              style: TextStyle(fontSize: 11, color: c.textMuted),
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ],
-                        ),
+                          ),
+                          Text(
+                            showingLiveWeight
+                                ? 'Live Tray Weight • HX711 Load Cell'
+                                : 'Last Dispensed • HX711 Load Cell',
+                            style: TextStyle(fontSize: 11, color: c.textMuted),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ],
                       ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
-                const SizedBox(width: 8),
-                Text(
-                  '${pct.toStringAsFixed(0)}%',
-                  style: TextStyle(
-                    fontSize: 28,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: -0.5,
-                    color: color,
-                  ),
+              ),
+              const SizedBox(width: 8),
+              Text(
+                _formatGrams(headlineGrams),
+                style: TextStyle(
+                  fontSize: 28,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: -0.5,
+                  color: color,
                 ),
-              ],
-            ),
-            const SizedBox(height: 18),
-            LiquidProgressBar(
-              value: (pct / 100.0).clamp(0.0, 1.0),
-              height: 18,
-              color: color,
-            ),
-            const SizedBox(height: 16),
-            Wrap(
-              spacing: 8,
-              runSpacing: 6,
-              alignment: WrapAlignment.spaceBetween,
-              children: [
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: c.surfaceMuted,
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(color: c.border.withValues(alpha: 0.6)),
-                  ),
-                  child: Text(
-                    '~${remainingKg.toStringAsFixed(2)} kg remaining (of ${capacityKg.toStringAsFixed(1)} kg)',
-                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: c.textSecondary),
-                  ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 18),
+          LiquidProgressBar(
+            value: progress,
+            height: 18,
+            color: color,
+          ),
+          const SizedBox(height: 16),
+          Wrap(
+            spacing: 8,
+            runSpacing: 6,
+            alignment: WrapAlignment.spaceBetween,
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: c.surfaceMuted,
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(color: c.border.withValues(alpha: 0.6)),
                 ),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: c.brandSoft,
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: Text(
-                    daysSupplyText,
-                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: c.brand),
-                  ),
+                child: Text(
+                  'Live Tray: ${liveTrayGrams.toStringAsFixed(1)} g',
+                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: c.textSecondary),
                 ),
-              ],
-            ),
-          ],
-        ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: c.brandSoft,
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Text(
+                  'Last Dispensed: ${lastDispensedGrams.toStringAsFixed(1)} g',
+                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: c.brand),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
     );
   }
 

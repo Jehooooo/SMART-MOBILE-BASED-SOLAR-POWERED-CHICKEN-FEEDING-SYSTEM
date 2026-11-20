@@ -62,10 +62,24 @@
 #define WIFI_ALT_PASSWORD_1 ""
 #endif
 #ifndef WIFI_ALT_SSID_2
+#ifdef SSID_IP_DATA_HOTSPOT
+#define WIFI_ALT_SSID_2 SSID_IP_DATA_HOTSPOT
+#else
 #define WIFI_ALT_SSID_2 ""
 #endif
+#endif
 #ifndef WIFI_ALT_PASSWORD_2
+#ifdef SSID_IP_DATA_PASSWORD
+#define WIFI_ALT_PASSWORD_2 SSID_IP_DATA_PASSWORD
+#else
 #define WIFI_ALT_PASSWORD_2 ""
+#endif
+#endif
+#ifndef WIFI_ALT_SSID_3
+#define WIFI_ALT_SSID_3 ""
+#endif
+#ifndef WIFI_ALT_PASSWORD_3
+#define WIFI_ALT_PASSWORD_3 ""
 #endif
 #ifndef FIREBASE_USER_EMAIL
 #define FIREBASE_USER_EMAIL ""
@@ -1627,15 +1641,16 @@ bool findVisibleConfiguredNetwork(String& matchedSsid, String& matchedPass) {
     const char* ssid;
     const char* pass;
   };
-  WifiCandidate candidates[4] = {
+  WifiCandidate candidates[5] = {
     { activeWifiSsid.c_str(), activeWifiPass.c_str() },
     { WIFI_SSID, WIFI_PASSWORD },
     { WIFI_ALT_SSID_1, WIFI_ALT_PASSWORD_1 },
-    { WIFI_ALT_SSID_2, WIFI_ALT_PASSWORD_2 }
+    { WIFI_ALT_SSID_2, WIFI_ALT_PASSWORD_2 },
+    { WIFI_ALT_SSID_3, WIFI_ALT_PASSWORD_3 }
   };
 
   bool hasAnyCandidate = false;
-  for (int c = 0; c < 4; c++) {
+  for (int c = 0; c < 5; c++) {
     if (isConfiguredValue(candidates[c].ssid)) {
       hasAnyCandidate = true;
       break;
@@ -1645,14 +1660,22 @@ bool findVisibleConfiguredNetwork(String& matchedSsid, String& matchedPass) {
 
   int n = WiFi.scanNetworks(false, false);
   bool found = false;
+  int bestRssi = -999;
   if (n > 0) {
-    for (int c = 0; c < 4 && !found; c++) {
-      if (!isConfiguredValue(candidates[c].ssid)) continue;
-      for (int i = 0; i < n; i++) {
-        if (WiFi.SSID(i) == String(candidates[c].ssid)) {
-          matchedSsid = String(candidates[c].ssid);
-          matchedPass = candidates[c].pass ? String(candidates[c].pass) : "";
-          found = true;
+    for (int i = 0; i < n; i++) {
+      String scanned = WiFi.SSID(i);
+      int rssi = WiFi.RSSI(i);
+      for (int c = 0; c < 5; c++) {
+        if (!isConfiguredValue(candidates[c].ssid)) continue;
+        if (scanned == String(candidates[c].ssid)) {
+          Serial.printf("[WIFI SCAN] Matched configured SSID '%s' (RSSI=%d dBm, ch %d)\n",
+                        scanned.c_str(), rssi, WiFi.channel(i));
+          if (!found || rssi > bestRssi) {
+            bestRssi = rssi;
+            matchedSsid = scanned;
+            matchedPass = candidates[c].pass ? String(candidates[c].pass) : "";
+            found = true;
+          }
           break;
         }
       }

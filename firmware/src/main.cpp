@@ -164,7 +164,7 @@ void initGateClosedSafely() {
   gate.write(SERVO_CLOSED_DEG); // pre-load closed pulse BEFORE attach to prevent startup jerk
   gate.attach(PIN_SERVO, 500, 2500);
   gate.write(SERVO_CLOSED_DEG);
-  delay(450);
+  delay(SERVO_CLOSE_HOLD_MS);
   if (gate.attached()) {
     gate.detach(); // 0 mA idle holding current before Wi-Fi radio starts
   }
@@ -187,7 +187,8 @@ void setGateAngleSmooth(int targetAngle, bool holdTorque = true) {
   gate.write(targetAngle);
   currentServoAngle = targetAngle;
   if (!holdTorque) {
-    delay(300);
+    // Hold firm torque long enough for the 30kg servo to cut through feed and fully seat closed
+    delay(SERVO_CLOSE_HOLD_MS);
     if (gate.attached()) {
       gate.detach();
     }
@@ -665,30 +666,29 @@ bool checkCloudEmergencyStopFast() {
 
   WiFiClientSecure client;
   client.setInsecure();
+  client.setTimeout(2);
   HTTPClient https;
 
-  const char* checkPaths[2] = {"commands/stop.json", "commands/dispense.json"};
-  for (int i = 0; i < 2; i++) {
-    if (https.begin(client, buildFirebaseUrl(checkPaths[i]))) {
-      https.setTimeout(900);
-      int code = https.GET();
-      if (code == 200) {
-        String body = https.getString();
-        if (body.length() > 0 && body != "null") {
-          JsonDocument doc;
-          if (!deserializeJson(doc, body)) {
-            const char* act = doc["action"] | "";
-            if (strcmp(act, "STOP") == 0 || strcmp(act, "EMERGENCY_STOP") == 0) {
-              https.end();
-              firebaseDeletePath("commands/stop.json");
-              firebaseDeletePath("commands/dispense.json");
-              return true;
-            }
+  if (https.begin(client, buildFirebaseUrl("commands/stop.json"))) {
+    https.setConnectTimeout(1500);
+    https.setTimeout(1500);
+    int code = https.GET();
+    if (code == 200) {
+      String body = https.getString();
+      if (body.length() > 0 && body != "null") {
+        JsonDocument doc;
+        if (!deserializeJson(doc, body)) {
+          const char* act = doc["action"] | "";
+          if (strcmp(act, "STOP") == 0 || strcmp(act, "EMERGENCY_STOP") == 0) {
+            https.end();
+            firebaseDeletePath("commands/stop.json");
+            firebaseDeletePath("commands/dispense.json");
+            return true;
           }
         }
       }
-      https.end();
     }
+    https.end();
   }
   return false;
 }
@@ -872,15 +872,19 @@ bool dispenseFeedDuration(int durationSec, const char* triggerType, float nomina
   emergencyStopRequested = false;
   servoTestAutoCloseAtMs = 0UL;
 
+  // Open gate smoothly and start the exact duration countdown IMMEDIATELY (no blocking HTTPS before timer!)
   setGateAngleSmooth(SERVO_OPEN_DEG, true);
-  printTelemetryJson("dispensing");
 
   unsigned long startTime = millis();
   unsigned long lastCloudStopCheck = millis();
   unsigned long durationMs = (unsigned long)durationSec * 1000UL;
 
   while (millis() - startTime < durationMs) {
-    serviceEmergencyInputsDuringDispense(&lastCloudStopCheck);
+    unsigned long elapsed = millis() - startTime;
+    unsigned long remaining = (elapsed < durationMs) ? (durationMs - elapsed) : 0UL;
+    // Only poll cloud emergency stop when plenty of time remains so HTTPS latency never overruns durationSec
+    unsigned long* cloudStopPtr = (durationSec >= 8 && remaining > 3000UL) ? &lastCloudStopCheck : nullptr;
+    serviceEmergencyInputsDuringDispense(cloudStopPtr);
 
     if (emergencyStopRequested) {
       setGateAngleSmooth(SERVO_CLOSED_DEG, false);
@@ -895,9 +899,10 @@ bool dispenseFeedDuration(int durationSec, const char* triggerType, float nomina
       printTelemetryJson("idle");
       return false;
     }
-    delay(50);
+    delay(25);
   }
 
+  // Immediately drive gate firmly back to SERVO_CLOSED_DEG (with full close-hold torque) BEFORE any network sync!
   setGateAngleSmooth(SERVO_CLOSED_DEG, false);
   int actualDurationSec = max(1, (int)((millis() - startTime) / 1000UL));
   float dispensedWeight = 0.0f;

@@ -4,7 +4,7 @@
 // Active Hardware Subsystems:
 //   - DS-S020A-C 30kg Servo Gate (PWM GPIO 18)
 //   - HX711 24-bit ADC Load Cell Scale (DT GPIO 23, SCK GPIO 22, powered @ 3V3)
-//   - ESP32 Internal System Clock + NTP / Mobile App Sync (DS3231 disabled: HAS_RTC_DS3231=0)
+//   - DS3231 (ZS-042) Real-Time Clock (SDA GPIO 25, SCL GPIO 26, powered @ 3V3) + NTP/App Sync
 //   - Nominal Hopper Level Fallback (HC-SR04 disabled: HAS_ULTRASONIC=0)
 //   - 12V Battery Voltage Divider into ADC (GPIO 34, defaults to 12.6V if unconnected)
 //   - NVS Flash Persistence (Schedules, Scale Calibration, Command Deduplication)
@@ -1845,12 +1845,24 @@ void setup() {
 #if HAS_RTC_DS3231
   Wire.begin(PIN_RTC_SDA, PIN_RTC_SCL);
   rtcOk = rtc.begin();
-  if (rtcOk && rtc.lostPower()) {
-    DateTime compileLocal(F(__DATE__), F(__TIME__));
-    uint32_t utcSec = compileLocal.unixtime() > (uint32_t)GMT_OFFSET_SEC
-        ? (compileLocal.unixtime() - (uint32_t)GMT_OFFSET_SEC)
-        : compileLocal.unixtime();
-    rtc.adjust(DateTime(utcSec));
+  if (rtcOk) {
+    if (rtc.lostPower() || rtc.now().year() < 2024) {
+      DateTime compileLocal(F(__DATE__), F(__TIME__));
+      uint32_t utcSec = compileLocal.unixtime() > (uint32_t)GMT_OFFSET_SEC
+          ? (compileLocal.unixtime() - (uint32_t)GMT_OFFSET_SEC)
+          : compileLocal.unixtime();
+      rtc.adjust(DateTime(utcSec));
+      Serial.println("[RTC] DS3231 lost power / uninitialized — seeded with compile UTC time.");
+    }
+    DateTime rtcUtc = rtc.now();
+    Serial.printf("[RTC] DS3231 OK on SDA=%d SCL=%d (UTC %04d-%02d-%02d %02d:%02d:%02d, %.1f C)\n",
+                  PIN_RTC_SDA, PIN_RTC_SCL,
+                  rtcUtc.year(), rtcUtc.month(), rtcUtc.day(),
+                  rtcUtc.hour(), rtcUtc.minute(), rtcUtc.second(),
+                  rtc.getTemperature());
+  } else {
+    Serial.printf("[RTC WARN] DS3231 NOT detected on SDA=%d SCL=%d — check 3V3/GND/SDA=25/SCL=26 wiring!\n",
+                  PIN_RTC_SDA, PIN_RTC_SCL);
   }
 #else
   rtcOk = false;

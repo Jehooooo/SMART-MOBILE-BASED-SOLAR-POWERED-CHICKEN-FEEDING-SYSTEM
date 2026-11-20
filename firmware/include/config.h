@@ -5,7 +5,7 @@
 
 // ---------- Installed Hardware Modules ----------
 #define HAS_ULTRASONIC     0    // HC-SR04 not installed by builder
-#define HAS_RTC_DS3231     0    // DS3231 not installed by builder (uses ESP32 internal RTC + NTP/App sync)
+#define HAS_RTC_DS3231     1    // DS3231 (ZS-042) installed on SDA=GPIO25, SCL=GPIO26 @ 3V3
 #define HAS_BATTERY_ADC    0    // 12V battery voltage divider not connected to GPIO 34
 
 // ---------- Pins (ESP32 38-Pin Yellow Header) ----------
@@ -15,8 +15,8 @@
 #define PIN_US_TRIG        5    // HC-SR04 trigger (unused when HAS_ULTRASONIC == 0)
 #define PIN_US_ECHO        19   // HC-SR04 echo (unused when HAS_ULTRASONIC == 0)
 #define PIN_BATTERY_ADC    34   // battery voltage via divider (input-only pin)
-#define PIN_RTC_SDA        25   // DS3231 I2C SDA (unused when HAS_RTC_DS3231 == 0)
-#define PIN_RTC_SCL        26   // DS3231 I2C SCL (unused when HAS_RTC_DS3231 == 0)
+#define PIN_RTC_SDA        25   // DS3231 I2C SDA [CONNECTED @ 3V3]
+#define PIN_RTC_SCL        26   // DS3231 I2C SCL [CONNECTED @ 3V3]
 
 // ---------- Servo (DS-S020A-C 30kg — Calibrated Gate Geometry) ----------
 // 30 deg = Full Close (aligned directly under hopper pipe = CLOSED)

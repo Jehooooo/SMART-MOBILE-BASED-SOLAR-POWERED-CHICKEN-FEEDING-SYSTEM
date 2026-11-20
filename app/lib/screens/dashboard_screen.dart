@@ -53,6 +53,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
     if (grams >= 1000.0) {
       return '${(grams / 1000.0).toStringAsFixed(2)} kg';
     }
+    if (grams == grams.roundToDouble()) {
+      return '${grams.toInt()} g';
+    }
     return '${grams.toStringAsFixed(1)} g';
   }
 
@@ -436,9 +439,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Widget _buildDispensingBanner(FeederTelemetry telemetry) {
     final c = context.colors;
     final estimatedTargetGrams = _selectedDurationSeconds * 20.0;
-    final progress = (estimatedTargetGrams > 0)
-        ? (telemetry.currentWeightGrams / estimatedTargetGrams).clamp(0.0, 1.0)
-        : 0.0;
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
@@ -469,14 +469,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 ),
                 const SizedBox(width: 8),
                 Text(
-                  '${telemetry.currentWeightGrams.toStringAsFixed(1)}g / ~${estimatedTargetGrams.toInt()}g (${_selectedDurationSeconds}s)',
+                  '${estimatedTargetGrams.toInt()} g (${_selectedDurationSeconds}s)',
                   style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: c.infoStrong),
                 ),
               ],
             ),
             const SizedBox(height: 12),
             LiquidProgressBar(
-              value: progress,
+              value: 1.0,
               height: 10,
               color: c.info,
             ),
@@ -485,7 +485,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Text(
-                  'Motor active • Scale monitoring',
+                  'Gate active • Timed portion output',
                   style: TextStyle(fontSize: 12, color: c.info),
                 ),
                 TextButton.icon(
@@ -507,14 +507,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   Widget _buildHopperCard(FeederTelemetry telemetry, double dailyTarget) {
     final c = context.colors;
-    final double liveTrayGrams = telemetry.currentWeightGrams;
+    final bool isDispensing = widget.feederService.isDispensing;
+    final double selectedPortionGrams = _selectedDurationSeconds * 20.0;
     final double lastDispensedGrams = widget.feederService.latestDispensedGrams;
     final double todayGrams = widget.feederService.todayDispensedGrams;
-    final bool showingLiveWeight = widget.feederService.isDispensing || liveTrayGrams > 0.5;
-    final double headlineGrams = showingLiveWeight ? liveTrayGrams : lastDispensedGrams;
+    final double headlineGrams = isDispensing ? selectedPortionGrams : lastDispensedGrams;
     final double barTargetGrams = dailyTarget > 0 ? dailyTarget : 500.0;
     final double progress = (todayGrams / barTargetGrams).clamp(0.0, 1.0);
-    final Color color = showingLiveWeight ? c.info : c.brand;
+    final Color color = isDispensing ? c.info : c.brand;
 
     return LiquidGlassCard(
       borderRadius: BorderRadius.circular(22),
@@ -551,9 +551,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
                             ),
                           ),
                           Text(
-                            showingLiveWeight
-                                ? 'Live Tray Weight • HX711 Load Cell'
-                                : 'Last Dispensed • HX711 Load Cell',
+                            isDispensing
+                                ? 'Dispensing ${_selectedDurationSeconds}s (${selectedPortionGrams.toInt()} g)...'
+                                : 'Last Dispensed Portion • Timed Output',
                             style: TextStyle(fontSize: 11, color: c.textMuted),
                             overflow: TextOverflow.ellipsis,
                           ),
@@ -595,7 +595,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   border: Border.all(color: c.border.withValues(alpha: 0.6)),
                 ),
                 child: Text(
-                  'Live Tray: ${liveTrayGrams.toStringAsFixed(1)} g',
+                  'Selected: ${selectedPortionGrams.toInt()} g (${_selectedDurationSeconds}s)',
                   style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: c.textSecondary),
                 ),
               ),
@@ -606,7 +606,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   borderRadius: BorderRadius.circular(20),
                 ),
                 child: Text(
-                  'Last Dispensed: ${lastDispensedGrams.toStringAsFixed(1)} g',
+                  'Total Today: ${_formatGrams(todayGrams)}',
                   style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: c.brand),
                 ),
               ),

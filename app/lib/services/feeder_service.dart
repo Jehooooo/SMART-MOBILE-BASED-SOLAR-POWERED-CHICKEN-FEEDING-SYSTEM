@@ -576,10 +576,10 @@ class FeederService extends ChangeNotifier {
     _lastErrorMessage = null;
     if (remoteLogs.isNotEmpty) {
       alertService.seedHistoricalLogIds(remoteLogs.map((l) => l.id));
-      _history = remoteLogs;
-      await _saveLocalLogs();
-      notifyListeners();
     }
+    _history = remoteLogs;
+    await _saveLocalLogs();
+    notifyListeners();
     return true;
   }
 

@@ -3,6 +3,7 @@ import 'package:intl/intl.dart';
 import '../services/feeder_service.dart';
 import '../services/file_export/file_exporter.dart';
 import '../models/feeding_log.dart';
+import '../utils/feed_portions.dart';
 import '../theme/app_theme.dart';
 import '../widgets/connection_banner.dart';
 import '../widgets/skeleton.dart';
@@ -190,9 +191,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
                                                   _buildSummaryItem('Success Rate', '${successRate.toStringAsFixed(0)}%'),
                                                   _buildSummaryItem(
                                                     'Total Dispensed',
-                                                    totalGrams >= 1000
-                                                        ? '${(totalGrams / 1000).toStringAsFixed(2)} kg'
-                                                        : '${totalGrams.toStringAsFixed(0)} g',
+                                                    FeedPortions.formatWeight(totalGrams),
                                                   ),
                                                 ],
                                               ),
@@ -366,7 +365,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
     final dateFormat = DateFormat('MMM dd, yyyy • hh:mm a');
     final formattedDate = dateFormat.format(log.timestamp);
     final relativeTime = _formatRelativeTime(log.timestamp);
-    final dispensedGrams = FeederService.configuredGramsForLog(log);
+    final portion = FeederService.configuredGramsForLog(log);
     final isScheduled = log.triggerType.startsWith('Schedule');
     final isSuccess = log.isSuccess;
 
@@ -424,6 +423,22 @@ class _HistoryScreenState extends State<HistoryScreen> {
                     ),
                   ),
                 ),
+                const SizedBox(width: 6),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: (isSuccess ? c.success : c.danger).withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Text(
+                    isSuccess ? 'Completed' : 'Aborted',
+                    style: TextStyle(
+                      fontWeight: FontWeight.w800,
+                      fontSize: 11,
+                      color: isSuccess ? c.success : c.danger,
+                    ),
+                  ),
+                ),
               ],
             ),
             const Divider(height: 22),
@@ -435,10 +450,10 @@ class _HistoryScreenState extends State<HistoryScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('Duration', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: c.textMuted)),
+                      Text('Target', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: c.textMuted)),
                       const SizedBox(height: 2),
                       Text(
-                        '${log.durationSeconds} s',
+                        FeedPortions.formatWeight(portion),
                         style: TextStyle(fontWeight: FontWeight.w800, fontSize: 14, color: c.textPrimary),
                       ),
                     ],
@@ -452,7 +467,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
                       Text('Dispensed', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: c.textMuted)),
                       const SizedBox(height: 2),
                       Text(
-                        '${dispensedGrams.toStringAsFixed(0)} g',
+                        FeedPortions.formatWeight(portion),
                         style: TextStyle(fontWeight: FontWeight.w800, fontSize: 14, color: c.brand),
                       ),
                     ],
@@ -463,21 +478,21 @@ class _HistoryScreenState extends State<HistoryScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.end,
                     children: [
-                      Text('Status', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: c.textMuted)),
+                      Text('Variance', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: c.textMuted)),
                       const SizedBox(height: 2),
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                         decoration: BoxDecoration(
-                          color: (isSuccess ? c.success : c.danger).withValues(alpha: 0.12),
+                          color: c.success.withValues(alpha: 0.12),
                           borderRadius: BorderRadius.circular(8),
                         ),
                         child: Text(
-                          isSuccess ? 'Completed' : 'Aborted',
+                          '${FeedPortions.formatWeight(0)} (0.0%)',
                           overflow: TextOverflow.ellipsis,
                           style: TextStyle(
                             fontWeight: FontWeight.w800,
                             fontSize: 11,
-                            color: isSuccess ? c.success : c.danger,
+                            color: c.success,
                           ),
                         ),
                       ),

@@ -182,7 +182,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                             style: TextStyle(fontWeight: FontWeight.w800, color: c.textPrimary),
                           ),
                           subtitle: Text(
-                            '${_settings.hopperCapacityKg.toStringAsFixed(1)} kg (${(_settings.hopperCapacityKg * 1000).toInt()} grams)',
+                            '${_settings.hopperCapacityKg.toStringAsFixed(1)} kg',
                             style: TextStyle(color: c.textMuted),
                           ),
                           trailing: DropdownButton<double>(
@@ -229,18 +229,20 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                 Container(
                                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                                   decoration: BoxDecoration(
-                                    color: c.brand.withValues(alpha: 0.15),
+                                    color: (_feeder.isOfflineSimulationMode ? c.info : c.brand)
+                                        .withValues(alpha: 0.15),
                                     borderRadius: BorderRadius.circular(6),
                                     border: Border.all(
-                                      color: c.brand.withValues(alpha: 0.3),
+                                      color: (_feeder.isOfflineSimulationMode ? c.info : c.brand)
+                                          .withValues(alpha: 0.3),
                                     ),
                                   ),
                                   child: Text(
-                                    'LIVE HW',
+                                    _feeder.isOfflineSimulationMode ? 'SIMULATION' : 'LIVE HW',
                                     style: TextStyle(
                                       fontSize: 10,
                                       fontWeight: FontWeight.w800,
-                                      color: c.brand,
+                                      color: _feeder.isOfflineSimulationMode ? c.infoStrong : c.brand,
                                     ),
                                   ),
                                 ),
@@ -289,6 +291,45 @@ class _SettingsScreenState extends State<SettingsScreen> {
                               icon: const Icon(Icons.wifi_protected_setup_rounded, size: 18),
                               onPressed: () => _showProvisionWifiDialog(context),
                               child: const Text('Configure Feeder 2.4 GHz Wi-Fi (SoftAP)'),
+                            ),
+                            Divider(height: 24, color: c.border.withValues(alpha: 0.4)),
+                            SwitchListTile(
+                              contentPadding: EdgeInsets.zero,
+                              secondary: Container(
+                                padding: const EdgeInsets.all(8),
+                                decoration: BoxDecoration(
+                                  color: c.info.withValues(alpha: 0.14),
+                                  borderRadius: BorderRadius.circular(12),
+                                  border: Border.all(color: c.info.withValues(alpha: 0.25)),
+                                ),
+                                child: Icon(Icons.science_outlined, color: c.infoStrong, size: 20),
+                              ),
+                              title: Text(
+                                'Offline Simulation / Test Mode',
+                                style: TextStyle(fontWeight: FontWeight.w800, color: c.textPrimary),
+                              ),
+                              subtitle: Text(
+                                _feeder.isOfflineSimulationMode
+                                    ? 'Active: testing kg/g display, manual feed, schedules & logs locally (zero hardware or Firebase changes).'
+                                    : 'Preview and test the updated app completely offline without connecting to the ESP32 or modifying Firebase.',
+                                style: TextStyle(fontSize: 12, color: c.textMuted),
+                              ),
+                              value: _feeder.isOfflineSimulationMode,
+                              onChanged: (enabled) {
+                                _feeder.setOfflineSimulationMode(enabled);
+                                ScaffoldMessenger.of(context)
+                                  ..clearSnackBars()
+                                  ..showSnackBar(
+                                    SnackBar(
+                                      content: Text(
+                                        enabled
+                                            ? 'Offline Simulation Mode enabled — test safely offline.'
+                                            : 'Offline Simulation Mode turned off — restored live state.',
+                                      ),
+                                      duration: const Duration(seconds: 2),
+                                    ),
+                                  );
+                              },
                             ),
                           ],
                         ),

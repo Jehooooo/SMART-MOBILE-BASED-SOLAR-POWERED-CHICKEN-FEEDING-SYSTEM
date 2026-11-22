@@ -21,10 +21,12 @@ class ConnectionBanner extends StatelessWidget {
     return ListenableBuilder(
       listenable: feederService,
       builder: (context, _) {
+        final isSimulation = feederService.isOfflineSimulationMode;
         final state = feederService.connection;
         final deviceOnline = feederService.isDeviceOnline;
-        final visible = !feederService.isInitialLoading &&
-            (state != FeederConnection.online || !deviceOnline);
+        final visible = isSimulation ||
+            (!feederService.isInitialLoading &&
+                (state != FeederConnection.online || !deviceOnline));
 
         return AnimatedSize(
           duration: const Duration(milliseconds: 260),
@@ -33,33 +35,135 @@ class ConnectionBanner extends StatelessWidget {
           child: AnimatedSwitcher(
             duration: const Duration(milliseconds: 220),
             child: visible
-                ? _BannerBody(
-                    key: ValueKey('${state.name}_$deviceOnline'),
-                    state: state,
-                    isControllerHeartbeatStale: state == FeederConnection.online && !deviceOnline,
-                    lastSyncedAt: feederService.telemetry.lastHeartbeat ?? feederService.lastSyncedAt,
-                    errorDetail: feederService.lastErrorMessage,
-                    onRetry: () async {
-                      final ok = await feederService.retryConnection();
-                      if (!context.mounted) return;
-                      ScaffoldMessenger.of(context)
-                        ..clearSnackBars()
-                        ..showSnackBar(
-                          SnackBar(
-                            content: Text(
-                              ok
-                                  ? 'Reconnected. Live feeder data restored.'
-                                  : 'Still offline. Check the feeder\'s Wi-Fi and solar power, then try again.',
-                            ),
-                            duration: const Duration(seconds: 3),
-                          ),
-                        );
-                    },
-                  )
+                ? (isSimulation
+                    ? _SimulationBannerBody(
+                        key: const ValueKey('offline-simulation-banner'),
+                        onExit: () {
+                          feederService.setOfflineSimulationMode(false);
+                          if (!context.mounted) return;
+                          ScaffoldMessenger.of(context)
+                            ..clearSnackBars()
+                            ..showSnackBar(
+                              const SnackBar(
+                                content: Text('Exited Offline Simulation Mode. Restored live connection.'),
+                                duration: Duration(seconds: 2),
+                              ),
+                            );
+                        },
+                      )
+                    : _BannerBody(
+                        key: ValueKey('${state.name}_$deviceOnline'),
+                        state: state,
+                        isControllerHeartbeatStale: state == FeederConnection.online && !deviceOnline,
+                        lastSyncedAt: feederService.telemetry.lastHeartbeat ?? feederService.lastSyncedAt,
+                        errorDetail: feederService.lastErrorMessage,
+                        onRetry: () async {
+                          final ok = await feederService.retryConnection();
+                          if (!context.mounted) return;
+                          ScaffoldMessenger.of(context)
+                            ..clearSnackBars()
+                            ..showSnackBar(
+                              SnackBar(
+                                content: Text(
+                                  ok
+                                      ? 'Reconnected. Live feeder data restored.'
+                                      : 'Still offline. Check the feeder\'s Wi-Fi and solar power, then try again.',
+                                ),
+                                duration: const Duration(seconds: 3),
+                              ),
+                            );
+                        },
+                        onSimulateOffline: () {
+                          feederService.setOfflineSimulationMode(true);
+                          if (!context.mounted) return;
+                          ScaffoldMessenger.of(context)
+                            ..clearSnackBars()
+                            ..showSnackBar(
+                              const SnackBar(
+                                content: Text('Offline Simulation Mode enabled — preview UI safely with zero hardware/Firebase writes.'),
+                                duration: Duration(seconds: 3),
+                              ),
+                            );
+                        },
+                      ))
                 : const SizedBox(width: double.infinity, key: ValueKey('hidden')),
           ),
         );
       },
+    );
+  }
+}
+
+class _SimulationBannerBody extends StatelessWidget {
+  final VoidCallback onExit;
+
+  const _SimulationBannerBody({super.key, required this.onExit});
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.colors;
+    final fg = c.infoStrong;
+    final bg = c.infoSoft;
+    final borderColor = c.infoBorder;
+
+    return Semantics(
+      liveRegion: true,
+      container: true,
+      label: 'Offline Simulation Mode active. Local UI preview only; hardware and Firebase data are untouched.',
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 6),
+        child: LiquidGlassContainer(
+          width: double.infinity,
+          borderRadius: BorderRadius.circular(18),
+          tintColor: bg,
+          tintOpacity: 0.88,
+          blurSigma: 16,
+          customBorder: Border.all(color: borderColor.withValues(alpha: 0.9), width: 1.2),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(6),
+                decoration: BoxDecoration(
+                  color: fg.withValues(alpha: 0.14),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Icon(Icons.science_outlined, color: fg, size: 20),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      'Offline Simulation Mode',
+                      style: TextStyle(color: fg, fontWeight: FontWeight.bold, fontSize: 13),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      'Local UI preview only — ESP32, Firebase & saved records are untouched.',
+                      style: TextStyle(color: fg.withValues(alpha: 0.9), fontSize: 12, height: 1.3),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              LiquidGlassButton(
+                height: 36,
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                backgroundColor: fg.withValues(alpha: 0.18),
+                foregroundColor: fg,
+                glowColor: fg.withValues(alpha: 0.25),
+                onPressed: onExit,
+                icon: Icon(Icons.close_rounded, size: 16, color: fg),
+                child: const Text('Exit'),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }
@@ -70,6 +174,7 @@ class _BannerBody extends StatelessWidget {
   final DateTime? lastSyncedAt;
   final String? errorDetail;
   final VoidCallback onRetry;
+  final VoidCallback onSimulateOffline;
 
   const _BannerBody({
     super.key,
@@ -78,6 +183,7 @@ class _BannerBody extends StatelessWidget {
     required this.lastSyncedAt,
     required this.errorDetail,
     required this.onRetry,
+    required this.onSimulateOffline,
   });
 
   @override
@@ -165,15 +271,32 @@ class _BannerBody extends StatelessWidget {
               ),
               if (!isConnecting) ...[
                 const SizedBox(width: 8),
-                LiquidGlassButton(
-                  height: 36,
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                  backgroundColor: fg.withValues(alpha: 0.18),
-                  foregroundColor: fg,
-                  glowColor: fg.withValues(alpha: 0.25),
-                  onPressed: onRetry,
-                  icon: Icon(Icons.refresh_rounded, size: 16, color: fg),
-                  child: const Text('Retry'),
+                Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    LiquidGlassButton(
+                      height: 34,
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+                      backgroundColor: fg.withValues(alpha: 0.18),
+                      foregroundColor: fg,
+                      glowColor: fg.withValues(alpha: 0.25),
+                      onPressed: onRetry,
+                      icon: Icon(Icons.refresh_rounded, size: 15, color: fg),
+                      child: const Text('Retry'),
+                    ),
+                    const SizedBox(height: 6),
+                    LiquidGlassButton(
+                      height: 32,
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      backgroundColor: c.info.withValues(alpha: 0.16),
+                      foregroundColor: c.infoStrong,
+                      glowColor: c.info.withValues(alpha: 0.22),
+                      onPressed: onSimulateOffline,
+                      icon: Icon(Icons.science_outlined, size: 14, color: c.infoStrong),
+                      child: const Text('Simulate', style: TextStyle(fontSize: 12)),
+                    ),
+                  ],
                 ),
               ],
             ],

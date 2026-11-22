@@ -140,7 +140,7 @@ class _HardwareGuideModalState extends State<_HardwareGuideModal> {
                   children: [
                     Expanded(
                       child: Text(
-                        'ESP32 38-Pin Yellow Header • 12V Solar • Arduino Firmware',
+                        'ESP32 38-Pin • Dual Buck 7.4V/5V • DS3231 RTC • 12V Solar',
                         style: TextStyle(fontSize: 11, color: c.textMuted, fontWeight: FontWeight.w500),
                       ),
                     ),
@@ -191,50 +191,50 @@ class _HardwareGuideModalState extends State<_HardwareGuideModal> {
           context,
           icon: Icons.electric_bolt_rounded,
           color: c.warning,
-          title: 'Critical Electrical Step: Check 5V Before Connecting ESP32',
+          title: 'Critical Electrical Step: Verify Both Buck Converters First',
           message:
-              'Adjust the brass screw on the LM2596 buck converter using a multimeter until it reads exactly 5.0V. Never plug 12V directly into the ESP32 VIN or servo, or the board will be permanently damaged.',
+              'Before powering the controller, confirm with a multimeter: Right LM2596S Buck = 5.0V DC (ESP32 V5/VIN) and Left LM2596S Buck = 7.4V DC (DS-S020A-C 30kg Servo). Never feed 12V into ESP32 or 5V into the DS3231 RTC (3V3 only).',
         ),
         const SizedBox(height: 16),
-        _buildSectionTitle(context, '1. Power & Solar Subsystem Assembly'),
+        _buildSectionTitle(context, '1. Solar & Dual-Buck Power Subsystem'),
         _buildGuideTile(
           context,
           icon: Icons.solar_power_rounded,
-          title: '12V Solar Panel to Charge Controller',
+          title: '12V Solar Panel, PWM Controller & 3S Lithium Pack',
           desc:
-              'Connect the monocrystalline solar panel to the Solar Charge Controller input. Connect the 12V Lead-Acid or LiFePO4 battery to the battery terminals. Verify the charge controller status LED illuminates.',
+              'Connect the 12V solar panel and ZENOVA 12V 12Ah 3S Lithium battery (8.4V–12.6V with built-in BMS) to the PWM Solar Charge Controller (configured to 3S Lithium 12.6V profile). Two isolated LM2596S bucks step 12V down to 7.4V (servo) and 5.0V (ESP32) to prevent brownout resets.',
         ),
         _buildGuideTile(
           context,
           icon: Icons.power_rounded,
           title: 'Common Ground Rule',
           desc:
-              'All components (ESP32, Servo, HX711, HC-SR04, Buck Converter, and Battery) MUST share a common Ground (GND). Separated grounds will cause severe servo jitter and fluctuating sensor readings.',
+              'All modules (ESP32, DS-S020A-C Servo, HX711, DS3231 RTC, both LM2596S bucks, and 12V battery) MUST share one common Ground (GND). Floating grounds cause servo jitter and unstable sensor signals.',
         ),
         const SizedBox(height: 16),
-        _buildSectionTitle(context, '2. Dispenser & Actuator Assembly'),
+        _buildSectionTitle(context, '2. Dispenser Gate & High-Torque Actuator'),
         _buildGuideTile(
           context,
           icon: Icons.precision_manufacturing_rounded,
-          title: 'Dispensing Gate & MG996R High-Torque Servo',
+          title: 'DS-S020A-C 30kg Digital Servo (GPIO 18)',
           desc:
-              'Mount the servo to the hopper output slide (0° closed, 90° open). Power the servo directly from the 5V buck converter power rail with a 1000µF 16V capacitor across 5V and GND to suppress brownout resets.',
+              'Driven with continuous 16-bit 50 Hz PWM on GPIO 18 and powered from the dedicated 7.4V Left LM2596S buck rail. Calibrated gate geometry: 30° actively held Closed directly under the hopper pipe, 0° Full Open using smooth 5° step ramping (14 ms/step).',
         ),
         const SizedBox(height: 16),
-        _buildSectionTitle(context, '3. Sensor Calibration & Bring-Up'),
+        _buildSectionTitle(context, '3. Real-Time Clock, Scale & Timed Output'),
+        _buildGuideTile(
+          context,
+          icon: Icons.schedule_rounded,
+          title: 'ZS-042 DS3231 I2C RTC + CR2032 (GPIO 25 / 26 @ 3V3)',
+          desc:
+              'Wired to SDA = GPIO 25, SCL = GPIO 26, VCC = 3V3 (never 5V), and GND. Keeps exact Philippine Standard Time (UTC+8) offline for autonomous schedules and drives the Daylight Solar indicator (6:00 AM–5:59 PM Charging, Nighttime Idle).',
+        ),
         _buildGuideTile(
           context,
           icon: Icons.scale_rounded,
-          title: 'HX711 Load Cell Weighing Tray',
+          title: 'HX711 Load Cell (GPIO 23 / 22 @ 3V3) & Timed Calibration',
           desc:
-              'Mount the feed tray onto the load cell bar. Ensure the tray does NOT touch the coop frame. In the mobile app Settings, tap "Tare Scale (0.0g)". Test with a known 500g bottle to verify portion accuracy.',
-        ),
-        _buildGuideTile(
-          context,
-          icon: Icons.sensors_rounded,
-          title: 'HC-SR04 Ultrasonic Hopper Depth Sensor',
-          desc:
-              'Mount the sensor inside the top lid facing perpendicular down to pellets. Measure the physical height: empty hopper = 30 cm, full hopper = 5 cm. Ensure a 1kΩ/2kΩ divider is installed on the ECHO pin to protect ESP32 3.3V logic.',
+              'Wired to DOUT = GPIO 23 and SCK = GPIO 22 on 3V3. For consistent portions even while scale hardware is uncalibrated/faulty, the app maps timed outputs to client bench measurements: 1s = 600 g, 5s = 1 kg, 10s = 4 kg, and 15s = 8 kg.',
         ),
       ],
     );
@@ -252,50 +252,59 @@ class _HardwareGuideModalState extends State<_HardwareGuideModal> {
           context,
           icon: Icons.cloud_done_rounded,
           color: c.brand,
-          title: 'Decoupled Hardware Integration Layer',
+          title: 'Decoupled Transport & Offline Simulation Layer',
           message:
-              'The mobile application communicates through the FeederHardwareAdapter. You can select between Firebase Realtime Cloud and Direct Wi-Fi HTTP (SoftAP) at any time in Settings.',
+              'The app switches seamlessly between Firebase Realtime Cloud and Direct Wi-Fi HTTP (SoftAP 192.168.4.1) in Settings, and also includes a frontend-only Offline Simulation / Test Mode to preview the UI without touching hardware or Firebase.',
         ),
         const SizedBox(height: 16),
-        _buildSectionTitle(context, '1. Communication Transports'),
+        _buildSectionTitle(context, '1. Communication Modes'),
         _buildTransportCard(
           context,
           badge: 'CLOUD 24/7',
           badgeColor: c.brand,
-          title: 'Firebase Realtime Database (ESP32 Cloud)',
+          title: 'Firebase Realtime Database (asia-southeast1)',
           desc:
-              'The ESP32 connects to 2.4 GHz farm Wi-Fi and pushes telemetry to Firebase every 2–10 seconds. Allows you to monitor feed levels and trigger dispenses from anywhere across mobile LTE/4G.',
+              'The ESP32 automatically scans nearby 2.4 GHz networks/client hotspots (NVS + 4 configured slots), joins the strongest RSSI signal, syncs NTP time to DS3231, pushes /telemetry every 10s, polls /commands/dispense every 1.5s, and syncs /schedules every 30s.',
         ),
         const SizedBox(height: 10),
         _buildTransportCard(
           context,
           badge: 'OFF-GRID',
           badgeColor: c.solar,
-          title: 'Local Farm Wi-Fi HTTP (SoftAP)',
+          title: 'Direct Wi-Fi HTTP (SoftAP 192.168.4.1)',
           desc:
-              'For remote farms without internet. The ESP32 broadcasts a local hotspot (SSID: "SmartFeeder-AP", Password: "chickens123"). Connect your phone directly to Wi-Fi at http://192.168.4.1 for zero-internet controls and wireless Wi-Fi provisioning.',
+              'The ESP32 runs simultaneous WIFI_AP_STA mode and always broadcasts "SmartFeeder-AP" (Password: "chickens123", Ch 11). Connect directly to http://192.168.4.1 for zero-internet feeding, diagnostics, and wireless 2.4 GHz Wi-Fi provisioning.',
+        ),
+        const SizedBox(height: 10),
+        _buildTransportCard(
+          context,
+          badge: 'PREVIEW',
+          badgeColor: c.infoStrong,
+          title: 'Offline Simulation / Test Mode (Frontend Only)',
+          desc:
+              'Toggle from Settings or tap "Simulate" on the offline banner to test kg/g formatting, manual dispensing, schedules, logs, CSV/Excel exports, and 1-second chicken cluck alerts completely locally with zero ESP32 or Firebase changes.',
         ),
         const SizedBox(height: 18),
-        _buildSectionTitle(context, '2. Backend Data Contracts & Queues'),
+        _buildSectionTitle(context, '2. Backend Data Contracts & Safety Flow'),
         _buildDataContractPod(
           context,
           title: 'Telemetry Stream (/telemetry)',
           desc:
-              'ESP32 periodically publishes: feedLevelPercent (HC-SR04), batteryVolts (GPIO 34 ADC), currentWeightGrams (HX711), status ("idle", "dispensing", "lowFeed", "lowBattery", "error"), and isSolarCharging.',
+              'ESP32 publishes lastHeartbeat, isSolarCharging (daylight 6 AM–6 PM UTC+8 from DS3231), status ("idle", "dispensing", "error"), currentWeightGrams (HX711), and nominal defaults for bypassed sensors (HC-SR04 & Battery ADC).',
         ),
         const SizedBox(height: 8),
         _buildDataContractPod(
           context,
-          title: 'Command Ingestion Queue (/commands/dispense & /commands/stop)',
+          title: 'Pre-Actuation Command Consumption (/commands/dispense & /stop)',
           desc:
-              'When you tap "DISPENSE NOW", the app pushes {action: "DISPENSE", durationSeconds: 5, targetGrams: 100}. The ESP32 consumes the command before actuation, executes the servo gate, and writes logs to /logs.',
+              'When you tap "DISPENSE NOW", the phone fires a notification + 1s chicken cluck and writes /commands/dispense. The ESP32 DELETES the command and locks its ID in NVS flash BEFORE moving the gate (30° → 0° → 30°), then logs completion to /logs.',
         ),
         const SizedBox(height: 8),
         _buildDataContractPod(
           context,
-          title: 'Offline Fail-Safe Routine (/schedules + DS3231 RTC)',
+          title: 'Offline Fail-Safe Routines (/schedules + DS3231 + NVS)',
           desc:
-              'Feeding schedules configured in the app are synchronized to ESP32 NVS flash. Even if farm Wi-Fi or the phone goes offline, the DS3231 battery-backed clock triggers scheduled feeds automatically.',
+              'Up to 16 schedules are cached in ESP32 NVS flash. Every 5 seconds—online or completely offline—the ESP32 checks DS3231 UTC+8 time, locks the minute slot in NVS (lastSchSlot) to prevent double feeds, and dispenses automatically.',
         ),
       ],
     );
@@ -308,42 +317,42 @@ class _HardwareGuideModalState extends State<_HardwareGuideModal> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _buildSectionTitle(context, 'Step-by-Step Machine Commissioning'),
+        _buildSectionTitle(context, 'Step-by-Step Machine & Demo Setup'),
         const SizedBox(height: 6),
         _buildChecklistStep(
           context,
           step: '1',
-          title: 'Power Verification & Multimeter Check',
+          title: 'Dual Buck & Solar Power Check',
           desc:
-              'Turn on battery switch. Use digital multimeter on buck converter output to confirm strictly 5.0V. Inspect Solar Charge Controller indicator LED.',
+              'Switch on the ZENOVA 12V 3S Lithium pack. Confirm PWM Solar Controller shows 12.6V 3S Lithium mode and verify buck outputs with a multimeter: Right Buck = 5.0V (ESP32), Left Buck = 7.4V (30kg Servo).',
         ),
         _buildChecklistStep(
           context,
           step: '2',
-          title: 'Flash ESP32 Firmware & Provision Wi-Fi',
+          title: 'Start 2.4 GHz Hotspot / Router & Verify Auto-Connect',
           desc:
-              'Flash /firmware via PlatformIO at 115200 baud with Firebase URL/API key in secrets.h. Onsite, connect phone to "SmartFeeder-AP" (chickens123) and configure the farm\'s 2.4 GHz Wi-Fi in Settings or http://192.168.4.1.',
+              'Turn on your configured 2.4 GHz Wi-Fi or client phone hotspot (on iPhone, enable "Maximize Compatibility"). Power the ESP32; it locks the gate closed at 30° on boot and auto-connects to the strongest saved 2.4 GHz signal. Or connect to "SmartFeeder-AP" (chickens123) to provision Wi-Fi.',
         ),
         _buildChecklistStep(
           context,
           step: '3',
-          title: 'Select Transport in Mobile App',
+          title: 'Verify Online Status (or Use Offline Simulation)',
           desc:
-              'Open Settings › Feeder Device & Hardware › Hardware Transport. Select "Firebase Realtime Cloud" (or Local Wi-Fi HTTP if off-grid). Confirm green "ONLINE" chip appears on Dashboard.',
+              'Open Settings › Hardware Transport and confirm "Firebase Realtime Cloud" (or "Direct Wi-Fi HTTP" off-grid). Confirm the green "Online" badge appears on Dashboard—or tap "Simulate" to test UI flows offline.',
         ),
         _buildChecklistStep(
           context,
           step: '4',
-          title: 'Zero / Tare the Scale & Test Dispense',
+          title: 'Run a Quick 1s (~600 g) Gate & Audio Test',
           desc:
-              'Ensure feed tray is empty and clear of obstructions. Tap "Zero / Tare Scale Sensor" in Settings. Then from Dashboard, trigger a short 2-second test feed to verify gate opens and closes smoothly.',
+              'From Dashboard, select 1s (~600 g) and tap DISPENSE 1s NOW. Confirm the servo smoothly sweeps 30° → 0° → 30° on the exact second and your phone plays the 1-second chicken cluck notification.',
         ),
         _buildChecklistStep(
           context,
           step: '5',
-          title: 'Fill Hopper & Program Routines',
+          title: 'Program Schedules & Inspect Calibrated Logs',
           desc:
-              'Fill hopper with poultry feed pellets. Confirm Hopper Level on Dashboard reads near 100%. Open Feeding Schedules tab and set your automated feeding times (e.g. 7:00 AM, 12:00 PM, 4:30 PM).',
+              'Add daily routines in the Schedules tab (1s = 600 g, 5s = 1 kg, 10s = 4 kg, 15s = 8 kg). Open History & Logs to verify matching Target/Dispensed weights (0 g / 0.0% variance) and export CSV or Excel reports.',
         ),
       ],
     );
@@ -355,12 +364,14 @@ class _HardwareGuideModalState extends State<_HardwareGuideModal> {
   Widget _buildPinoutTab(BuildContext context) {
     final c = context.colors;
     final pinoutRows = [
-      ('Servo PWM (DS-S020A-C)', 'GPIO 18', '5V Buck Rail & GND', 'DS-S020A-C 30kg high-torque servo'),
-      ('HX711 DT (Data)', 'GPIO 23', '3V3 & GND', 'Load cell scale amplifier data'),
-      ('HX711 SCK (Clock)', 'GPIO 22', '3V3 & GND', 'Serial clock signal from ESP32'),
-      ('HC-SR04 Ultrasonic', 'Bypassed', 'Not Connected', 'Disabled in firmware (defaults to 100%)'),
-      ('DS3231 RTC', 'Bypassed', 'Not Connected', 'Uses ESP32 internal RTC + NTP/App sync'),
-      ('Battery ADC', 'Bypassed', 'Not Connected', 'Defaults to 12.6V (88%) nominal'),
+      ('Servo PWM (DS-S020A-C 30kg)', 'GPIO 18', '7.4V Left Buck & Common GND', true),
+      ('HX711 DT (Data)', 'GPIO 23', '3V3 & GND', true),
+      ('HX711 SCK (Clock)', 'GPIO 22', '3V3 & GND', true),
+      ('DS3231 RTC SDA (I2C)', 'GPIO 25', '3V3 & GND (Never 5V)', true),
+      ('DS3231 RTC SCL (I2C)', 'GPIO 26', '3V3 & GND (Never 5V)', true),
+      ('ESP32 Logic Power', 'V5 / GND', '5.0V Right Buck & Common GND', true),
+      ('HC-SR04 Ultrasonic', 'Bypassed', 'Reserved GPIO 5 / 19 (Not Connected)', false),
+      ('Battery Voltage ADC', 'Bypassed', 'Reserved GPIO 34 (Not Connected)', false),
     ];
 
     return Column(
@@ -372,7 +383,7 @@ class _HardwareGuideModalState extends State<_HardwareGuideModal> {
           color: c.info,
           title: 'Target Controller: ESP32 Dual-Core 38-Pin (Yellow Header)',
           message:
-              'All GPIO assignments match the live 38-Pin Yellow Header wiring and /firmware config.h hardware flags. Refer to the table below for physical connections.',
+              'All active GPIO assignments match the finalized 38-Pin Yellow Header wiring and firmware/include/config.h flags (HAS_RTC_DS3231 = 1, SERVO_CLOSED_DEG = 30, SERVO_OPEN_DEG = 0).',
         ),
         const SizedBox(height: 16),
         _buildSectionTitle(context, 'ESP32 Hardware Pin Connections'),
@@ -409,6 +420,7 @@ class _HardwareGuideModalState extends State<_HardwareGuideModal> {
                 final idx = entry.key;
                 final row = entry.value;
                 final isEven = idx % 2 == 0;
+                final isActive = row.$4;
                 return Container(
                   color: isEven ? c.surface.withValues(alpha: 0.5) : c.surfaceMuted.withValues(alpha: 0.3),
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -423,16 +435,24 @@ class _HardwareGuideModalState extends State<_HardwareGuideModal> {
                         child: Container(
                           padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                           decoration: BoxDecoration(
-                            color: c.brandSoft,
+                            color: isActive ? c.brandSoft : c.surfaceMuted,
                             borderRadius: BorderRadius.circular(6),
-                            border: Border.all(color: c.brand.withValues(alpha: 0.2)),
+                            border: Border.all(
+                              color: isActive ? c.brand.withValues(alpha: 0.25) : c.border.withValues(alpha: 0.5),
+                            ),
                           ),
                           child: Text(
                             row.$2,
-                            style: TextStyle(fontFamily: 'monospace', fontSize: 11, fontWeight: FontWeight.bold, color: c.brand),
+                            style: TextStyle(
+                              fontFamily: 'monospace',
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold,
+                              color: isActive ? c.brand : c.textMuted,
+                            ),
                           ),
                         ),
                       ),
+                      const SizedBox(width: 6),
                       Expanded(
                         flex: 3,
                         child: Text(row.$3, style: TextStyle(fontSize: 11, color: c.textMuted)),

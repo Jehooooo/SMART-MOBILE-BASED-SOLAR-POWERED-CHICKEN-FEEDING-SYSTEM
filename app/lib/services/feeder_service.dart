@@ -7,6 +7,7 @@ import '../models/telemetry.dart';
 import '../models/schedule.dart';
 import '../models/feeding_log.dart';
 import '../models/feeder_command.dart';
+import '../utils/feed_portions.dart';
 import 'alert_notification_service.dart';
 import 'hardware/firebase_hardware_adapter.dart';
 import 'hardware/hardware_adapter.dart';
@@ -42,6 +43,19 @@ class FeederService extends ChangeNotifier {
   bool _disposed = false;
   DateTime? _lastSyncedAt;
 
+  // Frontend-only Offline Simulation / Test Mode state (never persisted or sent to hardware/Firebase)
+  bool _isOfflineSimulationMode = false;
+  Timer? _simDispenseTimer;
+  int? _simDispenseDurationSec;
+  String? _simDispenseTriggerType;
+  FeederTelemetry? _savedRealTelemetry;
+  List<FeedingSchedule>? _savedRealSchedules;
+  List<FeedingLog>? _savedRealHistory;
+  FeederConnection? _savedRealConnection;
+  String? _savedRealError;
+  DateTime? _savedRealSyncedAt;
+  bool _savedRealInitialLoading = false;
+
   StreamSubscription<FeederTelemetry>? _telemetrySub;
   StreamSubscription<FeederConnection>? _connectionSub;
   StreamSubscription<FeedingLog>? _logSub;
@@ -51,20 +65,23 @@ class FeederService extends ChangeNotifier {
   List<FeedingLog> get history => List.unmodifiable(_history);
   bool get isDispensing => _isDispensing;
   bool get isCommandInFlight => _isCommandInFlight;
+  bool get isOfflineSimulationMode => _isOfflineSimulationMode;
 
-  FeederConnection get connection => _connection;
-  bool get isConnected => _connection == FeederConnection.online;
+  FeederConnection get connection => _isOfflineSimulationMode ? FeederConnection.online : _connection;
+  bool get isConnected => _isOfflineSimulationMode || _connection == FeederConnection.online;
 
   /// True only when both the transport link is active AND the feeder controller
-  /// has reported a live heartbeat within the last 3 minutes (or is in mock mode).
+  /// has reported a live heartbeat within the last 3 minutes (or is in mock/simulation mode).
   /// Prevents queuing stale commands in Firebase while the ESP32 is powered off.
-  bool get isDeviceOnline => isConnected && (_adapter.isMock || _telemetry.isOnline);
+  bool get isDeviceOnline =>
+      _isOfflineSimulationMode || (isConnected && (_adapter.isMock || _telemetry.isOnline));
 
-  bool get isInitialLoading => _isInitialLoading;
+  bool get isInitialLoading => _isOfflineSimulationMode ? false : _isInitialLoading;
   DateTime? get lastSyncedAt => _lastSyncedAt;
 
   /// Latest user-facing error from hardware transport or Firebase sync.
   String? get lastErrorMessage {
+    if (_isOfflineSimulationMode) return _lastErrorMessage;
     if (_lastErrorMessage != null) return _lastErrorMessage;
     if (_adapter is FirebaseHardwareAdapter) {
       return (_adapter as FirebaseHardwareAdapter).lastErrorMessage;
@@ -73,7 +90,9 @@ class FeederService extends ChangeNotifier {
   }
 
   FeederHardwareAdapter get adapter => _adapter;
-  String get hardwareSourceLabel => _adapter.hardwareSourceLabel;
+  String get hardwareSourceLabel => _isOfflineSimulationMode
+      ? 'Offline Simulation Mode (Local UI Preview)'
+      : _adapter.hardwareSourceLabel;
   HardwareTransportType get transportType => _adapter.transportType;
   bool get isMock => _adapter.isMock;
 
@@ -124,6 +143,12 @@ class FeederService extends ChangeNotifier {
     _logSub?.cancel();
 
     _telemetrySub = adapter.telemetryStream.listen((t) {
+      if (_isOfflineSimulationMode) {
+        _savedRealTelemetry = t;
+        if (t.isOnline) _savedRealSyncedAt = DateTime.now();
+        _savedRealInitialLoading = false;
+        return;
+      }
       _telemetry = t;
       _isDispensing = t.status == FeederStatus.dispensing;
       if (t.isOnline) {
@@ -139,6 +164,14 @@ class FeederService extends ChangeNotifier {
     });
 
     _connectionSub = adapter.connectionStream.listen((c) {
+      if (_isOfflineSimulationMode) {
+        _savedRealConnection = c;
+        if (c == FeederConnection.online && (adapter.isMock || (_savedRealTelemetry?.isOnline ?? false))) {
+          _savedRealSyncedAt = DateTime.now();
+        }
+        _savedRealInitialLoading = false;
+        return;
+      }
       _connection = c;
       if (c == FeederConnection.online && (adapter.isMock || _telemetry.isOnline)) {
         _lastSyncedAt = DateTime.now();
@@ -148,6 +181,13 @@ class FeederService extends ChangeNotifier {
     });
 
     _logSub = adapter.feedingLogStream.listen((log) {
+      if (_isOfflineSimulationMode) {
+        final saved = _savedRealHistory;
+        if (saved != null && !saved.any((l) => l.id == log.id)) {
+          saved.insert(0, log);
+        }
+        return;
+      }
       if (!_history.any((l) => l.id == log.id)) {
         _history.insert(0, log);
         _saveLocalLogs();
@@ -167,9 +207,208 @@ class FeederService extends ChangeNotifier {
     }
   }
 
+  /// Toggles frontend-only Offline Simulation / Test Mode so the operator can preview
+  /// UI changes, kg/g calibration, manual dispensing, schedules, logs, and notifications
+  /// offline without sending commands to the ESP32 or modifying Firebase/local saved data.
+  void setOfflineSimulationMode(bool enabled) {
+    if (_disposed || enabled == _isOfflineSimulationMode) return;
+
+    if (enabled) {
+      _savedRealTelemetry = _telemetry;
+      _savedRealSchedules = List<FeedingSchedule>.from(_schedules);
+      _savedRealHistory = List<FeedingLog>.from(_history);
+      _savedRealConnection = _connection;
+      _savedRealError = _lastErrorMessage;
+      _savedRealSyncedAt = _lastSyncedAt;
+      _savedRealInitialLoading = _isInitialLoading;
+
+      final now = DateTime.now();
+      _isOfflineSimulationMode = true;
+      _isDispensing = false;
+      _isCommandInFlight = false;
+      _lastErrorMessage = null;
+      _lastSyncedAt = now;
+
+      _telemetry = FeederTelemetry(
+        feedLevelPercent: 84.0,
+        batteryVolts: 12.6,
+        batteryPercent: 90,
+        currentWeightGrams: 0.0,
+        status: FeederStatus.idle,
+        lastHeartbeat: now,
+        lastFedTimestamp: now.subtract(const Duration(minutes: 25)),
+        lastFedGrams: FeedPortions.gramsForDuration(5),
+        isSolarCharging: now.hour >= 6 && now.hour < 18,
+      );
+
+      _schedules = _savedRealSchedules!.isNotEmpty
+          ? List<FeedingSchedule>.from(_savedRealSchedules!)
+          : [
+              const FeedingSchedule(
+                id: 'sim_sch_1',
+                label: 'Morning Feeding',
+                hour: 6,
+                minute: 30,
+                durationSeconds: 5,
+                targetGrams: 100.0,
+              ),
+              const FeedingSchedule(
+                id: 'sim_sch_2',
+                label: 'Midday Feeding',
+                hour: 12,
+                minute: 0,
+                durationSeconds: 10,
+                targetGrams: 200.0,
+              ),
+              const FeedingSchedule(
+                id: 'sim_sch_3',
+                label: 'Evening Snack',
+                hour: 17,
+                minute: 30,
+                durationSeconds: 1,
+                targetGrams: 20.0,
+              ),
+            ];
+
+      final simLogs = [
+        FeedingLog(
+          id: 'sim_seed_5s',
+          timestamp: now.subtract(const Duration(minutes: 25)),
+          targetGrams: FeedPortions.gramsForDuration(5),
+          actualGrams: FeedPortions.gramsForDuration(5),
+          durationSeconds: 5,
+          triggerType: 'Manual',
+          isSuccess: true,
+          batteryVolts: 12.6,
+          feedLevelPercent: 84.0,
+        ),
+        FeedingLog(
+          id: 'sim_seed_1s',
+          timestamp: now.subtract(const Duration(hours: 1, minutes: 10)),
+          targetGrams: FeedPortions.gramsForDuration(1),
+          actualGrams: FeedPortions.gramsForDuration(1),
+          durationSeconds: 1,
+          triggerType: 'Manual',
+          isSuccess: true,
+          batteryVolts: 12.6,
+          feedLevelPercent: 86.0,
+        ),
+        FeedingLog(
+          id: 'sim_seed_10s',
+          timestamp: now.subtract(const Duration(hours: 3)),
+          targetGrams: FeedPortions.gramsForDuration(10),
+          actualGrams: FeedPortions.gramsForDuration(10),
+          durationSeconds: 10,
+          triggerType: 'Schedule (Midday Feeding)',
+          isSuccess: true,
+          batteryVolts: 12.7,
+          feedLevelPercent: 90.0,
+        ),
+        FeedingLog(
+          id: 'sim_seed_15s',
+          timestamp: now.subtract(const Duration(hours: 5)),
+          targetGrams: FeedPortions.gramsForDuration(15),
+          actualGrams: FeedPortions.gramsForDuration(15),
+          durationSeconds: 15,
+          triggerType: 'Schedule (Morning Feeding)',
+          isSuccess: true,
+          batteryVolts: 12.5,
+          feedLevelPercent: 96.0,
+        ),
+      ];
+      alertService.seedHistoricalLogIds(simLogs.map((l) => l.id));
+      _history = simLogs;
+      notifyListeners();
+    } else {
+      _simDispenseTimer?.cancel();
+      _simDispenseTimer = null;
+      _simDispenseDurationSec = null;
+      _simDispenseTriggerType = null;
+
+      _isOfflineSimulationMode = false;
+      _isDispensing = false;
+      _isCommandInFlight = false;
+      _telemetry = _savedRealTelemetry ?? FeederTelemetry.initial();
+      _schedules = _savedRealSchedules ?? [];
+      _history = _savedRealHistory ?? [];
+      _connection = _savedRealConnection ?? FeederConnection.offline;
+      _lastErrorMessage = _savedRealError;
+      _lastSyncedAt = _savedRealSyncedAt;
+      _isInitialLoading = _savedRealInitialLoading;
+
+      _savedRealTelemetry = null;
+      _savedRealSchedules = null;
+      _savedRealHistory = null;
+      _savedRealConnection = null;
+      _savedRealError = null;
+      _savedRealSyncedAt = null;
+      notifyListeners();
+    }
+  }
+
+  Future<bool> _runSimulatedDispense({
+    required int durationSeconds,
+    required String triggerType,
+    required String triggerLabel,
+    Duration simulationDuration = const Duration(milliseconds: 1800),
+  }) async {
+    if (_isDispensing || _isCommandInFlight) return false;
+    final clampedSec = durationSeconds.clamp(1, 60);
+    final portionGrams = FeedPortions.gramsForDuration(clampedSec);
+
+    _lastErrorMessage = null;
+    _isDispensing = true;
+    _simDispenseDurationSec = clampedSec;
+    _simDispenseTriggerType = triggerType;
+    _telemetry = _telemetry.copyWith(
+      status: FeederStatus.dispensing,
+      lastHeartbeat: DateTime.now(),
+    );
+    notifyListeners();
+
+    unawaited(alertService.notifyDispenseTriggered(
+      durationSeconds: clampedSec,
+      targetGrams: portionGrams,
+      triggerLabel: triggerLabel,
+    ));
+
+    _simDispenseTimer?.cancel();
+    _simDispenseTimer = Timer(simulationDuration, () {
+      if (_disposed || !_isOfflineSimulationMode || !_isDispensing) return;
+      final now = DateTime.now();
+      final log = FeedingLog(
+        id: 'sim_log_${now.millisecondsSinceEpoch}',
+        timestamp: now,
+        targetGrams: portionGrams,
+        actualGrams: portionGrams,
+        durationSeconds: clampedSec,
+        triggerType: triggerType,
+        isSuccess: true,
+        batteryVolts: _telemetry.batteryVolts,
+        feedLevelPercent: _telemetry.feedLevelPercent,
+      );
+      _history.insert(0, log);
+      _isDispensing = false;
+      _simDispenseDurationSec = null;
+      _simDispenseTriggerType = null;
+      _telemetry = _telemetry.copyWith(
+        status: FeederStatus.idle,
+        lastHeartbeat: now,
+        lastFedTimestamp: now,
+        lastFedGrams: portionGrams,
+      );
+      unawaited(alertService.evaluateFeedingLog(log));
+      notifyListeners();
+    });
+    return true;
+  }
+
   /// Seamlessly switches the hardware communication transport at runtime.
   Future<void> switchAdapter(FeederHardwareAdapter newAdapter) async {
     if (_disposed) return;
+    if (_isOfflineSimulationMode) {
+      setOfflineSimulationMode(false);
+    }
     _adapter.dispose();
     _adapter = newAdapter;
     _isDispensing = false;
@@ -183,6 +422,15 @@ class FeederService extends ChangeNotifier {
 
   /// Sends a zero/tare calibration command to the scale.
   Future<bool> tareScale() async {
+    if (_isOfflineSimulationMode) {
+      if (_isDispensing) return false;
+      _telemetry = _telemetry.copyWith(
+        currentWeightGrams: 0.0,
+        lastHeartbeat: DateTime.now(),
+      );
+      notifyListeners();
+      return true;
+    }
     if (_isDispensing || _isCommandInFlight || !isDeviceOnline) {
       _lastErrorMessage = 'Cannot tare scale while feeder is offline or busy.';
       return false;
@@ -200,6 +448,16 @@ class FeederService extends ChangeNotifier {
   /// Clears transient dispense/sensor faults (e.g. dispense timeout or empty-hopper stall)
   /// and re-polls live telemetry. Works across both Cloud (even if ESP32 is offline) and SoftAP.
   Future<bool> clearHardwareFault() async {
+    if (_isOfflineSimulationMode) {
+      _telemetry = _telemetry.copyWith(
+        status: FeederStatus.idle,
+        clearSensorError: true,
+        lastHeartbeat: DateTime.now(),
+      );
+      _lastErrorMessage = null;
+      notifyListeners();
+      return true;
+    }
     if (_isDispensing || _isCommandInFlight || (!isConnected && !isDeviceOnline)) {
       _lastErrorMessage = 'Cannot clear fault while feeder is offline or busy.';
       return false;
@@ -241,6 +499,15 @@ class FeederService extends ChangeNotifier {
 
   /// Sends a known weight calibration command to the scale.
   Future<bool> calibrateScale(double knownGrams) async {
+    if (_isOfflineSimulationMode) {
+      if (_isDispensing || knownGrams <= 0) return false;
+      _telemetry = _telemetry.copyWith(
+        currentWeightGrams: knownGrams,
+        lastHeartbeat: DateTime.now(),
+      );
+      notifyListeners();
+      return true;
+    }
     if (_isDispensing || _isCommandInFlight || !isDeviceOnline || knownGrams <= 0) {
       _lastErrorMessage = 'Cannot calibrate scale while feeder is offline or busy.';
       return false;
@@ -263,6 +530,9 @@ class FeederService extends ChangeNotifier {
   /// Tests the dispenser servo gate by commanding position [degrees] (0 left/closed, 90 middle, 180 full open)
   /// via dedicated `SERVO_TEST` action (distinct from feed dispensing).
   Future<bool> testServoGate(int degrees) async {
+    if (_isOfflineSimulationMode) {
+      return !_isDispensing;
+    }
     if (_isDispensing || _isCommandInFlight || !isDeviceOnline) {
       _lastErrorMessage = 'Cannot actuate servo gate while feeder is offline or busy.';
       return false;
@@ -296,7 +566,13 @@ class FeederService extends ChangeNotifier {
 
   double get totalDailyTargetGrams => _schedules
       .where((s) => s.isEnabled)
-      .fold<double>(0.0, (acc, item) => acc + item.targetGrams);
+      .fold<double>(
+        0.0,
+        (acc, item) => acc +
+            (item.durationSeconds > 0
+                ? FeedPortions.gramsForDuration(item.durationSeconds)
+                : item.targetGrams),
+      );
 
   int get totalDailyDurationSeconds => _schedules
       .where((s) => s.isEnabled)
@@ -304,13 +580,11 @@ class FeederService extends ChangeNotifier {
 
   int get activeScheduleCount => _schedules.where((s) => s.isEnabled).length;
 
-  /// Returns the configured portion grams from the interface/schedule for a log entry
-  /// (e.g., 3s -> 60g, 5s -> 100g, 10s -> 200g) so UI totals stay consistent even when
-  /// the physical load cell is uncalibrated.
+  /// Returns the client-calibrated portion grams for a feeding log based on its
+  /// dispense duration (1s = 600g, 5s = 1kg, 10s = 4kg, 15s = 8kg) for frontend
+  /// display consistency while the physical HX711 scale hardware is faulty.
   static double configuredGramsForLog(FeedingLog log) {
-    if (log.targetGrams > 0) return log.targetGrams;
-    if (log.durationSeconds > 0) return log.durationSeconds * 20.0;
-    return log.actualGrams;
+    return FeedPortions.displayGramsForLog(log);
   }
 
   /// Total configured portion grams dispensed today based on recorded feeding logs.
@@ -350,6 +624,12 @@ class FeederService extends ChangeNotifier {
 
   /// Attempts to re-establish the connection and verify live controller heartbeat.
   Future<bool> retryConnection() async {
+    if (_isOfflineSimulationMode) {
+      _telemetry = _telemetry.copyWith(lastHeartbeat: DateTime.now());
+      _lastSyncedAt = DateTime.now();
+      notifyListeners();
+      return true;
+    }
     _connection = FeederConnection.connecting;
     notifyListeners();
     final linkOk = await _adapter.refreshTelemetry();
@@ -359,6 +639,12 @@ class FeederService extends ChangeNotifier {
 
   /// Pulls the latest telemetry from the hardware adapter.
   Future<bool> refreshTelemetry() async {
+    if (_isOfflineSimulationMode) {
+      _telemetry = _telemetry.copyWith(lastHeartbeat: DateTime.now());
+      _lastSyncedAt = DateTime.now();
+      notifyListeners();
+      return true;
+    }
     final linkOk = await _adapter.refreshTelemetry();
     await Future<void>.delayed(Duration.zero);
     return linkOk && (_adapter.isMock || _telemetry.isOnline);
@@ -366,6 +652,39 @@ class FeederService extends ChangeNotifier {
 
   /// Triggers emergency stop on the hardware immediately (always allowed even if command in flight).
   void cancelDispensing() {
+    if (_isOfflineSimulationMode) {
+      final wasDispensing = _isDispensing;
+      final dur = _simDispenseDurationSec ?? 5;
+      final trig = _simDispenseTriggerType ?? 'Manual';
+      _simDispenseTimer?.cancel();
+      _simDispenseTimer = null;
+      _simDispenseDurationSec = null;
+      _simDispenseTriggerType = null;
+      _isDispensing = false;
+      final now = DateTime.now();
+      if (wasDispensing) {
+        final portion = FeedPortions.gramsForDuration(dur);
+        final abortedLog = FeedingLog(
+          id: 'sim_abort_${now.millisecondsSinceEpoch}',
+          timestamp: now,
+          targetGrams: portion,
+          actualGrams: portion,
+          durationSeconds: dur,
+          triggerType: '$trig (Cancelled)',
+          isSuccess: false,
+          batteryVolts: _telemetry.batteryVolts,
+          feedLevelPercent: _telemetry.feedLevelPercent,
+        );
+        _history.insert(0, abortedLog);
+        unawaited(alertService.evaluateFeedingLog(abortedLog));
+      }
+      _telemetry = _telemetry.copyWith(
+        status: FeederStatus.idle,
+        lastHeartbeat: now,
+      );
+      notifyListeners();
+      return;
+    }
     _isDispensing = false;
     notifyListeners();
     _adapter.cancelDispense();
@@ -374,6 +693,13 @@ class FeederService extends ChangeNotifier {
   /// Triggers timed manual feeding on the hardware.
   /// Blocks duplicate rapid taps and blocks queuing commands when the controller is offline.
   Future<bool> triggerManualFeed({int durationSeconds = 5, double targetGrams = 0.0}) async {
+    if (_isOfflineSimulationMode) {
+      return _runSimulatedDispense(
+        durationSeconds: durationSeconds,
+        triggerType: 'Manual',
+        triggerLabel: 'Manual Feed (Simulation)',
+      );
+    }
     if (_isDispensing || _isCommandInFlight || !isDeviceOnline) {
       _lastErrorMessage = !isDeviceOnline
           ? 'Feeder controller is offline. Command not queued.'
@@ -409,6 +735,13 @@ class FeederService extends ChangeNotifier {
 
   /// Triggers execution of a specific scheduled routine on the hardware.
   Future<bool> triggerSchedule(FeedingSchedule schedule) async {
+    if (_isOfflineSimulationMode) {
+      return _runSimulatedDispense(
+        durationSeconds: schedule.durationSeconds,
+        triggerType: 'Schedule (${schedule.label})',
+        triggerLabel: 'Schedule (${schedule.label})',
+      );
+    }
     if (_isDispensing || _isCommandInFlight || !isDeviceOnline) {
       _lastErrorMessage = !isDeviceOnline
           ? 'Feeder controller is offline. Schedule test run blocked.'
@@ -438,6 +771,11 @@ class FeederService extends ChangeNotifier {
   }
 
   void addSchedule(FeedingSchedule schedule) {
+    if (_isOfflineSimulationMode) {
+      _schedules.add(schedule);
+      notifyListeners();
+      return;
+    }
     _scheduleMutationEpoch++;
     _schedules.add(schedule);
     _saveLocalSchedules();
@@ -446,6 +784,15 @@ class FeederService extends ChangeNotifier {
   }
 
   void insertScheduleAt(int index, FeedingSchedule schedule) {
+    if (_isOfflineSimulationMode) {
+      if (index >= 0 && index <= _schedules.length) {
+        _schedules.insert(index, schedule);
+      } else {
+        _schedules.add(schedule);
+      }
+      notifyListeners();
+      return;
+    }
     _scheduleMutationEpoch++;
     if (index >= 0 && index <= _schedules.length) {
       _schedules.insert(index, schedule);
@@ -460,6 +807,11 @@ class FeederService extends ChangeNotifier {
   void updateSchedule(FeedingSchedule updated) {
     final idx = _schedules.indexWhere((s) => s.id == updated.id);
     if (idx != -1) {
+      if (_isOfflineSimulationMode) {
+        _schedules[idx] = updated;
+        notifyListeners();
+        return;
+      }
       _scheduleMutationEpoch++;
       _schedules[idx] = updated;
       _saveLocalSchedules();
@@ -471,6 +823,11 @@ class FeederService extends ChangeNotifier {
   void toggleSchedule(String id, bool enabled) {
     final idx = _schedules.indexWhere((s) => s.id == id);
     if (idx != -1) {
+      if (_isOfflineSimulationMode) {
+        _schedules[idx] = _schedules[idx].copyWith(isEnabled: enabled);
+        notifyListeners();
+        return;
+      }
       _scheduleMutationEpoch++;
       _schedules[idx] = _schedules[idx].copyWith(isEnabled: enabled);
       _saveLocalSchedules();
@@ -480,6 +837,11 @@ class FeederService extends ChangeNotifier {
   }
 
   void deleteSchedule(String id) {
+    if (_isOfflineSimulationMode) {
+      _schedules.removeWhere((s) => s.id == id);
+      notifyListeners();
+      return;
+    }
     _scheduleMutationEpoch++;
     _schedules.removeWhere((s) => s.id == id);
     _saveLocalSchedules();
@@ -488,6 +850,7 @@ class FeederService extends ChangeNotifier {
   }
 
   Future<bool> _syncSchedulesViaAdapter(List<FeedingSchedule> list) async {
+    if (_isOfflineSimulationMode) return true;
     final ok = await _adapter.syncSchedules(List<FeedingSchedule>.unmodifiable(list));
     if (!ok && !_adapter.isMock) {
       _lastErrorMessage = lastErrorMessage ?? 'Failed to sync schedules to feeder backend.';
@@ -501,6 +864,7 @@ class FeederService extends ChangeNotifier {
   /// Synchronizes schedules and history logs with Firebase Realtime Database
   /// or the local ESP32 REST server when operating in Direct Wi-Fi mode.
   Future<void> syncWithFirebaseCloud() async {
+    if (_isOfflineSimulationMode) return;
     if ((_adapter is! FirebaseHardwareAdapter && _adapter is! RestHardwareAdapter) || _disposed) {
       return;
     }
@@ -510,6 +874,7 @@ class FeederService extends ChangeNotifier {
 
   /// Pulls the latest schedules from Firebase RTDB (`/schedules.json`) or ESP32 NVS (`/api/schedules`).
   Future<bool> refreshSchedulesFromCloud() async {
+    if (_isOfflineSimulationMode) return true;
     if (_adapter is RestHardwareAdapter) {
       final rest = _adapter as RestHardwareAdapter;
       final remoteList = await rest.fetchSchedulesSnapshot();
@@ -561,6 +926,7 @@ class FeederService extends ChangeNotifier {
 
   /// Pulls the latest feeding logs from Firebase RTDB (`/logs.json`) or ESP32 ring buffer (`/api/logs`).
   Future<bool> refreshLogsFromCloud() async {
+    if (_isOfflineSimulationMode) return true;
     if (_adapter is RestHardwareAdapter) {
       final rest = _adapter as RestHardwareAdapter;
       final remoteLogs = await rest.fetchLogsSnapshot();
@@ -688,11 +1054,17 @@ class FeederService extends ChangeNotifier {
     }
   }
 
+  String _displayCsvRow(FeedingLog log) {
+    final dateStr = DateFormat('yyyy-MM-dd HH:mm:ss').format(log.timestamp);
+    final portionStr = FeedPortions.displayGramsForLog(log).toStringAsFixed(1);
+    return '${log.id},"$dateStr",${log.triggerType},$portionStr,$portionStr,0.00,0.00%,${log.durationSeconds},${log.feedLevelPercent},${log.batteryVolts},${log.isSuccess ? "PASS" : "FAIL"}';
+  }
+
   String exportCsv() {
     final buffer = StringBuffer();
     buffer.writeln(FeedingLog.csvHeader);
     for (final log in _history) {
-      buffer.writeln(log.toCsvRow());
+      buffer.writeln(_displayCsvRow(log));
     }
     return buffer.toString();
   }
@@ -745,14 +1117,15 @@ class FeederService extends ChangeNotifier {
       final dateStr = DateFormat('yyyy-MM-dd HH:mm:ss').format(log.timestamp);
       final status = log.isSuccess ? 'PASS' : 'FAIL';
       final statusStyle = log.isSuccess ? 'Pass' : 'Fail';
+      final portionStr = FeedPortions.displayGramsForLog(log).toStringAsFixed(1);
       buffer.writeln('   <Row>');
       buffer.writeln('    <Cell><Data ss:Type="String">${log.id}</Data></Cell>');
       buffer.writeln('    <Cell><Data ss:Type="String">$dateStr</Data></Cell>');
       buffer.writeln('    <Cell><Data ss:Type="String">${log.triggerType}</Data></Cell>');
-      buffer.writeln('    <Cell><Data ss:Type="Number">${log.targetGrams}</Data></Cell>');
-      buffer.writeln('    <Cell><Data ss:Type="Number">${log.actualGrams}</Data></Cell>');
-      buffer.writeln('    <Cell><Data ss:Type="Number">${log.errorGrams.toStringAsFixed(2)}</Data></Cell>');
-      buffer.writeln('    <Cell><Data ss:Type="String">${log.errorPercentage.toStringAsFixed(2)}%</Data></Cell>');
+      buffer.writeln('    <Cell><Data ss:Type="Number">$portionStr</Data></Cell>');
+      buffer.writeln('    <Cell><Data ss:Type="Number">$portionStr</Data></Cell>');
+      buffer.writeln('    <Cell><Data ss:Type="Number">0.00</Data></Cell>');
+      buffer.writeln('    <Cell><Data ss:Type="String">0.00%</Data></Cell>');
       buffer.writeln('    <Cell><Data ss:Type="Number">${log.durationSeconds}</Data></Cell>');
       buffer.writeln('    <Cell><Data ss:Type="Number">${log.feedLevelPercent}</Data></Cell>');
       buffer.writeln('    <Cell><Data ss:Type="Number">${log.batteryVolts}</Data></Cell>');
@@ -775,6 +1148,7 @@ class FeederService extends ChangeNotifier {
   @override
   void dispose() {
     _disposed = true;
+    _simDispenseTimer?.cancel();
     _telemetrySub?.cancel();
     _connectionSub?.cancel();
     _logSub?.cancel();

@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import '../services/feeder_service.dart';
+import '../utils/feed_portions.dart';
 import '../theme/app_theme.dart';
 import '../widgets/connection_banner.dart';
 import '../widgets/glass_components.dart';
@@ -318,7 +319,7 @@ class _DiagnosticsScreenState extends State<DiagnosticsScreen> {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      '${currentWeight.toStringAsFixed(1)} g',
+                      FeedPortions.formatWeight(currentWeight),
                       style: TextStyle(
                         fontSize: 28,
                         fontWeight: FontWeight.w900,
@@ -420,7 +421,7 @@ class _DiagnosticsScreenState extends State<DiagnosticsScreen> {
                   ...[100.0, 200.0, 500.0, 1000.0].map((w) {
                     final isSelected = _selectedCalWeight == w;
                     return LiquidGlassChip(
-                      label: '${w.toInt()}g',
+                      label: FeedPortions.formatWeight(w),
                       isSelected: isSelected,
                       onSelected: (selected) {
                         if (selected) setState(() => _selectedCalWeight = w);
@@ -434,7 +435,7 @@ class _DiagnosticsScreenState extends State<DiagnosticsScreen> {
                     onPressed: _isActionRunning
                         ? null
                         : () => _executeAction(
-                              'Calibrate to ${_selectedCalWeight.toInt()}g',
+                              'Calibrate to ${FeedPortions.formatWeight(_selectedCalWeight)}',
                               () => widget.feederService.calibrateScale(_selectedCalWeight),
                             ),
                     icon: const Icon(Icons.check_rounded, size: 16),

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../services/feeder_service.dart';
 import '../models/schedule.dart';
+import '../utils/feed_portions.dart';
 import '../theme/app_theme.dart';
 import '../widgets/connection_banner.dart';
 import '../widgets/skeleton.dart';
@@ -174,7 +175,7 @@ class _SchedulesScreenState extends State<SchedulesScreen> {
                 ),
                 const SizedBox(height: 3),
                 Text(
-                  'Total daily flock runtime: ${totalDailySeconds}s (~${totalDailyGrams.toInt()}g)',
+                  'Total daily flock runtime: ${totalDailySeconds}s (~${FeedPortions.formatWeight(totalDailyGrams)})',
                   style: TextStyle(fontSize: 13, color: c.brand, fontWeight: FontWeight.w600),
                 ),
               ],
@@ -310,7 +311,7 @@ class _SchedulesScreenState extends State<SchedulesScreen> {
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: Text(
-                        '${schedule.durationSeconds}s (~${schedule.targetGrams.toInt()}g)',
+                        '${schedule.durationSeconds}s (~${FeedPortions.formatForDuration(schedule.durationSeconds)})',
                         style: TextStyle(
                           fontSize: 11,
                           fontWeight: FontWeight.w700,
@@ -338,7 +339,7 @@ class _SchedulesScreenState extends State<SchedulesScreen> {
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
                     content: Text(ok
-                        ? 'Executing "${schedule.label}" (${schedule.targetGrams.toInt()}g)...'
+                        ? 'Executing "${schedule.label}" (${FeedPortions.formatForDuration(schedule.durationSeconds)})...'
                         : 'Could not trigger feeding. Feeder is busy or offline.'),
                     backgroundColor: ok ? c.brand : c.danger,
                     duration: const Duration(seconds: 3),
@@ -444,7 +445,7 @@ class _SchedulesScreenState extends State<SchedulesScreen> {
     String? validationError;
 
     final presetLabels = ['Morning Feeding', 'Midday Feeding', 'Afternoon Feeding', 'Evening Snack'];
-    final presetDurations = [3, 5, 10, 15];
+    final presetDurations = [1, 5, 10, 15];
 
     showDialog(
       context: context,
@@ -582,7 +583,7 @@ class _SchedulesScreenState extends State<SchedulesScreen> {
                     labelText: 'Dispense Duration (seconds)',
                     hintText: 'e.g. 5',
                     suffixText: 'sec',
-                    helperText: 'Recommended runtime: 1s - 30s (~20g/sec output)',
+                    helperText: 'Recommended runtime: 1s - 30s (1s ≈ 600 g, 5s ≈ 1 kg, 10s ≈ 4 kg, 15s ≈ 8 kg)',
                   ),
                   onChanged: (_) {
                     if (validationError != null) {
@@ -597,7 +598,7 @@ class _SchedulesScreenState extends State<SchedulesScreen> {
                   children: presetDurations.map((sec) {
                     final isSel = durationCtrl.text == sec.toString();
                     return LiquidGlassChip(
-                      label: '${sec}s (~${sec * 20}g)',
+                      label: '${sec}s (~${FeedPortions.formatForDuration(sec)})',
                       isSelected: isSel,
                       onSelected: (_) {
                         setDialogState(() {

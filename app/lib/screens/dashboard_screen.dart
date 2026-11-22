@@ -3,6 +3,7 @@ import '../services/feeder_service.dart';
 import '../services/settings_service.dart';
 import '../models/telemetry.dart';
 import '../models/schedule.dart';
+import '../utils/feed_portions.dart';
 import '../theme/app_theme.dart';
 import '../widgets/connection_banner.dart';
 import '../widgets/skeleton.dart';
@@ -50,13 +51,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   String _formatGrams(double grams) {
-    if (grams >= 1000.0) {
-      return '${(grams / 1000.0).toStringAsFixed(2)} kg';
-    }
-    if (grams == grams.roundToDouble()) {
-      return '${grams.toInt()} g';
-    }
-    return '${grams.toStringAsFixed(1)} g';
+    return FeedPortions.formatWeight(grams);
   }
 
   @override
@@ -73,11 +68,15 @@ class _DashboardScreenState extends State<DashboardScreen> {
         final isLoading = widget.feederService.isInitialLoading;
         final isOnline = widget.feederService.isDeviceOnline;
 
+        final isSimulation = widget.feederService.isOfflineSimulationMode;
         final String chipLabel;
         final Color chipDot;
         if (isDispensing) {
           chipLabel = 'Dispensing';
           chipDot = c.manual;
+        } else if (isSimulation) {
+          chipLabel = 'Simulated';
+          chipDot = c.info;
         } else if (connection == FeederConnection.connecting) {
           chipLabel = 'Connecting';
           chipDot = c.info;
@@ -438,7 +437,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   Widget _buildDispensingBanner(FeederTelemetry telemetry) {
     final c = context.colors;
-    final estimatedTargetGrams = _selectedDurationSeconds * 20.0;
+    final estimatedTargetGrams = FeedPortions.gramsForDuration(_selectedDurationSeconds);
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
@@ -469,7 +468,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 ),
                 const SizedBox(width: 8),
                 Text(
-                  '${estimatedTargetGrams.toInt()} g (${_selectedDurationSeconds}s)',
+                  '${FeedPortions.formatWeight(estimatedTargetGrams)} (${_selectedDurationSeconds}s)',
                   style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: c.infoStrong),
                 ),
               ],
@@ -508,11 +507,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Widget _buildHopperCard(FeederTelemetry telemetry, double dailyTarget) {
     final c = context.colors;
     final bool isDispensing = widget.feederService.isDispensing;
-    final double selectedPortionGrams = _selectedDurationSeconds * 20.0;
+    final double selectedPortionGrams = FeedPortions.gramsForDuration(_selectedDurationSeconds);
     final double lastDispensedGrams = widget.feederService.latestDispensedGrams;
     final double todayGrams = widget.feederService.todayDispensedGrams;
     final double headlineGrams = isDispensing ? selectedPortionGrams : lastDispensedGrams;
-    final double barTargetGrams = dailyTarget > 0 ? dailyTarget : 500.0;
+    final double barTargetGrams = dailyTarget > 0 ? dailyTarget : FeedPortions.gramsForDuration(15);
     final double progress = (todayGrams / barTargetGrams).clamp(0.0, 1.0);
     final Color color = isDispensing ? c.info : c.brand;
 
@@ -552,7 +551,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           ),
                           Text(
                             isDispensing
-                                ? 'Dispensing ${_selectedDurationSeconds}s (${selectedPortionGrams.toInt()} g)...'
+                                ? 'Dispensing ${_selectedDurationSeconds}s (${_formatGrams(selectedPortionGrams)})...'
                                 : 'Last Dispensed Portion • Timed Output',
                             style: TextStyle(fontSize: 11, color: c.textMuted),
                             overflow: TextOverflow.ellipsis,
@@ -595,7 +594,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   border: Border.all(color: c.border.withValues(alpha: 0.6)),
                 ),
                 child: Text(
-                  'Selected: ${selectedPortionGrams.toInt()} g (${_selectedDurationSeconds}s)',
+                  'Selected: ${_formatGrams(selectedPortionGrams)} (${_selectedDurationSeconds}s)',
                   style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: c.textSecondary),
                 ),
               ),
@@ -734,7 +733,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 border: Border.all(color: c.brandBorder.withValues(alpha: 0.5), width: 1),
               ),
               child: Text(
-                '${nextSch.targetGrams.toInt()}g',
+                nextSch.durationSeconds > 0
+                    ? FeedPortions.formatForDuration(nextSch.durationSeconds)
+                    : FeedPortions.formatWeight(nextSch.targetGrams),
                 style: TextStyle(color: c.brand, fontWeight: FontWeight.w800, fontSize: 13),
               ),
             ),
@@ -752,10 +753,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final bool canDispense = !isDispensing && !hasHardwareError && !isHopperEmpty && !isOffline && !widget.feederService.isCommandInFlight;
 
     final durationOptions = [
-      {'seconds': 3, 'name': '3s', 'desc': 'Quick (~60g)'},
-      {'seconds': 5, 'name': '5s', 'desc': 'Half (~100g)'},
-      {'seconds': 10, 'name': '10s', 'desc': 'Standard (~200g)'},
-      {'seconds': 15, 'name': '15s', 'desc': 'Full (~300g)'},
+      {'seconds': 1, 'name': '1s', 'desc': 'Quick (~${FeedPortions.formatForDuration(1)})'},
+      {'seconds': 5, 'name': '5s', 'desc': 'Half (~${FeedPortions.formatForDuration(5)})'},
+      {'seconds': 10, 'name': '10s', 'desc': 'Standard (~${FeedPortions.formatForDuration(10)})'},
+      {'seconds': 15, 'name': '15s', 'desc': 'Full (~${FeedPortions.formatForDuration(15)})'},
     ];
 
     return LiquidGlassCard(
@@ -789,7 +790,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   border: Border.all(color: c.brandBorder.withValues(alpha: 0.8)),
                 ),
                 child: Text(
-                  'Selected: ${_selectedDurationSeconds}s (~${_selectedDurationSeconds * 20}g)',
+                  'Selected: ${_selectedDurationSeconds}s (~${FeedPortions.formatForDuration(_selectedDurationSeconds)})',
                   style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: c.brand),
                 ),
               ),
@@ -844,7 +845,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         Text('Fine-tune Duration:', style: TextStyle(fontSize: 12, color: c.textMuted)),
                       ],
                     ),
-                    Text('${_selectedDurationSeconds}s (~${_selectedDurationSeconds * 20}g)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: c.brand)),
+                    Text('${_selectedDurationSeconds}s (~${FeedPortions.formatForDuration(_selectedDurationSeconds)})', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: c.brand)),
                   ],
                 ),
                 Slider(
@@ -967,7 +968,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
-                      'The dispenser gate/auger motor will run for $_selectedDurationSeconds seconds (dispenses approx. ${_selectedDurationSeconds * 20}g).',
+                      'The dispenser gate/auger motor will run for $_selectedDurationSeconds seconds (dispenses approx. ${FeedPortions.formatForDuration(_selectedDurationSeconds)}).',
                       style: TextStyle(fontSize: 12, color: c.textSecondary),
                     ),
                   ),

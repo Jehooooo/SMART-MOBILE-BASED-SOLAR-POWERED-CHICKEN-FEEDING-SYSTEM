@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import '../models/telemetry.dart';
 import '../models/feeding_log.dart';
+import '../utils/feed_portions.dart';
 
 enum FeederAlertSeverity { info, warning, critical }
 
@@ -182,12 +183,14 @@ class AlertNotificationService {
   }) async {
     if (_disposed) return null;
     final now = DateTime.now();
-    final portionGrams = targetGrams > 0 ? targetGrams : (durationSeconds * 20.0);
+    final portionGrams = durationSeconds > 0
+        ? FeedPortions.gramsForDuration(durationSeconds)
+        : targetGrams;
     final alert = FeederAlert(
       id: 'alert_dispense_start_${now.millisecondsSinceEpoch}',
       category: 'dispense_started',
       title: '🐔 Dispensing Feed Now',
-      message: '$triggerLabel started for ${durationSeconds}s (~${portionGrams.toInt()} g).',
+      message: '$triggerLabel started for ${durationSeconds}s (~${FeedPortions.formatWeight(portionGrams)}).',
       severity: FeederAlertSeverity.info,
       timestamp: now,
     );
@@ -206,9 +209,7 @@ class AlertNotificationService {
       return null;
     }
 
-    final portionGrams = log.targetGrams > 0
-        ? log.targetGrams
-        : (log.durationSeconds > 0 ? log.durationSeconds * 20.0 : log.actualGrams);
+    final portionGrams = FeedPortions.displayGramsForLog(log);
 
     if (log.isSuccess) {
       final isScheduled = log.triggerType.startsWith('Schedule');
@@ -217,7 +218,7 @@ class AlertNotificationService {
         category: 'dispense_completed',
         title: isScheduled ? '🐔 Scheduled Feeding Complete' : '🐔 Feeding Complete',
         message:
-            '${log.triggerType} dispensed ${portionGrams.toInt()} g (${log.durationSeconds}s).',
+            '${log.triggerType} dispensed ${FeedPortions.formatWeight(portionGrams)} (${log.durationSeconds}s).',
         severity: FeederAlertSeverity.info,
         timestamp: DateTime.now(),
       );
@@ -229,7 +230,7 @@ class AlertNotificationService {
         category: 'dispense_failed',
         title: 'Feeding Cycle Incomplete',
         message:
-            '${log.triggerType} aborted/failed after ${log.durationSeconds}s (target ${portionGrams.toInt()} g). Inspect feeder.',
+            '${log.triggerType} aborted/failed after ${log.durationSeconds}s (target ${FeedPortions.formatWeight(portionGrams)}). Inspect feeder.',
         severity: FeederAlertSeverity.critical,
         timestamp: DateTime.now(),
       );

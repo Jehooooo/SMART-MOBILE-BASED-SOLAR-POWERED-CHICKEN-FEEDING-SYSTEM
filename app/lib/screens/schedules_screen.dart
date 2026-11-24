@@ -584,7 +584,7 @@ class _SchedulesScreenState extends State<SchedulesScreen> {
                     hintText: 'e.g. 3',
                     suffixText: 'sec',
                     helperMaxLines: 2,
-                    helperText: 'Measured output: 1s ≈ 597.4 g, 2s ≈ 1.09 kg, 3s ≈ 1.25 kg, 4s ≈ 1.78 kg, 5s ≈ 1.97 kg',
+                    helperText: 'Estimated output: 1s ≈ 600 g, 2s ≈ 1.1 kg, 3s ≈ 1.25 kg, 4s ≈ 1.8 kg, 5s ≈ 2 kg (+400 g/s above 5s)',
                   ),
                   onChanged: (_) {
                     if (validationError != null) {

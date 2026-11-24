@@ -103,12 +103,12 @@ void main() {
       await tester.pumpAndSettle();
       expect(settings.themeMode, ThemeMode.dark);
 
-      // Scroll down to verify warning thresholds and diagnostics
-      await tester.scrollUntilVisible(find.text('Low Feed Warning Level'), 100);
-      expect(find.text('Low Feed Warning Level'), findsOneWidget);
+      // Scroll down to verify time-based portion estimation and diagnostics
+      await tester.scrollUntilVisible(find.text('Time-Based Portion Estimation'), 100);
+      expect(find.text('Time-Based Portion Estimation'), findsOneWidget);
 
-      await tester.scrollUntilVisible(find.text('Zero / Tare Scale Sensor'), 100);
-      expect(find.text('Zero / Tare Scale Sensor'), findsOneWidget);
+      await tester.scrollUntilVisible(find.text('Servo Gate & Controller Diagnostics'), 100);
+      expect(find.text('Servo Gate & Controller Diagnostics'), findsOneWidget);
 
       feeder.dispose();
     });
@@ -310,7 +310,7 @@ void main() {
       feeder.dispose();
     });
 
-    testWidgets('Diagnostics screen renders live sensors and executes tare and servo test', (WidgetTester tester) async {
+    testWidgets('Diagnostics screen renders controller status and executes servo gate checks', (WidgetTester tester) async {
       final feeder = createTestFeeder(simulateOffline: false);
 
       await tester.pumpWidget(MaterialApp(
@@ -319,27 +319,23 @@ void main() {
       ));
       await tester.pump();
 
-      // Check key sections
-      expect(find.text('Hardware Diagnostics & Calibration'), findsOneWidget);
-      expect(find.text('Load Cell & Scale (HX711)'), findsOneWidget);
+      // Check active controller & servo diagnostics sections
+      expect(find.text('Controller & Gate Diagnostics'), findsOneWidget);
+      expect(find.text('Dispenser Gate Servo (DS-S020A-C 30kg)'), findsOneWidget);
 
-      // Tap Tare button
-      await tester.tap(find.text('Tare (0.0g)'));
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 600));
-      expect(find.textContaining('Tare Scale completed'), findsWidgets);
-
-      // Scroll to Dispenser Gate Servo section
-      await tester.scrollUntilVisible(find.text('Close (0°)'), 50.0);
-      await tester.ensureVisible(find.text('Close (0°)'));
+      // Tap Close Gate (30°)
+      await tester.ensureVisible(find.text('Close Gate (30°)'));
       await tester.pumpAndSettle();
-      expect(find.text('Dispenser Gate Servo (MG996R)'), findsOneWidget);
-
-      // Tap Close Gate (0°)
-      await tester.tap(find.text('Close (0°)'));
+      await tester.tap(find.text('Close Gate (30°)'));
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 1200));
-      expect(find.textContaining('Close Gate (0°) completed'), findsWidgets);
+      expect(find.textContaining('Close Gate (30°) completed'), findsWidgets);
+
+      // Tap Open Gate (0°)
+      await tester.tap(find.text('Open Gate (0°)'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 1200));
+      expect(find.textContaining('Open Gate (0°) completed'), findsWidgets);
 
       feeder.dispose();
     });

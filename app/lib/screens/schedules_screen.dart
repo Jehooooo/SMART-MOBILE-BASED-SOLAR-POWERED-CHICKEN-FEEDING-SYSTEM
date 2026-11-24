@@ -175,7 +175,7 @@ class _SchedulesScreenState extends State<SchedulesScreen> {
                 ),
                 const SizedBox(height: 3),
                 Text(
-                  'Total daily flock runtime: ${totalDailySeconds}s (~${FeedPortions.formatWeight(totalDailyGrams)})',
+                  'Total daily flock runtime: ${totalDailySeconds}s (${widget.feederService.totalDailyTargetRangeLabel})',
                   style: TextStyle(fontSize: 13, color: c.brand, fontWeight: FontWeight.w600),
                 ),
               ],
@@ -311,7 +311,7 @@ class _SchedulesScreenState extends State<SchedulesScreen> {
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: Text(
-                        '${schedule.durationSeconds}s (~${FeedPortions.formatForDuration(schedule.durationSeconds)})',
+                        '${schedule.durationSeconds}s (${FeedPortions.formatRangeForDuration(schedule.durationSeconds)})',
                         style: TextStyle(
                           fontSize: 11,
                           fontWeight: FontWeight.w700,
@@ -339,7 +339,7 @@ class _SchedulesScreenState extends State<SchedulesScreen> {
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
                     content: Text(ok
-                        ? 'Executing "${schedule.label}" (${FeedPortions.formatForDuration(schedule.durationSeconds)})...'
+                        ? 'Executing "${schedule.label}" (${FeedPortions.formatRangeForDuration(schedule.durationSeconds)})...'
                         : 'Could not trigger feeding. Feeder is busy or offline.'),
                     backgroundColor: ok ? c.brand : c.danger,
                     duration: const Duration(seconds: 3),
@@ -584,7 +584,7 @@ class _SchedulesScreenState extends State<SchedulesScreen> {
                     hintText: 'e.g. 3',
                     suffixText: 'sec',
                     helperMaxLines: 2,
-                    helperText: 'Estimated output: 1s ≈ 600 g, 2s ≈ 1.1 kg, 3s ≈ 1.25 kg, 4s ≈ 1.8 kg, 5s ≈ 2 kg (+400 g/s above 5s)',
+                    helperText: '1s (550g - 600g) • 2s (1kg - 1.1kg) • 3s (1.1kg - 1.3kg) • 4s (1.6kg - 1.9kg) • 5s (1.6kg - 2.3kg)',
                   ),
                   onChanged: (_) {
                     if (validationError != null) {
@@ -599,7 +599,7 @@ class _SchedulesScreenState extends State<SchedulesScreen> {
                   children: presetDurations.map((sec) {
                     final isSel = durationCtrl.text == sec.toString();
                     return LiquidGlassChip(
-                      label: '${sec}s (~${FeedPortions.formatForDuration(sec)})',
+                      label: '${sec}s (${FeedPortions.formatRangeForDuration(sec)})',
                       isSelected: isSel,
                       onSelected: (_) {
                         setDialogState(() {

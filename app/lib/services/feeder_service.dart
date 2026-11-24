@@ -591,8 +591,8 @@ class FeederService extends ChangeNotifier {
 
   int get activeScheduleCount => _schedules.where((s) => s.isEnabled).length;
 
-  /// Returns the bench-calibrated portion grams for a feeding log based on its
-  /// dispense duration (1s ≈ 597.4g, 2s ≈ 1.09kg, 3s ≈ 1.25kg, 4s ≈ 1.78kg, 5s ≈ 1.97kg)
+  /// Returns the time-estimated portion grams for a feeding log based on its
+  /// dispense duration (1s ≈ 600g, 2s ≈ 1.1kg, 3s ≈ 1.25kg, 4s ≈ 1.8kg, 5s ≈ 2kg)
   /// for frontend display consistency while the physical HX711 scale hardware is faulty.
   static double configuredGramsForLog(FeedingLog log) {
     return FeedPortions.displayGramsForLog(log);

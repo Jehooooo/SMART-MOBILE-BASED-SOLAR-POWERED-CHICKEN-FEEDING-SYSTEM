@@ -232,9 +232,9 @@ class _HardwareGuideModalState extends State<_HardwareGuideModal> {
         _buildGuideTile(
           context,
           icon: Icons.scale_rounded,
-          title: 'HX711 Load Cell (GPIO 23 / 22 @ 3V3) & Timed Calibration',
+          title: 'HX711 Load Cell (GPIO 23 / 22 @ 3V3) & Time-Based Estimation',
           desc:
-              'Wired to DOUT = GPIO 23 and SCK = GPIO 22 on 3V3. For consistent portions even while scale hardware is uncalibrated/faulty, the app maps timed outputs to empirical bench trials: 1s ≈ 597.4 g, 2s ≈ 1.09 kg, 3s ≈ 1.25 kg, 4s ≈ 1.78 kg, and 5s ≈ 1.97 kg.',
+              'Wired to DOUT = GPIO 23 and SCK = GPIO 22 on 3V3. While the physical load cell is bypassed/uncalibrated, the app uses a bench-tested time estimation method: 1s ≈ 600 g, 2s ≈ 1.1 kg, 3s ≈ 1.25 kg, 4s ≈ 1.8 kg, and 5s ≈ 2 kg (+400 g/s above 5s).',
         ),
       ],
     );
@@ -343,16 +343,16 @@ class _HardwareGuideModalState extends State<_HardwareGuideModal> {
         _buildChecklistStep(
           context,
           step: '4',
-          title: 'Run a Quick 1s (~597.4 g) Gate & Audio Test',
+          title: 'Run a Quick 1s (~600 g) Gate & Audio Test',
           desc:
-              'From Dashboard, select 1s (~597.4 g) and tap DISPENSE 1s NOW. Confirm the servo smoothly sweeps 30° → 0° → 30° on the exact second and your phone plays the 1-second chicken cluck notification.',
+              'From Dashboard, select 1s (~600 g) and tap DISPENSE 1s NOW. Confirm the servo smoothly sweeps 30° → 0° → 30° on the exact second and your phone plays the 1-second chicken cluck notification.',
         ),
         _buildChecklistStep(
           context,
           step: '5',
-          title: 'Program Schedules & Inspect Calibrated Logs',
+          title: 'Program Schedules & Inspect Estimated Logs',
           desc:
-              'Add daily routines in the Schedules tab (1s ≈ 597.4 g, 2s ≈ 1.09 kg, 3s ≈ 1.25 kg, 4s ≈ 1.78 kg, 5s ≈ 1.97 kg). Open History & Logs to verify matching Target/Dispensed weights (0 g / 0.0% variance) and export CSV or Excel reports.',
+              'Add daily routines in the Schedules tab (estimated: 1s ≈ 600 g, 2s ≈ 1.1 kg, 3s ≈ 1.25 kg, 4s ≈ 1.8 kg, 5s ≈ 2 kg). Open History & Logs to verify matching Target/Dispensed weights (0 g / 0.0% variance) and export CSV or Excel reports.',
         ),
       ],
     );

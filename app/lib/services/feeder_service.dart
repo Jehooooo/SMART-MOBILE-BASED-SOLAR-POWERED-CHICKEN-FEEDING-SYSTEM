@@ -249,16 +249,16 @@ class FeederService extends ChangeNotifier {
                 label: 'Morning Feeding',
                 hour: 6,
                 minute: 30,
-                durationSeconds: 5,
-                targetGrams: 100.0,
+                durationSeconds: 3,
+                targetGrams: 60.0,
               ),
               const FeedingSchedule(
                 id: 'sim_sch_2',
                 label: 'Midday Feeding',
                 hour: 12,
                 minute: 0,
-                durationSeconds: 10,
-                targetGrams: 200.0,
+                durationSeconds: 5,
+                targetGrams: 100.0,
               ),
               const FeedingSchedule(
                 id: 'sim_sch_3',
@@ -283,33 +283,44 @@ class FeederService extends ChangeNotifier {
           feedLevelPercent: 84.0,
         ),
         FeedingLog(
-          id: 'sim_seed_1s',
-          timestamp: now.subtract(const Duration(hours: 1, minutes: 10)),
-          targetGrams: FeedPortions.gramsForDuration(1),
-          actualGrams: FeedPortions.gramsForDuration(1),
-          durationSeconds: 1,
+          id: 'sim_seed_4s',
+          timestamp: now.subtract(const Duration(minutes: 55)),
+          targetGrams: FeedPortions.gramsForDuration(4),
+          actualGrams: FeedPortions.gramsForDuration(4),
+          durationSeconds: 4,
           triggerType: 'Manual',
           isSuccess: true,
           batteryVolts: 12.6,
-          feedLevelPercent: 86.0,
+          feedLevelPercent: 87.0,
         ),
         FeedingLog(
-          id: 'sim_seed_10s',
-          timestamp: now.subtract(const Duration(hours: 3)),
-          targetGrams: FeedPortions.gramsForDuration(10),
-          actualGrams: FeedPortions.gramsForDuration(10),
-          durationSeconds: 10,
+          id: 'sim_seed_3s',
+          timestamp: now.subtract(const Duration(hours: 2)),
+          targetGrams: FeedPortions.gramsForDuration(3),
+          actualGrams: FeedPortions.gramsForDuration(3),
+          durationSeconds: 3,
           triggerType: 'Schedule (Midday Feeding)',
           isSuccess: true,
           batteryVolts: 12.7,
           feedLevelPercent: 90.0,
         ),
         FeedingLog(
-          id: 'sim_seed_15s',
+          id: 'sim_seed_2s',
+          timestamp: now.subtract(const Duration(hours: 3, minutes: 30)),
+          targetGrams: FeedPortions.gramsForDuration(2),
+          actualGrams: FeedPortions.gramsForDuration(2),
+          durationSeconds: 2,
+          triggerType: 'Manual',
+          isSuccess: true,
+          batteryVolts: 12.6,
+          feedLevelPercent: 93.0,
+        ),
+        FeedingLog(
+          id: 'sim_seed_1s',
           timestamp: now.subtract(const Duration(hours: 5)),
-          targetGrams: FeedPortions.gramsForDuration(15),
-          actualGrams: FeedPortions.gramsForDuration(15),
-          durationSeconds: 15,
+          targetGrams: FeedPortions.gramsForDuration(1),
+          actualGrams: FeedPortions.gramsForDuration(1),
+          durationSeconds: 1,
           triggerType: 'Schedule (Morning Feeding)',
           isSuccess: true,
           batteryVolts: 12.5,
@@ -580,9 +591,9 @@ class FeederService extends ChangeNotifier {
 
   int get activeScheduleCount => _schedules.where((s) => s.isEnabled).length;
 
-  /// Returns the client-calibrated portion grams for a feeding log based on its
-  /// dispense duration (1s = 600g, 5s = 1kg, 10s = 4kg, 15s = 8kg) for frontend
-  /// display consistency while the physical HX711 scale hardware is faulty.
+  /// Returns the bench-calibrated portion grams for a feeding log based on its
+  /// dispense duration (1s ≈ 597.4g, 2s ≈ 1.09kg, 3s ≈ 1.25kg, 4s ≈ 1.78kg, 5s ≈ 1.97kg)
+  /// for frontend display consistency while the physical HX711 scale hardware is faulty.
   static double configuredGramsForLog(FeedingLog log) {
     return FeedPortions.displayGramsForLog(log);
   }

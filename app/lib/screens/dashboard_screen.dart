@@ -50,10 +50,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
     return hour >= 6 && hour < 18;
   }
 
-  String _formatGrams(double grams) {
-    return FeedPortions.formatWeight(grams);
-  }
-
   @override
   Widget build(BuildContext context) {
     return ListenableBuilder(
@@ -224,7 +220,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           final isWide = constraints.maxWidth >= 768;
 
           final bool isSolarCharging = _isSolarDaylight(telemetry);
-          final double todayGrams = widget.feederService.todayDispensedGrams;
+          final String todayRangeLabel = widget.feederService.todayDispensedRangeLabel;
           final int todayCount = widget.feederService.todayFeedCount;
 
           final metricsRow = Row(
@@ -244,7 +240,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   icon: Icons.restaurant_rounded,
                   iconColor: c.brand,
                   title: 'Dispensed Today',
-                  value: todayGrams > 0 ? '~${_formatGrams(todayGrams)}' : _formatGrams(todayGrams),
+                  value: todayRangeLabel,
                   subtitle: todayCount == 0
                       ? 'No feeds logged today'
                       : '$todayCount feed${todayCount == 1 ? '' : 's'} (time-estimated)',
@@ -437,7 +433,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   Widget _buildDispensingBanner(FeederTelemetry telemetry) {
     final c = context.colors;
-    final estimatedTargetGrams = FeedPortions.gramsForDuration(_selectedDurationSeconds);
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
@@ -468,7 +463,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 ),
                 const SizedBox(width: 8),
                 Text(
-                  '${FeedPortions.formatWeight(estimatedTargetGrams)} (${_selectedDurationSeconds}s)',
+                  '${_selectedDurationSeconds}s (${FeedPortions.formatRangeForDuration(_selectedDurationSeconds)})',
                   style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: c.infoStrong),
                 ),
               ],
@@ -507,10 +502,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Widget _buildHopperCard(FeederTelemetry telemetry, double dailyTarget) {
     final c = context.colors;
     final bool isDispensing = widget.feederService.isDispensing;
-    final double selectedPortionGrams = FeedPortions.gramsForDuration(_selectedDurationSeconds);
-    final double lastDispensedGrams = widget.feederService.latestDispensedGrams;
+    final String selectedRangeLabel = FeedPortions.formatRangeForDuration(_selectedDurationSeconds);
+    final String headlineLabel = isDispensing
+        ? selectedRangeLabel
+        : widget.feederService.latestDispensedRangeLabel;
     final double todayGrams = widget.feederService.todayDispensedGrams;
-    final double headlineGrams = isDispensing ? selectedPortionGrams : lastDispensedGrams;
+    final String todayRangeLabel = widget.feederService.todayDispensedRangeLabel;
     final double barTargetGrams = dailyTarget > 0 ? dailyTarget : FeedPortions.gramsForDuration(10);
     final double progress = (todayGrams / barTargetGrams).clamp(0.0, 1.0);
     final Color color = isDispensing ? c.info : c.brand;
@@ -551,8 +548,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           ),
                           Text(
                             isDispensing
-                                ? 'Dispensing ${_selectedDurationSeconds}s (~${_formatGrams(selectedPortionGrams)})...'
-                                : 'Estimated Output • Time-Based Method',
+                                ? 'Dispensing ${_selectedDurationSeconds}s ($selectedRangeLabel)...'
+                                : 'Estimated Range • Time-Based Method',
                             style: TextStyle(fontSize: 11, color: c.textMuted),
                             overflow: TextOverflow.ellipsis,
                           ),
@@ -563,13 +560,19 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 ),
               ),
               const SizedBox(width: 8),
-              Text(
-                headlineGrams > 0 ? '~${_formatGrams(headlineGrams)}' : _formatGrams(headlineGrams),
-                style: TextStyle(
-                  fontSize: 28,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: -0.5,
-                  color: color,
+              Flexible(
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.centerRight,
+                  child: Text(
+                    headlineLabel,
+                    style: TextStyle(
+                      fontSize: 22,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: -0.4,
+                      color: color,
+                    ),
+                  ),
                 ),
               ),
             ],
@@ -594,7 +597,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   border: Border.all(color: c.border.withValues(alpha: 0.6)),
                 ),
                 child: Text(
-                  'Selected: ~${_formatGrams(selectedPortionGrams)} (${_selectedDurationSeconds}s)',
+                  'Selected: ${_selectedDurationSeconds}s ($selectedRangeLabel)',
                   style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: c.textSecondary),
                 ),
               ),
@@ -605,7 +608,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   borderRadius: BorderRadius.circular(20),
                 ),
                 child: Text(
-                  'Est. Today: ${todayGrams > 0 ? '~${_formatGrams(todayGrams)}' : _formatGrams(todayGrams)}',
+                  'Est. Today: $todayRangeLabel',
                   style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: c.brand),
                 ),
               ),
@@ -652,9 +655,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
             ],
           ),
           const SizedBox(height: 14),
-          Text(
-            value,
-            style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800, letterSpacing: -0.4, color: c.textPrimary),
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: Alignment.centerLeft,
+            child: Text(
+              value,
+              style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800, letterSpacing: -0.4, color: c.textPrimary),
+            ),
           ),
           const SizedBox(height: 3),
           Text(
@@ -733,8 +740,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 border: Border.all(color: c.brandBorder.withValues(alpha: 0.5), width: 1),
               ),
               child: Text(
-                '~${nextSch.durationSeconds > 0 ? FeedPortions.formatForDuration(nextSch.durationSeconds) : FeedPortions.formatWeight(nextSch.targetGrams)}',
-                style: TextStyle(color: c.brand, fontWeight: FontWeight.w800, fontSize: 13),
+                nextSch.durationSeconds > 0
+                    ? FeedPortions.formatRangeForDuration(nextSch.durationSeconds)
+                    : FeedPortions.formatWeight(nextSch.targetGrams),
+                style: TextStyle(color: c.brand, fontWeight: FontWeight.w800, fontSize: 12),
               ),
             ),
         ],
@@ -750,13 +759,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final bool isOffline = !isOnline;
     final bool canDispense = !isDispensing && !hasHardwareError && !isHopperEmpty && !isOffline && !widget.feederService.isCommandInFlight;
 
-    final durationOptions = [
-      {'seconds': 1, 'name': '1s', 'desc': '~${FeedPortions.formatForDuration(1)}'},
-      {'seconds': 2, 'name': '2s', 'desc': '~${FeedPortions.formatForDuration(2)}'},
-      {'seconds': 3, 'name': '3s', 'desc': '~${FeedPortions.formatForDuration(3)}'},
-      {'seconds': 4, 'name': '4s', 'desc': '~${FeedPortions.formatForDuration(4)}'},
-      {'seconds': 5, 'name': '5s', 'desc': '~${FeedPortions.formatForDuration(5)}'},
-    ];
+    final presetSeconds = [1, 2, 3, 4, 5];
 
     return LiquidGlassCard(
       borderRadius: BorderRadius.circular(22),
@@ -789,7 +792,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   border: Border.all(color: c.brandBorder.withValues(alpha: 0.8)),
                 ),
                 child: Text(
-                  'Selected: ${_selectedDurationSeconds}s (~${FeedPortions.formatForDuration(_selectedDurationSeconds)})',
+                  '${_selectedDurationSeconds}s (${FeedPortions.formatRangeForDuration(_selectedDurationSeconds)})',
                   style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: c.brand),
                 ),
               ),
@@ -806,11 +809,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
           Wrap(
             spacing: 8,
             runSpacing: 8,
-            children: durationOptions.map((opt) {
-              final seconds = opt['seconds'] as int;
+            children: presetSeconds.map((seconds) {
               final isSelected = _selectedDurationSeconds == seconds;
               return LiquidGlassChip(
-                label: '${opt['name']} • ${opt['desc']}',
+                label: '${seconds}s (${FeedPortions.formatRangeForDuration(seconds)})',
                 isSelected: isSelected,
                 onSelected: isDispensing
                     ? null
@@ -855,7 +857,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     ),
                     const SizedBox(width: 8),
                     Text(
-                      '${_selectedDurationSeconds}s (~${FeedPortions.formatForDuration(_selectedDurationSeconds)})',
+                      '${_selectedDurationSeconds}s (${FeedPortions.formatRangeForDuration(_selectedDurationSeconds)})',
                       style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: c.brand),
                     ),
                   ],
@@ -980,7 +982,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
-                      'The dispenser gate/auger motor will run for $_selectedDurationSeconds seconds (dispenses approx. ${FeedPortions.formatForDuration(_selectedDurationSeconds)}).',
+                      'The dispenser gate/auger motor will run for $_selectedDurationSeconds seconds (estimated: ${FeedPortions.formatRangeForDuration(_selectedDurationSeconds)}).',
                       style: TextStyle(fontSize: 12, color: c.textSecondary),
                     ),
                   ),

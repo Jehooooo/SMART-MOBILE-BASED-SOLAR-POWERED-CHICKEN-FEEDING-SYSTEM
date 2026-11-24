@@ -52,9 +52,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
             : allLogs.where((l) => l.triggerType.startsWith(_selectedFilter)).toList();
 
         final totalFeedings = allLogs.length;
-        final totalGrams = allLogs
-            .where((l) => l.isSuccess)
-            .fold<double>(0.0, (acc, item) => acc + FeederService.configuredGramsForLog(item));
+        final totalRangeLabel = widget.feederService.totalDispensedRangeLabel;
         final successRate = totalFeedings > 0
             ? (allLogs.where((l) => l.isSuccess).length / totalFeedings) * 100.0
             : 0.0;
@@ -191,7 +189,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
                                                   _buildSummaryItem('Success Rate', '${successRate.toStringAsFixed(0)}%'),
                                                   _buildSummaryItem(
                                                     'Total Dispensed',
-                                                    FeedPortions.formatWeight(totalGrams),
+                                                    totalRangeLabel,
                                                   ),
                                                 ],
                                               ),
@@ -339,13 +337,16 @@ class _HistoryScreenState extends State<HistoryScreen> {
         ),
         child: Column(
           children: [
-            Text(
-              value,
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.w800,
-                letterSpacing: -0.3,
-                color: c.textPrimary,
+            FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Text(
+                value,
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: -0.3,
+                  color: c.textPrimary,
+                ),
               ),
             ),
             const SizedBox(height: 3),
@@ -365,7 +366,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
     final dateFormat = DateFormat('MMM dd, yyyy • hh:mm a');
     final formattedDate = dateFormat.format(log.timestamp);
     final relativeTime = _formatRelativeTime(log.timestamp);
-    final portion = FeederService.configuredGramsForLog(log);
+    final rangeLabel = FeedPortions.formatRangeForLog(log);
     final isScheduled = log.triggerType.startsWith('Schedule');
     final isSuccess = log.isSuccess;
 
@@ -452,9 +453,13 @@ class _HistoryScreenState extends State<HistoryScreen> {
                     children: [
                       Text('Target', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: c.textMuted)),
                       const SizedBox(height: 2),
-                      Text(
-                        FeedPortions.formatWeight(portion),
-                        style: TextStyle(fontWeight: FontWeight.w800, fontSize: 14, color: c.textPrimary),
+                      FittedBox(
+                        fit: BoxFit.scaleDown,
+                        alignment: Alignment.centerLeft,
+                        child: Text(
+                          rangeLabel,
+                          style: TextStyle(fontWeight: FontWeight.w800, fontSize: 13, color: c.textPrimary),
+                        ),
                       ),
                     ],
                   ),
@@ -466,9 +471,13 @@ class _HistoryScreenState extends State<HistoryScreen> {
                     children: [
                       Text('Dispensed', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: c.textMuted)),
                       const SizedBox(height: 2),
-                      Text(
-                        FeedPortions.formatWeight(portion),
-                        style: TextStyle(fontWeight: FontWeight.w800, fontSize: 14, color: c.brand),
+                      FittedBox(
+                        fit: BoxFit.scaleDown,
+                        alignment: Alignment.centerLeft,
+                        child: Text(
+                          rangeLabel,
+                          style: TextStyle(fontWeight: FontWeight.w800, fontSize: 13, color: c.brand),
+                        ),
                       ),
                     ],
                   ),

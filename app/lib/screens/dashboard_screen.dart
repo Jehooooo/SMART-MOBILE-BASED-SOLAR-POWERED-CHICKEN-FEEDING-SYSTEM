@@ -24,7 +24,7 @@ class DashboardScreen extends StatefulWidget {
 }
 
 class _DashboardScreenState extends State<DashboardScreen> {
-  int _selectedDurationSeconds = 5;
+  int _selectedDurationSeconds = 1;
 
   SettingsService get _settings => widget.settingsService;
 
@@ -511,7 +511,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final double lastDispensedGrams = widget.feederService.latestDispensedGrams;
     final double todayGrams = widget.feederService.todayDispensedGrams;
     final double headlineGrams = isDispensing ? selectedPortionGrams : lastDispensedGrams;
-    final double barTargetGrams = dailyTarget > 0 ? dailyTarget : FeedPortions.gramsForDuration(15);
+    final double barTargetGrams = dailyTarget > 0 ? dailyTarget : FeedPortions.gramsForDuration(10);
     final double progress = (todayGrams / barTargetGrams).clamp(0.0, 1.0);
     final Color color = isDispensing ? c.info : c.brand;
 
@@ -753,10 +753,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final bool canDispense = !isDispensing && !hasHardwareError && !isHopperEmpty && !isOffline && !widget.feederService.isCommandInFlight;
 
     final durationOptions = [
-      {'seconds': 1, 'name': '1s', 'desc': 'Quick (~${FeedPortions.formatForDuration(1)})'},
-      {'seconds': 5, 'name': '5s', 'desc': 'Half (~${FeedPortions.formatForDuration(5)})'},
-      {'seconds': 10, 'name': '10s', 'desc': 'Standard (~${FeedPortions.formatForDuration(10)})'},
-      {'seconds': 15, 'name': '15s', 'desc': 'Full (~${FeedPortions.formatForDuration(15)})'},
+      {'seconds': 1, 'name': '1s', 'desc': '~${FeedPortions.formatForDuration(1)}'},
+      {'seconds': 2, 'name': '2s', 'desc': '~${FeedPortions.formatForDuration(2)}'},
+      {'seconds': 3, 'name': '3s', 'desc': '~${FeedPortions.formatForDuration(3)}'},
+      {'seconds': 4, 'name': '4s', 'desc': '~${FeedPortions.formatForDuration(4)}'},
+      {'seconds': 5, 'name': '5s', 'desc': '~${FeedPortions.formatForDuration(5)}'},
     ];
 
     return LiquidGlassCard(
@@ -838,14 +839,27 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Row(
-                      children: [
-                        Icon(Icons.tune_rounded, size: 16, color: c.textMuted),
-                        const SizedBox(width: 6),
-                        Text('Fine-tune Duration:', style: TextStyle(fontSize: 12, color: c.textMuted)),
-                      ],
+                    Flexible(
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.tune_rounded, size: 16, color: c.textMuted),
+                          const SizedBox(width: 6),
+                          Flexible(
+                            child: Text(
+                              'Fine-tune Duration:',
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(fontSize: 12, color: c.textMuted),
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
-                    Text('${_selectedDurationSeconds}s (~${FeedPortions.formatForDuration(_selectedDurationSeconds)})', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: c.brand)),
+                    const SizedBox(width: 8),
+                    Text(
+                      '${_selectedDurationSeconds}s (~${FeedPortions.formatForDuration(_selectedDurationSeconds)})',
+                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: c.brand),
+                    ),
                   ],
                 ),
                 Slider(

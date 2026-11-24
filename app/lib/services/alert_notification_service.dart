@@ -183,14 +183,14 @@ class AlertNotificationService {
   }) async {
     if (_disposed) return null;
     final now = DateTime.now();
-    final portionGrams = durationSeconds > 0
-        ? FeedPortions.gramsForDuration(durationSeconds)
-        : targetGrams;
+    final rangeLabel = durationSeconds > 0
+        ? FeedPortions.formatRangeForDuration(durationSeconds)
+        : FeedPortions.formatWeight(targetGrams);
     final alert = FeederAlert(
       id: 'alert_dispense_start_${now.millisecondsSinceEpoch}',
       category: 'dispense_started',
       title: '🐔 Dispensing Feed Now',
-      message: '$triggerLabel started for ${durationSeconds}s (~${FeedPortions.formatWeight(portionGrams)}).',
+      message: '$triggerLabel started for ${durationSeconds}s ($rangeLabel).',
       severity: FeederAlertSeverity.info,
       timestamp: now,
     );
@@ -209,7 +209,7 @@ class AlertNotificationService {
       return null;
     }
 
-    final portionGrams = FeedPortions.displayGramsForLog(log);
+    final rangeLabel = FeedPortions.formatRangeForLog(log);
 
     if (log.isSuccess) {
       final isScheduled = log.triggerType.startsWith('Schedule');
@@ -218,7 +218,7 @@ class AlertNotificationService {
         category: 'dispense_completed',
         title: isScheduled ? '🐔 Scheduled Feeding Complete' : '🐔 Feeding Complete',
         message:
-            '${log.triggerType} dispensed ${FeedPortions.formatWeight(portionGrams)} (${log.durationSeconds}s).',
+            '${log.triggerType} dispensed $rangeLabel (${log.durationSeconds}s).',
         severity: FeederAlertSeverity.info,
         timestamp: DateTime.now(),
       );
@@ -230,7 +230,7 @@ class AlertNotificationService {
         category: 'dispense_failed',
         title: 'Feeding Cycle Incomplete',
         message:
-            '${log.triggerType} aborted/failed after ${log.durationSeconds}s (target ${FeedPortions.formatWeight(portionGrams)}). Inspect feeder.',
+            '${log.triggerType} aborted/failed after ${log.durationSeconds}s (target $rangeLabel). Inspect feeder.',
         severity: FeederAlertSeverity.critical,
         timestamp: DateTime.now(),
       );

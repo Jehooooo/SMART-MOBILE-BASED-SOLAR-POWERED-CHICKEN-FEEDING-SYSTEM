@@ -440,12 +440,12 @@ class _SchedulesScreenState extends State<SchedulesScreen> {
 
     final labelCtrl = TextEditingController(text: isEditing ? existing.label : 'Routine Feed');
     final durationCtrl = TextEditingController(
-      text: isEditing ? existing.durationSeconds.toString() : '5',
+      text: isEditing ? existing.durationSeconds.toString() : '1',
     );
     String? validationError;
 
     final presetLabels = ['Morning Feeding', 'Midday Feeding', 'Afternoon Feeding', 'Evening Snack'];
-    final presetDurations = [1, 5, 10, 15];
+    final presetDurations = [1, 2, 3, 4, 5];
 
     showDialog(
       context: context,
@@ -581,9 +581,10 @@ class _SchedulesScreenState extends State<SchedulesScreen> {
                   keyboardType: TextInputType.number,
                   decoration: const InputDecoration(
                     labelText: 'Dispense Duration (seconds)',
-                    hintText: 'e.g. 5',
+                    hintText: 'e.g. 3',
                     suffixText: 'sec',
-                    helperText: 'Recommended runtime: 1s - 30s (1s ≈ 600 g, 5s ≈ 1 kg, 10s ≈ 4 kg, 15s ≈ 8 kg)',
+                    helperMaxLines: 2,
+                    helperText: 'Measured output: 1s ≈ 597.4 g, 2s ≈ 1.09 kg, 3s ≈ 1.25 kg, 4s ≈ 1.78 kg, 5s ≈ 1.97 kg',
                   ),
                   onChanged: (_) {
                     if (validationError != null) {

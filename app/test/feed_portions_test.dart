@@ -10,39 +10,40 @@ import 'mocks/mock_hardware_adapter.dart';
 
 void main() {
   group('FeedPortions client calibration & kg/g formatting', () {
-    test('gramsForDuration matches bench points and piecewise interpolation', () {
+    test('gramsForDuration matches empirical bench trial means and extrapolation', () {
       expect(FeedPortions.gramsForDuration(0), 0.0);
-      expect(FeedPortions.gramsForDuration(1), 600.0);
-      expect(FeedPortions.gramsForDuration(2), 700.0);
-      expect(FeedPortions.gramsForDuration(3), 800.0);
-      expect(FeedPortions.gramsForDuration(5), 1000.0);
-      expect(FeedPortions.gramsForDuration(7), 2200.0);
-      expect(FeedPortions.gramsForDuration(10), 4000.0);
-      expect(FeedPortions.gramsForDuration(15), 8000.0);
-      expect(FeedPortions.gramsForDuration(30), 20000.0);
+      expect(FeedPortions.gramsForDuration(1), 597.4);
+      expect(FeedPortions.gramsForDuration(2), 1092.0);
+      expect(FeedPortions.gramsForDuration(3), 1249.0);
+      expect(FeedPortions.gramsForDuration(4), 1783.8);
+      expect(FeedPortions.gramsForDuration(5), 1965.8);
+      expect(FeedPortions.gramsForDuration(6), 2308.7);
+      expect(FeedPortions.gramsForDuration(10), 3680.3);
+      expect(FeedPortions.gramsForDuration(15), 5394.8);
+      expect(FeedPortions.gramsForDuration(30), 10538.3);
     });
 
     test('formatWeight formats g below 1000 g and trimmed kg at >= 1000 g', () {
       expect(FeedPortions.formatWeight(0), '0 g');
       expect(FeedPortions.formatWeight(1.8), '1.8 g');
       expect(FeedPortions.formatWeight(-20), '-20 g');
+      expect(FeedPortions.formatWeight(597.4), '597.4 g');
       expect(FeedPortions.formatWeight(600), '600 g');
       expect(FeedPortions.formatWeight(1000), '1 kg');
-      expect(FeedPortions.formatWeight(1800), '1.8 kg');
-      expect(FeedPortions.formatWeight(1250), '1.25 kg');
-      expect(FeedPortions.formatWeight(4000), '4 kg');
+      expect(FeedPortions.formatWeight(1092.0), '1.09 kg');
+      expect(FeedPortions.formatWeight(1249.0), '1.25 kg');
+      expect(FeedPortions.formatWeight(1783.8), '1.78 kg');
+      expect(FeedPortions.formatWeight(1965.8), '1.97 kg');
       expect(FeedPortions.formatWeight(8000), '8 kg');
-      expect(FeedPortions.formatWeight(20000), '20 kg');
     });
 
-    test('formatForDuration formats duration using calibrated portions', () {
-      expect(FeedPortions.formatForDuration(1), '600 g');
-      expect(FeedPortions.formatForDuration(3), '800 g');
-      expect(FeedPortions.formatForDuration(5), '1 kg');
-      expect(FeedPortions.formatForDuration(7), '2.2 kg');
-      expect(FeedPortions.formatForDuration(10), '4 kg');
-      expect(FeedPortions.formatForDuration(15), '8 kg');
-      expect(FeedPortions.formatForDuration(30), '20 kg');
+    test('formatForDuration formats duration using empirical portions', () {
+      expect(FeedPortions.formatForDuration(1), '597.4 g');
+      expect(FeedPortions.formatForDuration(2), '1.09 kg');
+      expect(FeedPortions.formatForDuration(3), '1.25 kg');
+      expect(FeedPortions.formatForDuration(4), '1.78 kg');
+      expect(FeedPortions.formatForDuration(5), '1.97 kg');
+      expect(FeedPortions.formatForDuration(10), '3.68 kg');
     });
 
     test('displayGramsForLog prefers duration calibration over raw stored target/actual', () {
@@ -54,7 +55,7 @@ void main() {
         durationSeconds: 1,
         triggerType: 'Manual',
       );
-      expect(FeedPortions.displayGramsForLog(logWithDuration), 600.0);
+      expect(FeedPortions.displayGramsForLog(logWithDuration), 597.4);
 
       final logZeroDuration = FeedingLog(
         id: 'log_0s',
@@ -93,24 +94,25 @@ void main() {
       service.setOfflineSimulationMode(true);
       expect(service.isOfflineSimulationMode, isTrue);
       expect(service.isDeviceOnline, isTrue);
-      expect(service.history.length, 4);
+      expect(service.history.length, 5);
 
-      // Exports reflect calibrated display weights and 0.00% variance
+      // Exports reflect empirical bench display weights and 0.00% variance
       final csv = service.exportCsv();
-      expect(csv.contains('1000.0,1000.0,0.00,0.00%'), isTrue);
-      expect(csv.contains('600.0,600.0,0.00,0.00%'), isTrue);
-      expect(csv.contains('4000.0,4000.0,0.00,0.00%'), isTrue);
-      expect(csv.contains('8000.0,8000.0,0.00,0.00%'), isTrue);
+      expect(csv.contains('597.4,597.4,0.00,0.00%'), isTrue);
+      expect(csv.contains('1092.0,1092.0,0.00,0.00%'), isTrue);
+      expect(csv.contains('1249.0,1249.0,0.00,0.00%'), isTrue);
+      expect(csv.contains('1783.8,1783.8,0.00,0.00%'), isTrue);
+      expect(csv.contains('1965.8,1965.8,0.00,0.00%'), isTrue);
 
       // Simulated manual dispense works while offline and appends calibrated log
-      final started = await service.triggerManualFeed(durationSeconds: 10);
+      final started = await service.triggerManualFeed(durationSeconds: 4);
       expect(started, isTrue);
       expect(service.isDispensing, isTrue);
       await Future<void>.delayed(const Duration(milliseconds: 2000));
       expect(service.isDispensing, isFalse);
-      expect(service.history.length, 5);
-      expect(service.history.first.durationSeconds, 10);
-      expect(FeederService.configuredGramsForLog(service.history.first), 4000.0);
+      expect(service.history.length, 6);
+      expect(service.history.first.durationSeconds, 4);
+      expect(FeederService.configuredGramsForLog(service.history.first), 1783.8);
 
       // Schedule edits in simulation stay in memory only
       service.addSchedule(const FeedingSchedule(
@@ -162,7 +164,7 @@ void main() {
       expect(find.text('Dispensed'), findsWidgets);
       expect(find.text('Variance'), findsWidgets);
       expect(find.text('0 g (0.0%)'), findsWidgets);
-      expect(find.text('13.6 kg'), findsOneWidget); // 1kg + 600g + 4kg + 8kg = 13.6 kg
+      expect(find.text('6.69 kg'), findsOneWidget); // 597.4 + 1092 + 1249 + 1783.8 + 1965.8 = 6688.0 g = 6.69 kg
 
       // Exit simulation from top banner
       await tester.tap(find.text('Exit'));

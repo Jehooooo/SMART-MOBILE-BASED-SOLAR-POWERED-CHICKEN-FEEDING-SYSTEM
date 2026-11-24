@@ -1,29 +1,30 @@
 import '../models/feeding_log.dart';
 
-/// FRONTEND DISPLAY-ONLY calibration of the timed gate output, computed from empirical
-/// physical bench trials while the onboard HX711 load cell is faulty:
-/// - 1s (5 trials: 585g, 600g, 589g, 620g, 593g) -> mean = 597.4 g
-/// - 2s (2 trials: 1.069kg, 1.115kg)             -> mean = 1092.0 g (1.09 kg)
-/// - 3s (2 trials: 1.253kg, 1.245kg)             -> mean = 1249.0 g (1.25 kg)
-/// - 4s (6 trials: 1.317, 1.699, 1.933, 1.917, 1.867, 1.970 kg) -> mean = 1783.8 g (1.78 kg)
-/// - 5s (6 trials: 1.625, 1.805, 1.896, 2.098, 2.169, 2.202 kg) -> mean = 1965.8 g (1.97 kg)
+/// FRONTEND DISPLAY-ONLY time-based weight estimation derived from physical bench trials
+/// while the onboard HX711 load cell hardware is bypassed/faulty:
+/// - 1s ≈ 600 g   (bench trials: 585–620 g, avg 597.4 g)
+/// - 2s ≈ 1.1 kg  (bench trials: 1.069–1.115 kg, avg 1.092 kg)
+/// - 3s ≈ 1.25 kg (bench trials: 1.245–1.253 kg, avg 1.249 kg)
+/// - 4s ≈ 1.8 kg  (bench trials: 1.317–1.970 kg, avg 1.784 kg)
+/// - 5s ≈ 2 kg    (bench trials: 1.625–2.202 kg, avg 1.966 kg)
+/// - >5s: linear flow-rate estimation (+400 g/s, e.g., 10s ≈ 4 kg, 15s ≈ 6 kg)
 /// Never send these values to the ESP32 or Firebase; command and schedule payloads keep their original values.
 class FeedPortions {
   FeedPortions._();
 
-  /// Empirical bench-tested mean points: seconds -> grams.
+  /// Rounded bench-estimated lookup points: seconds -> estimated grams.
   static const List<List<double>> _points = [
-    [1, 597.4],
-    [2, 1092.0],
-    [3, 1249.0],
-    [4, 1783.8],
-    [5, 1965.8],
+    [1, 600.0],
+    [2, 1100.0],
+    [3, 1250.0],
+    [4, 1800.0],
+    [5, 2000.0],
   ];
-  static const double _gramsPerSecondAbove5 = 342.9; // OLS regression slope across 1s..5s trials
+  static const double _estimatedGramsPerSecAbove5 = 400.0; // 2000 g / 5 s steady-state rate
 
   static double gramsForDuration(int seconds) {
     if (seconds <= 0) return 0.0;
-    if (seconds <= 1) return 597.4;
+    if (seconds <= 1) return 600.0;
     for (var i = 1; i < _points.length; i++) {
       final x0 = _points[i - 1][0];
       final y0 = _points[i - 1][1];
@@ -34,8 +35,7 @@ class FeedPortions {
         return (raw * 10).round() / 10;
       }
     }
-    final raw = 1965.8 + (seconds - 5) * _gramsPerSecondAbove5;
-    return (raw * 10).round() / 10;
+    return 2000.0 + (seconds - 5) * _estimatedGramsPerSecAbove5;
   }
 
   /// g below 1000 g, kg at 1000 g or more (trailing zeros trimmed: 1 kg, 1.8 kg, 1.25 kg).

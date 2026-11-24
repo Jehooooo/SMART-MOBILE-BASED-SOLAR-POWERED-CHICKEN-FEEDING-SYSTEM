@@ -585,15 +585,32 @@ class FeederService extends ChangeNotifier {
                 : item.targetGrams),
       );
 
+  /// Formatted daily target range across enabled schedules (e.g., `3.25kg - 4.2kg`).
+  String get totalDailyTargetRangeLabel {
+    var minSum = 0.0;
+    var maxSum = 0.0;
+    for (final s in _schedules.where((s) => s.isEnabled)) {
+      if (s.durationSeconds > 0) {
+        final (minG, maxG) = FeedPortions.rangeGramsForDuration(s.durationSeconds);
+        minSum += minG;
+        maxSum += maxG;
+      } else {
+        minSum += s.targetGrams;
+        maxSum += s.targetGrams;
+      }
+    }
+    return FeedPortions.formatRange(minSum, maxSum);
+  }
+
   int get totalDailyDurationSeconds => _schedules
       .where((s) => s.isEnabled)
       .fold<int>(0, (acc, item) => acc + item.durationSeconds);
 
   int get activeScheduleCount => _schedules.where((s) => s.isEnabled).length;
 
-  /// Returns the time-estimated portion grams for a feeding log based on its
-  /// dispense duration (1s ≈ 600g, 2s ≈ 1.1kg, 3s ≈ 1.25kg, 4s ≈ 1.8kg, 5s ≈ 2kg)
-  /// for frontend display consistency while the physical HX711 scale hardware is faulty.
+  /// Returns the midpoint time-estimated portion grams for a feeding log based on its
+  /// dispense duration (1s: 550g-600g, 2s: 1kg-1.1kg, 3s: 1.1kg-1.3kg, 4s: 1.6kg-1.9kg, 5s: 1.6kg-2.3kg)
+  /// for numeric calculations while the physical HX711 scale hardware is faulty.
   static double configuredGramsForLog(FeedingLog log) {
     return FeedPortions.displayGramsForLog(log);
   }
@@ -610,10 +627,39 @@ class FeederService extends ChangeNotifier {
         .fold<double>(0.0, (acc, item) => acc + configuredGramsForLog(item));
   }
 
+  /// Formatted estimated weight range dispensed today (e.g., `550g - 600g` or `5.85kg - 7.2kg`).
+  String get todayDispensedRangeLabel {
+    final now = DateTime.now();
+    var minSum = 0.0;
+    var maxSum = 0.0;
+    for (final l in _history.where((l) =>
+        l.isSuccess &&
+        l.timestamp.year == now.year &&
+        l.timestamp.month == now.month &&
+        l.timestamp.day == now.day)) {
+      final (minG, maxG) = FeedPortions.rangeGramsForLog(l);
+      minSum += minG;
+      maxSum += maxG;
+    }
+    return FeedPortions.formatRange(minSum, maxSum);
+  }
+
   /// Cumulative configured portion grams dispensed across all successful logs.
   double get totalDispensedGrams => _history
       .where((l) => l.isSuccess)
       .fold<double>(0.0, (acc, item) => acc + configuredGramsForLog(item));
+
+  /// Formatted cumulative estimated weight range across all successful logs.
+  String get totalDispensedRangeLabel {
+    var minSum = 0.0;
+    var maxSum = 0.0;
+    for (final l in _history.where((l) => l.isSuccess)) {
+      final (minG, maxG) = FeedPortions.rangeGramsForLog(l);
+      minSum += minG;
+      maxSum += maxG;
+    }
+    return FeedPortions.formatRange(minSum, maxSum);
+  }
 
   /// Number of feeding cycles logged today.
   int get todayFeedCount {
@@ -631,6 +677,13 @@ class FeederService extends ChangeNotifier {
     if (_history.isNotEmpty) return configuredGramsForLog(_history.first);
     if (_telemetry.lastFedGrams > 0) return _telemetry.lastFedGrams;
     return 0.0;
+  }
+
+  /// Formatted estimated weight range of the most recent feed (e.g., `550g - 600g`).
+  String get latestDispensedRangeLabel {
+    if (_history.isNotEmpty) return FeedPortions.formatRangeForLog(_history.first);
+    if (_telemetry.lastFedGrams > 0) return FeedPortions.formatWeight(_telemetry.lastFedGrams);
+    return '0 g';
   }
 
   /// Attempts to re-establish the connection and verify live controller heartbeat.

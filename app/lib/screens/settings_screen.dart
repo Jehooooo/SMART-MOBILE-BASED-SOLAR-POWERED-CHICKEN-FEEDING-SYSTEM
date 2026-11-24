@@ -4,6 +4,7 @@ import '../services/settings_service.dart';
 import '../services/hardware/hardware_adapter.dart';
 import '../services/hardware/firebase_hardware_adapter.dart';
 import '../services/hardware/rest_hardware_adapter.dart';
+import '../utils/feed_portions.dart';
 import '../theme/app_theme.dart';
 import '../widgets/glass_components.dart';
 import '../widgets/hardware_guide_dialog.dart';
@@ -339,127 +340,99 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
                   const SizedBox(height: 22),
 
-                  // Alert Thresholds Section
-                  _buildSectionHeader('Safety & Alert Thresholds', Icons.notifications_active_outlined),
+                  // Portion Estimation & Notifications Section
+                  _buildSectionHeader('Portion Estimation & Notifications', Icons.notifications_active_outlined),
                   LiquidGlassCard(
                     padding: const EdgeInsets.all(20.0),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            Expanded(
-                              child: Row(
-                                children: [
-                                  Container(
-                                    padding: const EdgeInsets.all(8),
-                                    decoration: BoxDecoration(
-                                      color: c.warning.withValues(alpha: 0.12),
-                                      borderRadius: BorderRadius.circular(10),
-                                      border: Border.all(color: c.warning.withValues(alpha: 0.25)),
-                                    ),
-                                    child: Icon(Icons.inventory_2_outlined, size: 18, color: c.warning),
-                                  ),
-                                  const SizedBox(width: 10),
-                                  Flexible(
-                                    child: Text(
-                                      'Low Feed Warning Level',
-                                      overflow: TextOverflow.ellipsis,
-                                      style: TextStyle(fontWeight: FontWeight.w800, color: c.textPrimary),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            const SizedBox(width: 8),
                             Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                              padding: const EdgeInsets.all(8),
                               decoration: BoxDecoration(
-                                color: c.warning.withValues(alpha: 0.12),
-                                borderRadius: BorderRadius.circular(20),
-                                border: Border.all(color: c.warning.withValues(alpha: 0.3)),
+                                color: c.brandSoft,
+                                borderRadius: BorderRadius.circular(10),
+                                border: Border.all(color: c.brand.withValues(alpha: 0.25)),
                               ),
+                              child: Icon(Icons.timer_outlined, size: 18, color: c.brand),
+                            ),
+                            const SizedBox(width: 10),
+                            Expanded(
                               child: Text(
-                                '< ${_settings.lowFeedThreshold.toInt()}%',
-                                style: TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: c.warning),
+                                'Time-Based Portion Estimation',
+                                style: TextStyle(fontWeight: FontWeight.w800, color: c.textPrimary),
                               ),
                             ),
                           ],
                         ),
-                        const SizedBox(height: 6),
-                        Slider(
-                          value: _settings.lowFeedThreshold,
-                          min: 10.0,
-                          max: 40.0,
-                          divisions: 6,
-                          activeColor: c.warning,
-                          inactiveColor: c.track,
-                          label: '${_settings.lowFeedThreshold.toInt()}%',
-                          onChanged: (val) => _settings.setLowFeedThreshold(val),
-                        ),
+                        const SizedBox(height: 8),
                         Text(
-                          'Displays a refill banner on Dashboard when ultrasonic level drops below this percentage.',
-                          style: TextStyle(fontSize: 11, color: c.textMuted),
+                          'Active bench-tested feed output ranges based on dispenser gate open duration:',
+                          style: TextStyle(fontSize: 12, color: c.textMuted),
                         ),
-
-                        Divider(height: 28, color: c.border.withValues(alpha: 0.4)),
-
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Expanded(
-                              child: Row(
-                                children: [
-                                  Container(
-                                    padding: const EdgeInsets.all(8),
-                                    decoration: BoxDecoration(
-                                      color: c.dangerSoft,
-                                      borderRadius: BorderRadius.circular(10),
-                                      border: Border.all(color: c.dangerBorder),
-                                    ),
-                                    child: Icon(Icons.battery_alert_rounded, size: 18, color: c.danger),
-                                  ),
-                                  const SizedBox(width: 10),
-                                  Flexible(
-                                    child: Text(
-                                      'Low Solar Battery Warning',
-                                      overflow: TextOverflow.ellipsis,
-                                      style: TextStyle(fontWeight: FontWeight.w800, color: c.textPrimary),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                        const SizedBox(height: 10),
+                        Wrap(
+                          spacing: 6,
+                          runSpacing: 6,
+                          children: [1, 2, 3, 4, 5].map((sec) {
+                            return Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                               decoration: BoxDecoration(
-                                color: c.dangerSoft,
-                                borderRadius: BorderRadius.circular(20),
-                                border: Border.all(color: c.dangerBorder),
+                                color: c.surfaceMuted.withValues(alpha: 0.65),
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(color: c.border.withValues(alpha: 0.5)),
                               ),
                               child: Text(
-                                '< ${_settings.lowBatteryThreshold.toInt()}%',
-                                style: TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: c.danger),
+                                '${sec}s (${FeedPortions.formatRangeForDuration(sec)})',
+                                style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: c.brand),
                               ),
+                            );
+                          }).toList(),
+                        ),
+                        Divider(height: 26, color: c.border.withValues(alpha: 0.4)),
+                        ListTile(
+                          contentPadding: EdgeInsets.zero,
+                          leading: Container(
+                            padding: const EdgeInsets.all(10),
+                            decoration: BoxDecoration(
+                              color: c.brandSoft,
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(color: c.brand.withValues(alpha: 0.2)),
                             ),
-                          ],
-                        ),
-                        const SizedBox(height: 6),
-                        Slider(
-                          value: _settings.lowBatteryThreshold,
-                          min: 10.0,
-                          max: 35.0,
-                          divisions: 5,
-                          activeColor: c.danger,
-                          inactiveColor: c.track,
-                          label: '${_settings.lowBatteryThreshold.toInt()}%',
-                          onChanged: (val) => _settings.setLowBatteryThreshold(val),
-                        ),
-                        Text(
-                          'Warns operator to inspect solar panel orientation or battery storage health.',
-                          style: TextStyle(fontSize: 11, color: c.textMuted),
+                            child: Icon(Icons.volume_up_rounded, color: c.brand, size: 20),
+                          ),
+                          title: Text(
+                            'Test Feed Notification & Sound',
+                            style: TextStyle(fontWeight: FontWeight.w800, color: c.textPrimary),
+                          ),
+                          subtitle: Text(
+                            'Fires a sample phone notification and plays the 1-second chicken cluck audio.',
+                            style: TextStyle(fontSize: 12, color: c.textMuted),
+                          ),
+                          trailing: LiquidGlassButton(
+                            isSecondary: true,
+                            height: 36,
+                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                            onPressed: () async {
+                              await _feeder.alertService.notifyDispenseTriggered(
+                                durationSeconds: 1,
+                                targetGrams: FeedPortions.gramsForDuration(1),
+                                triggerLabel: 'Notification Test',
+                              );
+                              if (!context.mounted) return;
+                              ScaffoldMessenger.of(context)
+                                ..clearSnackBars()
+                                ..showSnackBar(
+                                  const SnackBar(
+                                    content: Text('Test notification & 1-second chicken cluck triggered.'),
+                                    duration: Duration(seconds: 2),
+                                  ),
+                                );
+                            },
+                            child: const Text('Test Alert'),
+                          ),
                         ),
                       ],
                     ),
@@ -486,11 +459,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
                             child: Icon(Icons.tune_rounded, color: c.brand, size: 20),
                           ),
                           title: Text(
-                            'Hardware Diagnostics & Calibration Suite',
+                            'Servo Gate & Controller Diagnostics',
                             style: TextStyle(fontWeight: FontWeight.w800, color: c.textPrimary),
                           ),
                           subtitle: Text(
-                            'Real-time scale tare & calibration, ultrasonic feed sensor tests, and servo motor gate angle checks.',
+                            'Test DS-S020A-C gate angles (30° closed / 0° open), check DS3231 solar window, and verify ESP32 link.',
                             style: TextStyle(fontSize: 12, color: c.textMuted),
                           ),
                           trailing: LiquidGlassButton(
@@ -504,44 +477,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
                               );
                             },
                             child: const Text('Open Suite'),
-                          ),
-                        ),
-                        Divider(height: 22, color: c.border.withValues(alpha: 0.4)),
-                        ListTile(
-                          contentPadding: EdgeInsets.zero,
-                          leading: Container(
-                            padding: const EdgeInsets.all(10),
-                            decoration: BoxDecoration(
-                              color: c.brandSoft,
-                              borderRadius: BorderRadius.circular(12),
-                              border: Border.all(color: c.brand.withValues(alpha: 0.2)),
-                            ),
-                            child: Icon(Icons.scale_rounded, color: c.brand, size: 20),
-                          ),
-                          title: Text(
-                            'Zero / Tare Scale Sensor',
-                            style: TextStyle(fontWeight: FontWeight.w800, color: c.textPrimary),
-                          ),
-                          subtitle: Text(
-                            'Sends hardware calibration command to HX711 load cell.',
-                            style: TextStyle(fontSize: 12, color: c.textMuted),
-                          ),
-                          trailing: LiquidGlassButton(
-                            height: 38,
-                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                            onPressed: () async {
-                              final ok = await _feeder.tareScale();
-                              if (context.mounted) {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(
-                                    content: Text(ok
-                                        ? 'Tare command sent to hardware successfully.'
-                                        : 'Failed to send tare command. Check connection.'),
-                                  ),
-                                );
-                              }
-                            },
-                            child: const Text('Tare (0.0g)'),
                           ),
                         ),
                         Divider(height: 24, color: c.border.withValues(alpha: 0.4)),
@@ -602,7 +537,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                             style: TextStyle(fontWeight: FontWeight.w800, color: c.textPrimary),
                           ),
                           subtitle: Text(
-                            'Step-by-step physical bring-up, sensor calibration, pinout & backend cloud flow.',
+                            'Step-by-step physical bring-up, time-based estimation, pinout & backend cloud flow.',
                             style: TextStyle(fontSize: 12, color: c.textMuted),
                           ),
                           trailing: const Icon(Icons.chevron_right),
@@ -717,7 +652,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       builder: (ctx) => LiquidGlassDialog(
         title: const Text('Reset Feeder Defaults?', style: TextStyle(fontWeight: FontWeight.w800)),
         content: const Text(
-          'This will restore default feeder naming, 5.0 kg hopper capacity, and 20% alert thresholds. Your custom feeding schedules and logs will remain untouched.',
+          'This will restore default feeder naming and 5.0 kg hopper capacity. Your custom feeding schedules and logs will remain untouched.',
         ),
         actions: [
           LiquidGlassButton(

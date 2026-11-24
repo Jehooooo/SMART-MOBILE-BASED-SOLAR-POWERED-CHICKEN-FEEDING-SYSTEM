@@ -25,25 +25,25 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
           'Monitor your flock\'s feeding routines anywhere. Powered 24/7 by a 12V solar system designed for rural farms and remote poultry coops.',
     ),
     (
-      icon: Icons.inventory_2_rounded,
-      badge: 'Sensors & Telemetry',
-      title: 'Real-Time Hopper & Battery Levels',
+      icon: Icons.wifi_tethering_rounded,
+      badge: 'Dual-Mode • Cloud & Off-Grid',
+      title: 'Control Anywhere or Offline',
       description:
-          'HC-SR04 ultrasonic sensors measure remaining feed depth, while battery voltage telemetry keeps you alerted before feed or power runs low.',
+          'Trigger feeds and monitor solar daylight charging over Firebase Cloud from anywhere, or connect directly to SmartFeeder-AP (192.168.4.1) with zero internet.',
     ),
     (
       icon: Icons.schedule_rounded,
-      badge: 'Fail-Safe Automation',
+      badge: 'DS3231 RTC Automation',
       title: 'Set Scheduled Feeding Routines',
       description:
-          'Configure morning, midday, and afternoon rations. Once programmed, scheduled feeds execute locally on the controller even during network dropouts.',
+          'Configure morning, midday, and afternoon rations. Saved routines execute autonomously via the battery-backed DS3231 clock even during Wi-Fi outages.',
     ),
     (
-      icon: Icons.scale_rounded,
-      badge: 'Precision Dispensing',
-      title: 'Load-Cell Accuracy & Research Logs',
+      icon: Icons.timer_outlined,
+      badge: 'Time-Based Estimation',
+      title: 'Consistent Portions & Feeding Logs',
       description:
-          'Every dispense is weighed using an HX711 load cell down to ±2g accuracy. Export comprehensive CSV logs for Excel, SPSS, and thesis documentation.',
+          'Dispenses bench-tested portion ranges from 1s (550g - 600g) up to 5s (1.6kg - 2.3kg) with phone cluck alerts and one-tap CSV / Excel log exports.',
     ),
   ];
 

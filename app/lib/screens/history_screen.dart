@@ -529,7 +529,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
                   Icon(Icons.timer_outlined, size: 14, color: c.textMuted),
                   const SizedBox(width: 4),
                   Text(
-                    '${log.durationSeconds}s duration',
+                    'Est. • ${log.durationSeconds}s',
                     style: TextStyle(fontSize: 11, color: c.textMuted),
                   ),
                 ],

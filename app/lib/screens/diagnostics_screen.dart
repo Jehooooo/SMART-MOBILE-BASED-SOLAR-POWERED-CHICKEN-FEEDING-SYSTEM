@@ -1,19 +1,18 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import '../services/feeder_service.dart';
 import '../utils/feed_portions.dart';
 import '../theme/app_theme.dart';
 import '../widgets/connection_banner.dart';
 import '../widgets/glass_components.dart';
 
-/// Interactive hardware bring-up and calibration screen.
+/// Interactive controller, gate servo, and time-estimation diagnostics screen.
 ///
-/// Enables fabricators, evaluators, and farm operators to test and calibrate
-/// each physical subsystem independently:
-/// 1. Load Cell (HX711): Zero tare and known-weight calibration.
-/// 2. Ultrasonic Sensor (HC-SR04): Live distance readout & empty/full limits.
-/// 3. Dispenser Gate (MG996R Servo): Direct position sweep (0°, 45°, 90°, 2s pulse).
-/// 4. Solar & Battery: Live voltage, charging status, and cut-off check.
+/// Focuses strictly on the active hardware subsystems:
+/// 1. Live ESP32 controller link & transport heartbeat.
+/// 2. DS-S020A-C 30kg Servo Gate actuation checks (30° closed / 0° open & timed pulses).
+/// 3. DS3231 RTC daylight solar status & bench-tested time-based portion ranges.
 class DiagnosticsScreen extends StatefulWidget {
   final FeederService feederService;
   final bool enableAutoRefresh;
@@ -29,19 +28,13 @@ class DiagnosticsScreen extends StatefulWidget {
 }
 
 class _DiagnosticsScreenState extends State<DiagnosticsScreen> {
-  double _selectedCalWeight = 500.0;
   bool _isActionRunning = false;
   String _lastActionStatus = '';
   Timer? _refreshTimer;
 
-  // Local calibration limits
-  final double _hopperEmptyCm = 30.0;
-  final double _hopperFullCm = 5.0;
-
   @override
   void initState() {
     super.initState();
-    // Refresh telemetry periodically if auto-refresh enabled
     if (widget.enableAutoRefresh) {
       _refreshTimer = Timer.periodic(const Duration(seconds: 2), (_) {
         if (mounted) {
@@ -70,7 +63,7 @@ class _DiagnosticsScreenState extends State<DiagnosticsScreen> {
         _isActionRunning = false;
         _lastActionStatus = success
             ? '$label completed successfully'
-            : '$label failed — check hardware connection';
+            : '$label failed — check controller connection';
       });
 
       final c = context.colors;
@@ -92,6 +85,7 @@ class _DiagnosticsScreenState extends State<DiagnosticsScreen> {
         final c = context.colors;
         final telemetry = widget.feederService.telemetry;
         final isOnline = widget.feederService.isDeviceOnline;
+        final isSim = widget.feederService.isOfflineSimulationMode;
 
         return Scaffold(
           backgroundColor: Colors.transparent,
@@ -99,7 +93,7 @@ class _DiagnosticsScreenState extends State<DiagnosticsScreen> {
             backgroundColor: Colors.transparent,
             elevation: 0,
             title: const Text(
-              'Hardware Diagnostics & Calibration',
+              'Controller & Gate Diagnostics',
               overflow: TextOverflow.ellipsis,
               style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
             ),
@@ -150,29 +144,11 @@ class _DiagnosticsScreenState extends State<DiagnosticsScreen> {
                 child: ListView(
                   padding: const EdgeInsets.fromLTRB(16.0, 16.0, 16.0, 110.0),
                   children: [
-                    // System Status Overview Badge
-                    _buildOverviewCard(c, telemetry, isOnline),
-
+                    _buildOverviewCard(c, telemetry, isOnline, isSim),
                     const SizedBox(height: 18),
-
-                    // Section 1: Load Cell & Weighing Tray Calibration
-                    _buildLoadCellCard(c, telemetry, isOnline),
-
-                    const SizedBox(height: 18),
-
-                    // Section 2: Ultrasonic Feed Depth & Hopper Calibration
-                    _buildUltrasonicCard(c, telemetry, isOnline),
-
-                    const SizedBox(height: 18),
-
-                    // Section 3: Dispenser Gate Servo Actuator Test
                     _buildServoCard(c, isOnline),
-
                     const SizedBox(height: 18),
-
-                    // Section 4: Solar Subsystem & 12V Battery Check
-                    _buildSolarBatteryCard(c, telemetry),
-
+                    _buildSolarAndEstimationCard(c, telemetry),
                     const SizedBox(height: 30),
                   ],
                 ),
@@ -184,9 +160,16 @@ class _DiagnosticsScreenState extends State<DiagnosticsScreen> {
     );
   }
 
-  Widget _buildOverviewCard(AppColors c, dynamic telemetry, bool isOnline) {
+  Widget _buildOverviewCard(AppColors c, dynamic telemetry, bool isOnline, bool isSim) {
+    final hb = telemetry.lastHeartbeat as DateTime?;
+    final hbText = hb != null ? DateFormat('MMM d, h:mm:ss a').format(hb) : 'Awaiting heartbeat';
+    final badgeText = isSim
+        ? 'SIMULATION'
+        : (isOnline ? 'HARDWARE READY' : 'OFFLINE');
+    final badgeColor = isSim ? c.info : (isOnline ? c.brand : c.danger);
+
     return LiquidGlassCard(
-      glowBorderColor: isOnline ? c.brand.withValues(alpha: 0.3) : c.danger.withValues(alpha: 0.2),
+      glowBorderColor: badgeColor.withValues(alpha: 0.3),
       padding: const EdgeInsets.all(18.0),
       child: Row(
         children: [
@@ -197,7 +180,7 @@ class _DiagnosticsScreenState extends State<DiagnosticsScreen> {
               borderRadius: BorderRadius.circular(12),
               border: Border.all(color: c.brand.withValues(alpha: 0.2)),
             ),
-            child: Icon(Icons.tune_rounded, color: c.brand, size: 24),
+            child: Icon(Icons.memory_rounded, color: c.brand, size: 24),
           ),
           const SizedBox(width: 14),
           Expanded(
@@ -206,30 +189,26 @@ class _DiagnosticsScreenState extends State<DiagnosticsScreen> {
               children: [
                 Row(
                   children: [
-                    Text(
-                      'Subsystem Status',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w800,
-                        color: c.textPrimary,
+                    Flexible(
+                      child: Text(
+                        'ESP32 Controller Status',
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w800,
+                          color: c.textPrimary,
+                        ),
                       ),
                     ),
                     const SizedBox(width: 8),
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                       decoration: BoxDecoration(
-                        color: isOnline ? c.brand : c.danger,
+                        color: badgeColor,
                         borderRadius: BorderRadius.circular(10),
-                        boxShadow: [
-                          BoxShadow(
-                            color: (isOnline ? c.brand : c.danger).withValues(alpha: 0.35),
-                            blurRadius: 6,
-                            offset: const Offset(0, 2),
-                          ),
-                        ],
                       ),
                       child: Text(
-                        isOnline ? 'HARDWARE READY' : 'OFFLINE',
+                        badgeText,
                         style: const TextStyle(fontSize: 10, color: Colors.white, fontWeight: FontWeight.bold),
                       ),
                     ),
@@ -237,392 +216,11 @@ class _DiagnosticsScreenState extends State<DiagnosticsScreen> {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  'Step-by-step verification tools for machine assembly and Chapter IV testing.',
+                  '${widget.feederService.hardwareSourceLabel} • Last heartbeat: $hbText',
                   style: TextStyle(fontSize: 12, color: c.textSecondary),
                 ),
               ],
             ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildLoadCellCard(AppColors c, dynamic telemetry, bool isOnline) {
-    final currentWeight = (telemetry.currentWeightGrams as num?)?.toDouble() ?? 0.0;
-
-    return LiquidGlassCard(
-      padding: const EdgeInsets.all(20.0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Expanded(
-                child: Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: c.brandSoft,
-                        borderRadius: BorderRadius.circular(10),
-                        border: Border.all(color: c.brand.withValues(alpha: 0.2)),
-                      ),
-                      child: Icon(Icons.scale_rounded, color: c.brand, size: 20),
-                    ),
-                    const SizedBox(width: 10),
-                    Flexible(
-                      child: Text(
-                        'Load Cell & Scale (HX711)',
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w800,
-                          color: c.textPrimary,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 8),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                decoration: BoxDecoration(
-                  color: c.surfaceMuted.withValues(alpha: 0.7),
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: c.border.withValues(alpha: 0.6)),
-                ),
-                child: const Text(
-                  'DT 23, SCK 22 (3V3)',
-                  style: TextStyle(fontSize: 11, fontFamily: 'monospace', fontWeight: FontWeight.w600),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 14),
-
-          // Live weight gauge readout
-          LiquidGlassContainer(
-            borderRadius: BorderRadius.circular(16),
-            padding: const EdgeInsets.all(16),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Live Weight Readout',
-                      style: TextStyle(fontSize: 12, color: c.textSecondary),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      FeedPortions.formatWeight(currentWeight),
-                      style: TextStyle(
-                        fontSize: 28,
-                        fontWeight: FontWeight.w900,
-                        color: c.brand,
-                        fontFamily: 'monospace',
-                      ),
-                    ),
-                  ],
-                ),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                      decoration: BoxDecoration(
-                        color: currentWeight.abs() < 1.0 ? c.brandSoft : c.manualSoft,
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(
-                          color: (currentWeight.abs() < 1.0 ? c.brand : c.warning).withValues(alpha: 0.25),
-                        ),
-                      ),
-                      child: Text(
-                        currentWeight.abs() < 1.0 ? 'ZERO STABLE' : 'LOADED',
-                        style: TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w700,
-                          color: currentWeight.abs() < 1.0 ? c.brand : c.warning,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 6),
-                    Text(
-                      'Tolerance: ±1.5g',
-                      style: TextStyle(fontSize: 11, color: c.textMuted),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-
-          const SizedBox(height: 18),
-          Text(
-            '2-Point Calibration Procedure:',
-            style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: c.textPrimary),
-          ),
-          const SizedBox(height: 10),
-
-          // Step 1: Zero Tare
-          Row(
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      'Step 1: Empty Weighing Tray',
-                      style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
-                    ),
-                    Text(
-                      'Clear tray of all feed, then zero the scale.',
-                      style: TextStyle(fontSize: 11, color: c.textMuted),
-                    ),
-                  ],
-                ),
-              ),
-              LiquidGlassButton(
-                height: 38,
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                onPressed: _isActionRunning
-                    ? null
-                    : () => _executeAction('Tare Scale', () => widget.feederService.tareScale()),
-                icon: const Icon(Icons.exposure_zero_rounded, size: 16),
-                child: const Text('Tare (0.0g)'),
-              ),
-            ],
-          ),
-
-          Divider(height: 24, color: c.border.withValues(alpha: 0.4)),
-
-          // Step 2: Known Weight Factor Calibration
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text(
-                'Step 2: Place Known Reference Weight',
-                style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
-              ),
-              Text(
-                'Place an unopened 500 mL water bottle (500g) or test weight on the tray.',
-                style: TextStyle(fontSize: 11, color: c.textMuted),
-              ),
-              const SizedBox(height: 12),
-              Wrap(
-                spacing: 6,
-                runSpacing: 6,
-                crossAxisAlignment: WrapCrossAlignment.center,
-                children: [
-                  ...[100.0, 200.0, 500.0, 1000.0].map((w) {
-                    final isSelected = _selectedCalWeight == w;
-                    return LiquidGlassChip(
-                      label: FeedPortions.formatWeight(w),
-                      isSelected: isSelected,
-                      onSelected: (selected) {
-                        if (selected) setState(() => _selectedCalWeight = w);
-                      },
-                    );
-                  }),
-                  const SizedBox(width: 8),
-                  LiquidGlassButton(
-                    height: 38,
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                    onPressed: _isActionRunning
-                        ? null
-                        : () => _executeAction(
-                              'Calibrate to ${FeedPortions.formatWeight(_selectedCalWeight)}',
-                              () => widget.feederService.calibrateScale(_selectedCalWeight),
-                            ),
-                    icon: const Icon(Icons.check_rounded, size: 16),
-                    child: const Text('Save Factor'),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildUltrasonicCard(AppColors c, dynamic telemetry, bool isOnline) {
-    final feedLevel = (telemetry.feedLevelPercent as num?)?.toDouble() ?? 0.0;
-    // Estimated distance based on calibration formula: cm = empty - (pct/100 * (empty - full))
-    final estimatedCm = _hopperEmptyCm - (feedLevel / 100.0 * (_hopperEmptyCm - _hopperFullCm));
-
-    return LiquidGlassCard(
-      padding: const EdgeInsets.all(20.0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Expanded(
-                child: Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: c.brandSoft,
-                        borderRadius: BorderRadius.circular(10),
-                        border: Border.all(color: c.brand.withValues(alpha: 0.2)),
-                      ),
-                      child: Icon(Icons.sensors_rounded, color: c.brand, size: 20),
-                    ),
-                    const SizedBox(width: 10),
-                    Flexible(
-                      child: Text(
-                        'Hopper Depth (HC-SR04)',
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w800,
-                          color: c.textPrimary,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 8),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                decoration: BoxDecoration(
-                  color: c.surfaceMuted.withValues(alpha: 0.7),
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: c.border.withValues(alpha: 0.6)),
-                ),
-                child: const Text(
-                  'Bypassed (100%)',
-                  style: TextStyle(fontSize: 11, fontFamily: 'monospace', fontWeight: FontWeight.w600),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 14),
-
-          // Live depth & visual hopper tank
-          Row(
-            children: [
-              // Visual tank gauge
-              Container(
-                width: 52,
-                height: 104,
-                decoration: BoxDecoration(
-                  color: c.surfaceMuted.withValues(alpha: 0.6),
-                  borderRadius: BorderRadius.circular(14),
-                  border: Border.all(color: c.border.withValues(alpha: 0.8)),
-                ),
-                child: Stack(
-                  alignment: Alignment.bottomCenter,
-                  children: [
-                    Container(
-                      height: (104 * (feedLevel / 100.0)).clamp(0.0, 104.0),
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          begin: Alignment.bottomCenter,
-                          end: Alignment.topCenter,
-                          colors: [
-                            feedLevel < 20 ? c.danger : c.brand,
-                            (feedLevel < 20 ? c.danger : c.brand).withValues(alpha: 0.8),
-                          ],
-                        ),
-                        borderRadius: const BorderRadius.vertical(bottom: Radius.circular(13)),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text('Current Fill Level:', style: TextStyle(fontSize: 12, color: c.textSecondary)),
-                    Row(
-                      children: [
-                        Text(
-                          '${feedLevel.toStringAsFixed(0)}%',
-                          style: TextStyle(
-                            fontSize: 26,
-                            fontWeight: FontWeight.w900,
-                            color: feedLevel < 20 ? c.danger : c.brand,
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Text(
-                          '(~${estimatedCm.toStringAsFixed(1)} cm depth)',
-                          style: TextStyle(fontSize: 12, color: c.textMuted, fontFamily: 'monospace'),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    LiquidProgressBar(
-                      value: (feedLevel / 100.0).clamp(0.0, 1.0),
-                      height: 10,
-                      color: feedLevel < 20 ? c.danger : c.brand,
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-
-          const SizedBox(height: 16),
-          Text(
-            'Sensor Depth Thresholds (config.h):',
-            style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: c.textPrimary),
-          ),
-          const SizedBox(height: 8),
-
-          Row(
-            children: [
-              Expanded(
-                child: Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: c.surfaceMuted.withValues(alpha: 0.6),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: c.border.withValues(alpha: 0.5)),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text('HOPPER_EMPTY_CM', style: TextStyle(fontSize: 11, color: c.textMuted)),
-                      const SizedBox(height: 2),
-                      Text('${_hopperEmptyCm.toStringAsFixed(0)} cm (Bottom floor)',
-                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
-                    ],
-                  ),
-                ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: c.surfaceMuted.withValues(alpha: 0.6),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: c.border.withValues(alpha: 0.5)),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text('HOPPER_FULL_CM', style: TextStyle(fontSize: 11, color: c.textMuted)),
-                      const SizedBox(height: 2),
-                      Text('${_hopperFullCm.toStringAsFixed(0)} cm (Near lid)',
-                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
-                    ],
-                  ),
-                ),
-              ),
-            ],
           ),
         ],
       ),
@@ -653,7 +251,7 @@ class _DiagnosticsScreenState extends State<DiagnosticsScreen> {
                     const SizedBox(width: 10),
                     Flexible(
                       child: Text(
-                        'Dispenser Gate Servo (MG996R)',
+                        'Dispenser Gate Servo (DS-S020A-C 30kg)',
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(
                           fontSize: 16,
@@ -674,7 +272,7 @@ class _DiagnosticsScreenState extends State<DiagnosticsScreen> {
                   border: Border.all(color: c.border.withValues(alpha: 0.6)),
                 ),
                 child: const Text(
-                  'PWM GPIO 18 (DS-S020A-C)',
+                  'GPIO 18 • 7.4V',
                   style: TextStyle(fontSize: 11, fontFamily: 'monospace', fontWeight: FontWeight.w600),
                 ),
               ),
@@ -682,11 +280,10 @@ class _DiagnosticsScreenState extends State<DiagnosticsScreen> {
           ),
           const SizedBox(height: 8),
           Text(
-            'Tests physical gate movement without binding. Keep hands clear of auger outlet.',
-            style: TextStyle(fontSize: 12, color: c.textMuted),
+            'Calibrated geometry: 30° holds gate firmly Closed under hopper pipe; 0° opens gate fully. Bench angles auto-close back to 30° after 10 seconds.',
+            style: TextStyle(fontSize: 12, color: c.textMuted, height: 1.35),
           ),
           const SizedBox(height: 14),
-
           Wrap(
             spacing: 8,
             runSpacing: 8,
@@ -698,11 +295,11 @@ class _DiagnosticsScreenState extends State<DiagnosticsScreen> {
                 onPressed: _isActionRunning
                     ? null
                     : () => _executeAction(
-                          'Close Gate (0°)',
-                          () => widget.feederService.testServoGate(0),
+                          'Close Gate (30°)',
+                          () => widget.feederService.testServoGate(30),
                         ),
                 icon: const Icon(Icons.lock_outline_rounded, size: 16),
-                child: const Text('Close (0°)'),
+                child: const Text('Close Gate (30°)'),
               ),
               LiquidGlassButton(
                 isSecondary: true,
@@ -711,24 +308,11 @@ class _DiagnosticsScreenState extends State<DiagnosticsScreen> {
                 onPressed: _isActionRunning
                     ? null
                     : () => _executeAction(
-                          'Middle Gate (90°)',
-                          () => widget.feederService.testServoGate(90),
-                        ),
-                icon: const Icon(Icons.change_history_rounded, size: 16),
-                child: const Text('Middle (90°)'),
-              ),
-              LiquidGlassButton(
-                isSecondary: true,
-                height: 38,
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                onPressed: _isActionRunning
-                    ? null
-                    : () => _executeAction(
-                          'Full Open Gate (180°)',
-                          () => widget.feederService.testServoGate(180),
+                          'Open Gate (0°)',
+                          () => widget.feederService.testServoGate(0),
                         ),
                 icon: const Icon(Icons.lock_open_rounded, size: 16),
-                child: const Text('Full Open (180°)'),
+                child: const Text('Open Gate (0°)'),
               ),
               LiquidGlassButton(
                 height: 38,
@@ -736,11 +320,11 @@ class _DiagnosticsScreenState extends State<DiagnosticsScreen> {
                 onPressed: _isActionRunning
                     ? null
                     : () => _executeAction(
-                          'Pulse Dispense Cycle (2s)',
-                          () => widget.feederService.triggerManualFeed(durationSeconds: 2),
+                          'Pulse 1s (${FeedPortions.formatRangeForDuration(1)})',
+                          () => widget.feederService.triggerManualFeed(durationSeconds: 1),
                         ),
                 icon: const Icon(Icons.play_arrow_rounded, size: 16),
-                child: const Text('Pulse Test (2s)'),
+                child: Text('Pulse 1s (${FeedPortions.formatRangeForDuration(1)})'),
               ),
             ],
           ),
@@ -749,10 +333,11 @@ class _DiagnosticsScreenState extends State<DiagnosticsScreen> {
     );
   }
 
-  Widget _buildSolarBatteryCard(AppColors c, dynamic telemetry) {
-    final vbat = (telemetry.batteryVolts as num?)?.toDouble() ?? 12.0;
-    final batPct = (telemetry.batteryPercent as num?)?.toInt() ?? 50;
-    final isCharging = telemetry.isSolarCharging == true || vbat > 12.6;
+  Widget _buildSolarAndEstimationCard(AppColors c, dynamic telemetry) {
+    final hour = DateTime.now().hour;
+    final isDaylight = widget.feederService.isMock
+        ? telemetry.isSolarCharging == true
+        : (hour >= 6 && hour < 18);
 
     return LiquidGlassCard(
       padding: const EdgeInsets.all(20.0),
@@ -772,12 +357,12 @@ class _DiagnosticsScreenState extends State<DiagnosticsScreen> {
                         borderRadius: BorderRadius.circular(10),
                         border: Border.all(color: c.brand.withValues(alpha: 0.2)),
                       ),
-                      child: Icon(Icons.solar_power_outlined, color: c.solar, size: 20),
+                      child: Icon(Icons.timer_outlined, color: c.brand, size: 20),
                     ),
                     const SizedBox(width: 10),
                     Flexible(
                       child: Text(
-                        'Solar & 12V Battery (GPIO 34)',
+                        'DS3231 Clock & Time-Based Estimation',
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(
                           fontSize: 16,
@@ -793,24 +378,25 @@ class _DiagnosticsScreenState extends State<DiagnosticsScreen> {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                 decoration: BoxDecoration(
-                  color: isCharging ? c.brandSoft : c.surfaceMuted.withValues(alpha: 0.7),
+                  color: isDaylight ? c.brandSoft : c.surfaceMuted.withValues(alpha: 0.7),
                   borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: isCharging ? c.brand.withValues(alpha: 0.3) : c.border),
+                  border: Border.all(color: isDaylight ? c.brand.withValues(alpha: 0.3) : c.border),
                 ),
                 child: Row(
+                  mainAxisSize: MainAxisSize.min,
                   children: [
                     Icon(
-                      isCharging ? Icons.wb_sunny_rounded : Icons.battery_charging_full_rounded,
+                      isDaylight ? Icons.wb_sunny_rounded : Icons.nights_stay_rounded,
                       size: 14,
-                      color: isCharging ? c.solar : c.textMuted,
+                      color: isDaylight ? c.solar : c.textMuted,
                     ),
                     const SizedBox(width: 4),
                     Text(
-                      isCharging ? 'CHARGING' : 'BATTERY ONLY',
+                      isDaylight ? 'SOLAR CHARGING' : 'SOLAR IDLE',
                       style: TextStyle(
                         fontSize: 10,
                         fontWeight: FontWeight.bold,
-                        color: isCharging ? c.brand : c.textMuted,
+                        color: isDaylight ? c.brand : c.textMuted,
                       ),
                     ),
                   ],
@@ -818,69 +404,33 @@ class _DiagnosticsScreenState extends State<DiagnosticsScreen> {
               ),
             ],
           ),
-          const SizedBox(height: 14),
-
-          Row(
-            children: [
-              Expanded(
-                child: Container(
-                  padding: const EdgeInsets.all(14),
-                  decoration: BoxDecoration(
-                    color: c.surfaceMuted.withValues(alpha: 0.6),
-                    borderRadius: BorderRadius.circular(14),
-                    border: Border.all(color: c.border.withValues(alpha: 0.5)),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text('Battery Voltage', style: TextStyle(fontSize: 11, color: c.textMuted)),
-                      const SizedBox(height: 4),
-                      Text(
-                        '${vbat.toStringAsFixed(2)} V',
-                        style: TextStyle(
-                          fontSize: 22,
-                          fontWeight: FontWeight.w900,
-                          color: vbat < 11.5 ? c.danger : c.textPrimary,
-                          fontFamily: 'monospace',
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Container(
-                  padding: const EdgeInsets.all(14),
-                  decoration: BoxDecoration(
-                    color: c.surfaceMuted.withValues(alpha: 0.6),
-                    borderRadius: BorderRadius.circular(14),
-                    border: Border.all(color: c.border.withValues(alpha: 0.5)),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text('Charge Capacity', style: TextStyle(fontSize: 11, color: c.textMuted)),
-                      const SizedBox(height: 4),
-                      Text(
-                        '$batPct%',
-                        style: TextStyle(
-                          fontSize: 22,
-                          fontWeight: FontWeight.w900,
-                          color: batPct < 20 ? c.danger : c.brand,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ],
-          ),
-
           const SizedBox(height: 12),
           Text(
-            'Divider Ratio: 5.0x (40kΩ / 10kΩ). Cut-off threshold: 11.5V (prevents battery deep-discharge).',
-            style: TextStyle(fontSize: 11, color: c.textMuted),
+            'Physical weighing scale, ultrasonic depth, and battery ADC sensors are bypassed. Feed output is estimated directly from calibrated gate open duration:',
+            style: TextStyle(fontSize: 12, color: c.textSecondary, height: 1.35),
+          ),
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [1, 2, 3, 4, 5].map((sec) {
+              return Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                decoration: BoxDecoration(
+                  color: c.surfaceMuted.withValues(alpha: 0.65),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: c.border.withValues(alpha: 0.5)),
+                ),
+                child: Text(
+                  '${sec}s → ${FeedPortions.formatRangeForDuration(sec)}',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                    color: c.textPrimary,
+                  ),
+                ),
+              );
+            }).toList(),
           ),
         ],
       ),

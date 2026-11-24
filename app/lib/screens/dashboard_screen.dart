@@ -244,10 +244,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   icon: Icons.restaurant_rounded,
                   iconColor: c.brand,
                   title: 'Dispensed Today',
-                  value: _formatGrams(todayGrams),
+                  value: todayGrams > 0 ? '~${_formatGrams(todayGrams)}' : _formatGrams(todayGrams),
                   subtitle: todayCount == 0
                       ? 'No feeds logged today'
-                      : '$todayCount feed${todayCount == 1 ? '' : 's'} logged today',
+                      : '$todayCount feed${todayCount == 1 ? '' : 's'} (time-estimated)',
                 ),
               ),
             ],
@@ -551,8 +551,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           ),
                           Text(
                             isDispensing
-                                ? 'Dispensing ${_selectedDurationSeconds}s (${_formatGrams(selectedPortionGrams)})...'
-                                : 'Last Dispensed Portion • Timed Output',
+                                ? 'Dispensing ${_selectedDurationSeconds}s (~${_formatGrams(selectedPortionGrams)})...'
+                                : 'Estimated Output • Time-Based Method',
                             style: TextStyle(fontSize: 11, color: c.textMuted),
                             overflow: TextOverflow.ellipsis,
                           ),
@@ -564,7 +564,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               ),
               const SizedBox(width: 8),
               Text(
-                _formatGrams(headlineGrams),
+                headlineGrams > 0 ? '~${_formatGrams(headlineGrams)}' : _formatGrams(headlineGrams),
                 style: TextStyle(
                   fontSize: 28,
                   fontWeight: FontWeight.w800,
@@ -594,7 +594,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   border: Border.all(color: c.border.withValues(alpha: 0.6)),
                 ),
                 child: Text(
-                  'Selected: ${_formatGrams(selectedPortionGrams)} (${_selectedDurationSeconds}s)',
+                  'Selected: ~${_formatGrams(selectedPortionGrams)} (${_selectedDurationSeconds}s)',
                   style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: c.textSecondary),
                 ),
               ),
@@ -605,7 +605,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   borderRadius: BorderRadius.circular(20),
                 ),
                 child: Text(
-                  'Total Today: ${_formatGrams(todayGrams)}',
+                  'Est. Today: ${todayGrams > 0 ? '~${_formatGrams(todayGrams)}' : _formatGrams(todayGrams)}',
                   style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: c.brand),
                 ),
               ),
@@ -733,9 +733,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 border: Border.all(color: c.brandBorder.withValues(alpha: 0.5), width: 1),
               ),
               child: Text(
-                nextSch.durationSeconds > 0
-                    ? FeedPortions.formatForDuration(nextSch.durationSeconds)
-                    : FeedPortions.formatWeight(nextSch.targetGrams),
+                '~${nextSch.durationSeconds > 0 ? FeedPortions.formatForDuration(nextSch.durationSeconds) : FeedPortions.formatWeight(nextSch.targetGrams)}',
                 style: TextStyle(color: c.brand, fontWeight: FontWeight.w800, fontSize: 13),
               ),
             ),
@@ -799,7 +797,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           ),
           const SizedBox(height: 4),
           Text(
-            'Select standard feed duration or fine-tune with the slider below:',
+            'Select feed duration (weight is estimated from gate open time):',
             style: TextStyle(fontSize: 13, color: c.textMuted),
           ),
           const SizedBox(height: 14),
